@@ -206,31 +206,42 @@ class ToastManager(QObject):
 
 
 class _OskFocusFilter(QObject):
-    """Abre el OSK cuando un QLineEdit recibe foco (con guarda anti reentrancia)."""
+    """Abre el OSK únicamente cuando el usuario toca/clicka un QLineEdit."""
 
     def __init__(self, parent_window):
         super().__init__(parent_window)
         self.win = parent_window
 
+    def _show_keyboard(self, obj: QLineEdit):
+        if getattr(self.win, "_osk_guard", False):
+            return
+        self.win._osk_guard = True
+        try:
+            is_password = (obj.echoMode() == QLineEdit.Password)
+            dlg = OnScreenKeyboard(
+                title=i18n.t("keyboard_title") or "Teclado",
+                initial_text=obj.text(),
+                password_mode=is_password,
+                parent=self.win,
+            )
+            if dlg.exec():
+                obj.setText(dlg.text())
+                obj.setCursorPosition(len(obj.text()))
+        finally:
+            self.win._osk_guard = False
+
     def eventFilter(self, obj, event):
-        if isinstance(obj, QLineEdit) and event.type() == QEvent.FocusIn:
-            if getattr(self.win, "_osk_guard", False):
-                return False
-            self.win._osk_guard = True
-            try:
-                is_password = (obj.echoMode() == QLineEdit.Password)
-                dlg = OnScreenKeyboard(
-                    title=i18n.t("keyboard_title") or "Teclado",
-                    initial_text=obj.text(),
-                    password_mode=is_password,
-                    parent=self.win
-                )
-                if dlg.exec():
-                    obj.setText(dlg.text())
-                    obj.setCursorPosition(len(obj.text()))
-            finally:
-                self.win._osk_guard = False
-            return False
+        if isinstance(obj, QLineEdit):
+            if event.type() in (QEvent.MouseButtonPress, QEvent.MouseButtonRelease):
+                if hasattr(event, "button") and event.button() not in (Qt.LeftButton, Qt.NoButton):
+                    return False
+                self._show_keyboard(obj)
+                obj.setFocus(Qt.MouseFocusReason)
+                return True
+            if event.type() == QEvent.TouchBegin:
+                self._show_keyboard(obj)
+                obj.setFocus(Qt.OtherFocusReason)
+                return True
         return False
 
 

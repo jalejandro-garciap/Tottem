@@ -20,6 +20,7 @@ from drivers.printer_escpos import EscposPrinter
 from services import i18n
 from ui.widgets.keypad import NumKeypad
 from services.auth import check_admin_pin
+from ui.widgets.admin_window import _OskFocusFilter
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -143,6 +144,8 @@ class AdminPinDialog(QDialog):
         layout.addWidget(self.ed_pin)
         layout.addLayout(btn_row)
 
+        self._osk_filter = _OskFocusFilter(self)
+        self.ed_pin.installEventFilter(self._osk_filter)
         self.ed_pin.setFocus()
 
     def _on_ok(self):
