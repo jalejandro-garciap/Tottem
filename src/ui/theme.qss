@@ -14,7 +14,7 @@
 
 QWidget {
     font-family: "Inter", "Segoe UI", sans-serif;
-    font-size: 17px;
+    font-size: 15px;
     color: #0f172a;
     background: #f6f7fb;
 }
@@ -25,20 +25,20 @@ QMainWindow, QDialog {
 
 /* Etiquetas principales */
 QLabel {
-    font-size: 17px;
-    font-weight: 600;
+    font-size: 15px;
+    font-weight: 500;
     color: #111827;
     letter-spacing: 0.1px;
 }
 
 QLabel#TotalLabel {
-    font-size: 24px;
+    font-size: 23px;
     font-weight: 700;
     color: #0b1224;
 }
 
 QLabel#SectionTitle {
-    font-size: 19px;
+    font-size: 17px;
     font-weight: 700;
     color: #0f172a;
 }
@@ -48,7 +48,7 @@ QLabel#SectionTitle {
     background: #ffffff;
     border: 1px solid #d6deeb;
     border-radius: 16px;
-    padding: 16px;
+    padding: 12px;
 }
 
 #CartPanel {
@@ -57,11 +57,11 @@ QLabel#SectionTitle {
 
 /* Campos de texto */
 QLineEdit, QComboBox, QSpinBox, QTextEdit, QPlainTextEdit {
-    font-size: 17px;
-    padding: 12px 14px;
-    min-height: 52px;
+    font-size: 15px;
+    padding: 9px 10px;
+    min-height: 44px;
     border: 1px solid #cdd7e4;
-    border-radius: 12px;
+    border-radius: 11px;
     background: #ffffff;
     selection-background-color: #3f66d1;
 }
@@ -79,11 +79,11 @@ QTextEdit:focus, QPlainTextEdit:focus {
 }
 
 QComboBox::drop-down {
-    width: 46px;
+    width: 42px;
     border-left: 1px solid #d6deeb;
     background: #f3f4f6;
-    border-top-right-radius: 12px;
-    border-bottom-right-radius: 12px;
+    border-top-right-radius: 11px;
+    border-bottom-right-radius: 11px;
 }
 
 QComboBox::down-arrow {
@@ -96,9 +96,9 @@ QComboBox::down-arrow {
 QComboBox QAbstractItemView {
     background: #ffffff;
     selection-background-color: #e2e7ff;
-    padding: 10px 8px;
+    padding: 9px 8px;
     border: 1px solid #d6deeb;
-    font-size: 18px;
+    font-size: 16px;
 }
 
 QLineEdit[state="error"], QComboBox[state="error"], QSpinBox[state="error"],
@@ -115,11 +115,11 @@ QTextEdit[state="success"], QPlainTextEdit[state="success"] {
 
 /* Botones */
 QPushButton {
-    font-size: 17px;
-    font-weight: 600;
-    padding: 12px 16px;
-    min-height: 52px;
-    border-radius: 14px;
+    font-size: 15px;
+    font-weight: 500;
+    padding: 8px 12px;
+    min-height: 44px;
+    border-radius: 12px;
     border: 1px solid #d6deeb;
     background: #ffffff;
     color: #142032;
@@ -183,20 +183,20 @@ QPushButton[role="ghost"]:hover {
 
 /* Listas y tablas */
 QListWidget, QTableWidget, QTreeWidget, QScrollArea QWidget {
-    font-size: 17px;
+    font-size: 15px;
 }
 
 QListWidget, QTableWidget {
     background: #ffffff;
     border: 1px solid #d6deeb;
-    border-radius: 14px;
+    border-radius: 13px;
     gridline-color: #e5e7eb;
 }
 
 QListWidget::item {
-    padding: 12px 12px;
-    margin: 2px 4px;
-    border-radius: 12px;
+    padding: 8px 9px;
+    margin: 2px 3px;
+    border-radius: 9px;
 }
 
 QListWidget::item:selected {
@@ -205,9 +205,9 @@ QListWidget::item:selected {
 }
 
 QListWidget#ShiftList::item {
-    padding: 14px 16px;
+    padding: 12px 14px;
     margin: 4px 6px;
-    border-radius: 12px;
+    border-radius: 11px;
     background: #f8fafc;
 }
 
@@ -227,7 +227,7 @@ QLabel#EmptyStateLabel {
 }
 
 QTableWidget::item {
-    padding: 12px 14px;
+    padding: 9px 10px;
     border: none;
 }
 
@@ -239,7 +239,7 @@ QTableWidget::item:selected {
 
 QHeaderView::section {
     background: #f3f4f6;
-    padding: 10px 12px;
+    padding: 9px 10px;
     border: 1px solid #d6deeb;
     font-weight: 700;
     color: #111827;
@@ -253,8 +253,8 @@ QTableCornerButton::section {
 /* Tabs */
 QTabWidget::pane {
     border: 1px solid #d6deeb;
-    border-radius: 14px;
-    padding: 8px;
+    border-radius: 13px;
+    padding: 6px;
     background: #ffffff;
 }
 
@@ -262,11 +262,11 @@ QTabBar::tab {
     background: #e5e7eb;
     border: 1px solid #d6deeb;
     border-bottom-color: #d6deeb;
-    min-width: 108px;
-    padding: 10px;
-    margin-right: 6px;
-    border-top-left-radius: 12px;
-    border-top-right-radius: 12px;
+    min-width: 104px;
+    padding: 9px 10px;
+    margin-right: 4px;
+    border-top-left-radius: 11px;
+    border-top-right-radius: 11px;
     font-weight: 700;
     color: #0f172a;
 }
@@ -280,14 +280,14 @@ QTabBar::tab:selected {
 /* Scrollbars tactiles */
 QScrollBar:vertical, QScrollBar:horizontal {
     background: transparent;
-    width: 16px;
-    height: 16px;
+    width: 14px;
+    height: 14px;
     margin: 4px;
 }
 
 QScrollBar::handle {
     background: #c3cff0;
-    border-radius: 8px;
+    border-radius: 7px;
 }
 
 QScrollBar::handle:hover {
@@ -309,8 +309,8 @@ QScrollBar::add-line, QScrollBar::sub-line {
     color: #f8fafc;
     border-radius: 16px;
     border: 2px solid #111827;
-    min-width: 320px;
-    max-width: 520px;
+    min-width: 300px;
+    max-width: 480px;
 }
 
 #ToastFrame[toastLevel="success"] {
@@ -340,21 +340,21 @@ QMessageBox {
 
 /* Teclado en pantalla */
 #KeypadButton {
-    min-height: 62px;
-    font-size: 18px;
+    min-height: 54px;
+    font-size: 16px;
 }
 
 /* Titulos secundarios dentro de formularios */
 QGroupBox {
     border: 1px solid #e5e7eb;
-    border-radius: 14px;
+    border-radius: 13px;
     margin-top: 12px;
-    padding: 10px;
+    padding: 9px;
 }
 
 QGroupBox::title {
     subcontrol-origin: margin;
-    left: 14px;
+    left: 12px;
     padding: 6px 8px;
     background: #f6f7fb;
     color: #4b5563;

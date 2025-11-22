@@ -165,38 +165,38 @@ class POSWindow(QMainWindow):
 
         container = QWidget(); container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         root = QHBoxLayout(container)
-        root.setContentsMargins(10, 10, 10, 10)
-        root.setSpacing(10)
+        root.setContentsMargins(8, 8, 8, 8)
+        root.setSpacing(8)
 
         # Right (cart)
         self.right_wrap = QWidget(); self.right_wrap.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
         self.right_wrap.setObjectName("CartPanel")
         right = QVBoxLayout(self.right_wrap)
-        right.setContentsMargins(12, 12, 12, 12)
-        right.setSpacing(10)
+        right.setContentsMargins(10, 10, 10, 10)
+        right.setSpacing(8)
 
         top_bar = QHBoxLayout()
-        top_bar.setContentsMargins(0, 0, 0, 6)
-        top_bar.setSpacing(10)
+        top_bar.setContentsMargins(0, 0, 0, 4)
+        top_bar.setSpacing(8)
         self.title_lbl = QLabel(i18n.t("cart"))
         self.title_lbl.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         self.title_lbl.setObjectName("SectionTitle")
 
         self.lang_btn = QPushButton(i18n.t("lang"))
-        self.lang_btn.setMinimumHeight(48)
-        self.lang_btn.setFixedWidth(72)
+        self.lang_btn.setMinimumHeight(44)
+        self.lang_btn.setFixedWidth(70)
         self.lang_btn.setProperty("role", "ghost")
         self.lang_btn.clicked.connect(self._toggle_lang)
 
         self.btn_reprint = QPushButton(i18n.t("reprint") or "Reimprimir")
-        self.btn_reprint.setMinimumHeight(48)
+        self.btn_reprint.setMinimumHeight(44)
         self.btn_reprint.setProperty("role", "ghost")
         self.btn_reprint.clicked.connect(self._reprint_last)
 
         # NUEVO: botón Admin
         self.btn_admin = QPushButton(i18n.t("admin") or "Admin")
-        self.btn_admin.setMinimumHeight(48)
-        self.btn_admin.setFixedWidth(92)
+        self.btn_admin.setMinimumHeight(44)
+        self.btn_admin.setFixedWidth(90)
         self.btn_admin.setProperty("role", "ghost")
         self.btn_admin.clicked.connect(self._go_admin)
 
@@ -207,18 +207,18 @@ class POSWindow(QMainWindow):
         top_bar.addWidget(self.lang_btn)
 
         self.list = QListWidget(); self.list.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.list.setSpacing(6)
-        self.list.setMinimumHeight(220)
+        self.list.setSpacing(4)
+        self.list.setMinimumHeight(200)
 
         ctrls = QHBoxLayout()
-        ctrls.setSpacing(8)
+        ctrls.setSpacing(6)
         self.btn_minus = QPushButton("−")
         self.btn_plus  = QPushButton("+")
         self.btn_qty   = QPushButton("N")
         self.btn_remove= QPushButton(i18n.t("delete") or "Eliminar")
         self.btn_clear = QPushButton(i18n.t("clear_cart") or "Vaciar")
         for b in (self.btn_minus, self.btn_plus, self.btn_qty, self.btn_remove, self.btn_clear):
-            b.setMinimumHeight(48)
+            b.setMinimumHeight(44)
         self.btn_remove.setProperty("role", "danger")
         self.btn_clear.setProperty("role", "danger")
         self.btn_plus.clicked.connect(self._inc_qty)
@@ -236,7 +236,7 @@ class POSWindow(QMainWindow):
 
         btn_row = QHBoxLayout()
         self.btn_charge = QPushButton(i18n.t("pay_print"))
-        self.btn_charge.setMinimumHeight(52)
+        self.btn_charge.setMinimumHeight(48)
         self.btn_charge.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.btn_charge.setProperty("role", "primary")
         self.btn_charge.clicked.connect(self.charge)
@@ -253,12 +253,12 @@ class POSWindow(QMainWindow):
         products_panel = QWidget()
         products_panel.setObjectName("GridPanel")
         self.grid_wrap = QVBoxLayout(products_panel)
-        self.grid_wrap.setContentsMargins(12, 12, 12, 12)
-        self.grid_wrap.setSpacing(10)
+        self.grid_wrap.setContentsMargins(10, 10, 10, 10)
+        self.grid_wrap.setSpacing(8)
 
-        head = QHBoxLayout(); head.setSpacing(12)
+        head = QHBoxLayout(); head.setSpacing(10)
         self.btn_back = QPushButton("← " + (i18n.t("back") or "Atrás"))
-        self.btn_back.setMinimumHeight(52)
+        self.btn_back.setMinimumHeight(48)
         self.btn_back.clicked.connect(self._back_to_categories)
         self.lbl_grid_title = QLabel(i18n.t("categories") or "Categorías")
         self.lbl_grid_title.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
@@ -269,7 +269,7 @@ class POSWindow(QMainWindow):
         head.addStretch(10)
         self.grid_wrap.addLayout(head)
 
-        self.grid = QGridLayout(); self.grid.setContentsMargins(0,0,0,0); self.grid.setSpacing(12)
+        self.grid = QGridLayout(); self.grid.setContentsMargins(0,0,0,0); self.grid.setSpacing(10)
         self.grid_wrap.addLayout(self.grid, 1)
 
         self.products_area.setWidget(products_panel)
@@ -292,8 +292,8 @@ class POSWindow(QMainWindow):
         self._populate_grid()
         root.addWidget(self.products_area, 1)
         root.addWidget(self.right_wrap, 0)
-        root.setStretch(0, 2)
-        root.setStretch(1, 1)
+        root.setStretch(0, 3)
+        root.setStretch(1, 2)
         self.setCentralWidget(container)
 
         self.cart: list[CartItem] = []
@@ -313,10 +313,10 @@ class POSWindow(QMainWindow):
         return cats or ["General"]
 
     def _target_right_min_width(self, total_width: int) -> int:
-        if total_width <= 800: return 240
-        if total_width <= 1024: return 280
-        if total_width <= 1280: return 320
-        return 360
+        if total_width <= 800: return 260
+        if total_width <= 1024: return 320
+        if total_width <= 1280: return 380
+        return 440
 
     def _target_button_min_size(self, avail_width: int) -> QSize:
         if avail_width <= 500: return QSize(150, 96)
