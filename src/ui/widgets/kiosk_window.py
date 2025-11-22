@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
     QMessageBox, QDialog, QLineEdit, QApplication, QStyle
 )
 from PySide6.QtCore import Qt, QSize, QEvent
-from PySide6.QtGui import QCursor, QGuiApplication, QFontMetrics
+from PySide6.QtGui import QCursor, QGuiApplication, QFontMetrics, QIcon
 
 from services.sales import (
     get_active_products, CartItem, save_ticket,
