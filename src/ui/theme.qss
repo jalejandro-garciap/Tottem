@@ -14,7 +14,7 @@
 
 QWidget {
     font-family: "Inter", "Segoe UI", sans-serif;
-    font-size: 18px;
+    font-size: 19px;
     color: #0f172a;
     background: #f6f7fb;
 }
@@ -25,20 +25,20 @@ QMainWindow, QDialog {
 
 /* Etiquetas principales */
 QLabel {
-    font-size: 18px;
+    font-size: 19px;
     font-weight: 600;
     color: #111827;
     letter-spacing: 0.1px;
 }
 
 QLabel#TotalLabel {
-    font-size: 26px;
+    font-size: 28px;
     font-weight: 700;
     color: #0b1224;
 }
 
 QLabel#SectionTitle {
-    font-size: 20px;
+    font-size: 21px;
     font-weight: 700;
     color: #0f172a;
 }
@@ -57,9 +57,9 @@ QLabel#SectionTitle {
 
 /* Campos de texto */
 QLineEdit, QComboBox, QSpinBox, QTextEdit, QPlainTextEdit {
-    font-size: 18px;
-    padding: 14px 16px;
-    min-height: 48px;
+    font-size: 19px;
+    padding: 16px 18px;
+    min-height: 56px;
     border: 1px solid #cfd8e3;
     border-radius: 12px;
     background: #ffffff;
@@ -81,10 +81,10 @@ QTextEdit:focus, QPlainTextEdit:focus {
 
 /* Botones */
 QPushButton {
-    font-size: 18px;
+    font-size: 19px;
     font-weight: 600;
-    padding: 14px 18px;
-    min-height: 52px;
+    padding: 16px 20px;
+    min-height: 56px;
     border-radius: 14px;
     border: 1px solid #d6deeb;
     background: #ffffff;
