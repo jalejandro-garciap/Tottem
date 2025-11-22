@@ -120,15 +120,15 @@ class AdminPinDialog(QDialog):
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(10)
 
-        lbl = QLabel("Ingrese PIN de administrador")
+        lbl = QLabel(i18n.t("admin_pin_prompt") or "Ingrese PIN de administrador")
         lbl.setAlignment(Qt.AlignCenter)
         self.ed_pin = QLineEdit()
         self.ed_pin.setEchoMode(QLineEdit.Password)
         self.ed_pin.setMaxLength(16)
 
         btn_row = QHBoxLayout()
-        btn_cancel = QPushButton("Cancelar")
-        btn_ok = QPushButton("OK")
+        btn_cancel = QPushButton(i18n.t("cancel") or "Cancelar")
+        btn_ok = QPushButton(i18n.t("ok") or "OK")
         btn_cancel.clicked.connect(self.reject)
         btn_ok.clicked.connect(self._on_ok)
         btn_row.addWidget(btn_cancel)
@@ -143,12 +143,12 @@ class AdminPinDialog(QDialog):
     def _on_ok(self):
         pin = self.ed_pin.text() or ""
         if not pin:
-            QMessageBox.warning(self, "PIN", "Capture el PIN.")
+            QMessageBox.warning(self, i18n.t("admin_pin_title") or "PIN", i18n.t("pin_required") or "Capture el PIN.")
             return
         if check_admin_pin(pin):
             self.accept()
         else:
-            QMessageBox.critical(self, "PIN", "PIN incorrecto.")
+            QMessageBox.critical(self, i18n.t("admin_pin_title") or "PIN", i18n.t("pin_bad") or "PIN incorrecto.")
 
 
 class POSWindow(QMainWindow):
@@ -174,12 +174,12 @@ class POSWindow(QMainWindow):
         self.lang_btn.setFixedWidth(64)
         self.lang_btn.clicked.connect(self._toggle_lang)
 
-        self.btn_reprint = QPushButton("Reimprimir")
+        self.btn_reprint = QPushButton(i18n.t("reprint") or "Reimprimir")
         self.btn_reprint.setMinimumHeight(40)
         self.btn_reprint.clicked.connect(self._reprint_last)
 
         # NUEVO: botón Admin
-        self.btn_admin = QPushButton("Admin")
+        self.btn_admin = QPushButton(i18n.t("admin") or "Admin")
         self.btn_admin.setMinimumHeight(40)
         self.btn_admin.setFixedWidth(80)
         self.btn_admin.clicked.connect(self._go_admin)

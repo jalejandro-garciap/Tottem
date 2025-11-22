@@ -150,7 +150,7 @@ class _OskFocusFilter(QObject):
             try:
                 is_password = (obj.echoMode() == QLineEdit.Password)
                 dlg = OnScreenKeyboard(
-                    title="Teclado",
+                    title=i18n.t("keyboard_title") or "Teclado",
                     initial_text=obj.text(),
                     password_mode=is_password,
                     parent=self.win
@@ -196,8 +196,8 @@ class ProductDialog(QDialog):
         layout.addRow(self.cb_partial)
 
         row = QHBoxLayout()
-        btn_cancel = QPushButton("Cancelar")
-        btn_ok = QPushButton("OK")
+        btn_cancel = QPushButton(i18n.t("cancel") or "Cancelar")
+        btn_ok = QPushButton(i18n.t("ok") or "OK")
         btn_cancel.clicked.connect(self.reject)
         btn_ok.clicked.connect(self.accept)
         row.addWidget(btn_cancel)
@@ -212,12 +212,12 @@ class ProductDialog(QDialog):
     def data(self) -> dict | None:
         name = (self.ed_name.text() or "").strip()
         if not name:
-            QMessageBox.warning(self, "Producto", i18n.t("prod_err_name"))
+            QMessageBox.warning(self, i18n.t("tab_products") or "Productos", i18n.t("prod_err_name"))
             return None
         try:
             cents = money_to_cents(self.ed_price.text())
         except Exception:
-            QMessageBox.warning(self, "Producto", i18n.t("prod_err_price"))
+            QMessageBox.warning(self, i18n.t("tab_products") or "Productos", i18n.t("prod_err_price"))
             return None
         unit = (self.ed_unit.text() or "pz").strip() or "pz"
         category = (self.ed_category.text() or "General").strip() or "General"
@@ -252,8 +252,8 @@ class EmployeeDialog(QDialog):
         layout.addRow(self.cb_active)
 
         row = QHBoxLayout()
-        btn_cancel = QPushButton("Cancelar")
-        btn_ok = QPushButton("OK")
+        btn_cancel = QPushButton(i18n.t("cancel") or "Cancelar")
+        btn_ok = QPushButton(i18n.t("ok") or "OK")
         btn_cancel.clicked.connect(self.reject)
         btn_ok.clicked.connect(self.accept)
         row.addWidget(btn_cancel)
@@ -272,8 +272,8 @@ class EmployeeDialog(QDialog):
         if not emp_no or not full_name:
             QMessageBox.warning(
                 self,
-                "Empleados",
-                "Número de empleado y nombre son obligatorios.",
+                i18n.t("employees_title") or "Empleados",
+                i18n.t("emp_required") or "Número de empleado y nombre son obligatorios.",
             )
             return None
         return {
@@ -778,14 +778,14 @@ class AdminWindow(QMainWindow):
         if checked:
             QMessageBox.information(
                 self,
-                "Productos",
-                "Categorías habilitadas. El kiosko mostrará submenús por categoría.",
+                i18n.t("tab_products") or "Productos",
+                i18n.t("categories_enabled") or "Categorías habilitadas. El kiosko mostrará submenús por categoría.",
             )
         else:
             QMessageBox.information(
                 self,
-                "Productos",
-                "Categorías deshabilitadas. El kiosko mostrará un solo menú de productos.",
+                i18n.t("tab_products") or "Productos",
+                i18n.t("categories_disabled") or "Categorías deshabilitadas. El kiosko mostrará un solo menú de productos.",
             )
 
     # ---------- Reports (solo rango de fechas + correo)
@@ -1171,17 +1171,17 @@ class AdminWindow(QMainWindow):
                 phone=data["phone"],
                 active=data["active"],
             )
-            QMessageBox.information(self, "Empleados", "Guardado.")
+            QMessageBox.information(self, i18n.t("employees_title") or "Empleados", i18n.t("emp_saved") or "Guardado.")
             self._emp_refresh()
 
     def _emp_edit(self):
         eid = self._emp_current_id()
         if eid is None:
-            QMessageBox.warning(self, "Empleados", "Selecciona un empleado.")
+            QMessageBox.warning(self, i18n.t("employees_title") or "Empleados", i18n.t("emp_select") or "Selecciona un empleado.")
             return
         emp = get_employee(eid)
         if not emp:
-            QMessageBox.warning(self, "Empleados", "Empleado no encontrado.")
+            QMessageBox.warning(self, i18n.t("employees_title") or "Empleados", i18n.t("emp_not_found") or "Empleado no encontrado.")
             return
         dlg = EmployeeDialog(self, employee=emp)
         if dlg.exec():
@@ -1195,34 +1195,34 @@ class AdminWindow(QMainWindow):
                 phone=data["phone"],
                 active=data["active"],
             )
-            QMessageBox.information(self, "Empleados", "Guardado.")
+            QMessageBox.information(self, i18n.t("employees_title") or "Empleados", i18n.t("emp_saved") or "Guardado.")
             self._emp_refresh()
 
     def _emp_toggle(self):
         eid = self._emp_current_id()
         if eid is None:
-            QMessageBox.warning(self, "Empleados", "Selecciona un empleado.")
+            QMessageBox.warning(self, i18n.t("employees_title") or "Empleados", i18n.t("emp_select") or "Selecciona un empleado.")
             return
         emp = get_employee(eid)
         if not emp:
-            QMessageBox.warning(self, "Empleados", "Empleado no encontrado.")
+            QMessageBox.warning(self, i18n.t("employees_title") or "Empleados", i18n.t("emp_not_found") or "Empleado no encontrado.")
             return
         set_employee_active(eid, not bool(emp.get("active")))
-        QMessageBox.information(self, "Empleados", "OK")
+        QMessageBox.information(self, i18n.t("employees_title") or "Empleados", i18n.t("emp_saved") or "OK")
         self._emp_refresh()
 
     def _emp_delete(self):
         eid = self._emp_current_id()
         if eid is None:
-            QMessageBox.warning(self, "Empleados", "Selecciona un empleado.")
+            QMessageBox.warning(self, i18n.t("employees_title") or "Empleados", i18n.t("emp_select") or "Selecciona un empleado.")
             return
         if (
-            QMessageBox.question(self, "Empleados", "¿Eliminar empleado?")
+            QMessageBox.question(self, i18n.t("employees_title") or "Empleados", i18n.t("emp_delete") or "¿Eliminar empleado?")
             != QMessageBox.Yes
         ):
             return
         delete_employee(eid)
-        QMessageBox.information(self, "Empleados", "Eliminado.")
+        QMessageBox.information(self, i18n.t("employees_title") or "Empleados", i18n.t("emp_deleted") or "Eliminado.")
         self._emp_refresh()
 
     # ---------- System
