@@ -1,15 +1,210 @@
-QWidget { font-size: 17px; }
-QLabel { font-size: 18px; }
+/* Aplicación POS - tema minimalista y táctil */
 
+/* Variables de color */
+QWidget {
+  font-family: "Inter", "Noto Sans", system-ui, -apple-system, sans-serif;
+  font-size: 17px;
+  color: #111827;
+  background: #f7f9fc;
+}
+
+QLabel {
+  font-size: 18px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+/* Contenedores principales */
+QTabWidget::pane {
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  background: #ffffff;
+  padding: 12px;
+}
+
+QTabBar::tab {
+  background: #e5e7eb;
+  color: #111827;
+  padding: 14px 18px;
+  margin-right: 8px;
+  border-radius: 12px;
+  font-weight: 600;
+}
+
+QTabBar::tab:selected {
+  background: #4f46e5;
+  color: #ffffff;
+}
+
+QTabBar::tab:hover:!selected {
+  background: #ede9fe;
+  color: #312e81;
+}
+
+/* Botones */
 QPushButton {
   font-size: 18px;
-  padding: 10px 12px;
-  min-height: 56px;
-  border: 1px solid #444;
-  border-radius: 8px;
+  padding: 14px 16px;
+  min-height: 60px;
+  border: 1px solid #d0d7e2;
+  border-radius: 14px;
+  background: #ffffff;
+  color: #0f172a;
   text-align: center;
+  font-weight: 700;
 }
-QPushButton:pressed { background: #e6e6e6; }
 
-QListWidget { font-size: 16px; }
+QPushButton:flat {
+  border: none;
+  background: transparent;
+}
 
+QPushButton:hover {
+  background: #eef2ff;
+  border-color: #c4c9f5;
+}
+
+QPushButton:pressed {
+  background: #e0e7ff;
+  border-color: #a5b4fc;
+}
+
+QPushButton:disabled {
+  color: #94a3b8;
+  background: #e2e8f0;
+  border-color: #cbd5e1;
+}
+
+/* Campos de entrada */
+QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox, QListWidget, QTextEdit, QPlainTextEdit {
+  font-size: 17px;
+  padding: 12px 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus, QTextEdit:focus, QPlainTextEdit:focus {
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.12);
+}
+
+QComboBox QAbstractItemView {
+  border: 1px solid #cbd5e1;
+  padding: 6px;
+  background: #ffffff;
+  selection-background-color: #e0e7ff;
+  selection-color: #1f2937;
+}
+
+QListWidget {
+  font-size: 16px;
+  background: #ffffff;
+  spacing: 6px;
+}
+
+QListWidget::item {
+  padding: 12px 14px;
+  border-radius: 10px;
+}
+
+QListWidget::item:selected {
+  background: #e0e7ff;
+  color: #1f2937;
+}
+
+/* Tablas */
+QHeaderView::section {
+  background: #f1f5f9;
+  font-weight: 700;
+  padding: 10px;
+  border: none;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+QTableWidget {
+  gridline-color: #e2e8f0;
+  selection-background-color: #e0e7ff;
+  selection-color: #111827;
+  alternate-background-color: #f8fafc;
+}
+
+/* Scrollbars táctiles */
+QScrollBar:vertical {
+  background: transparent;
+  width: 14px;
+  margin: 10px 4px 10px 4px;
+}
+
+QScrollBar::handle:vertical {
+  background: #cbd5e1;
+  border-radius: 7px;
+  min-height: 30px;
+}
+
+QScrollBar::handle:vertical:hover {
+  background: #a5b4fc;
+}
+
+QScrollBar:horizontal {
+  background: transparent;
+  height: 14px;
+  margin: 4px 10px 4px 10px;
+}
+
+QScrollBar::handle:horizontal {
+  background: #cbd5e1;
+  border-radius: 7px;
+  min-width: 30px;
+}
+
+QScrollBar::handle:horizontal:hover {
+  background: #a5b4fc;
+}
+
+/* Diálogos y mensajes */
+QDialog {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 16px;
+}
+
+QMessageBox QLabel {
+  font-size: 17px;
+}
+
+/* Teclado en pantalla y tarjetas */
+QFrame, QWidget#card {
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  background: #ffffff;
+}
+
+/* Inputs numéricos para kiosko */
+QLineEdit[echoMode="2"], QLineEdit[passwordMode="true"] {
+  letter-spacing: 2px;
+}
+
+/* Estados de error/éxito */
+QLineEdit[error="true"], QComboBox[error="true"] {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.14);
+}
+
+.success-chip {
+  background: #ecfdf3;
+  color: #15803d;
+  border: 1px solid #86efac;
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-weight: 700;
+}
+
+.warning-chip {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fcd34d;
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-weight: 700;
+}
