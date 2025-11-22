@@ -2,7 +2,6 @@
 from __future__ import annotations
 from typing import Iterable, Callable
 from pathlib import Path
-import time
 import yaml
 
 import usb.core
@@ -30,7 +29,7 @@ class EscposPrinter:
 
     - Lee VID/PID/interface/EPs de config/config.yaml.
     - Abre y cierra el dispositivo en CADA operación (no mantiene 'self.dev' abierto).
-    - Reintenta una vez si el USB está ocupado (errno = 16, 'resource busy').
+    - Ejecuta la impresión en un solo intento para evitar impresiones duplicadas.
     """
 
     def __init__(self):
@@ -82,37 +81,24 @@ class EscposPrinter:
         Abre el dispositivo, ejecuta fn(write) y cierra al terminar.
 
         fn: función que recibe 'write(data: bytes)' para enviar datos al printer.
-        Hace un reintento si el dispositivo está ocupado (errno = 16).
-        """
-        last_exc = None
-        for attempt in range(2):
-            dev = None
-            try:
-                dev, out_ep = self._open_dev()
+    """
+        dev = None
+        try:
+            dev, out_ep = self._open_dev()
 
-                def write(data: bytes):
-                    dev.write(out_ep, data, timeout=3000)
+            def write(data: bytes):
+                dev.write(out_ep, data, timeout=3000)
 
-                fn(write)
-                return
-            except USBError as e:
-                last_exc = e
-                if getattr(e, "errno", None) == 16 and attempt == 0:
-                    # resource busy, esperamos y reintentamos una vez
-                    print("[WARN] USB printer busy (resource busy), retrying...")
-                    time.sleep(0.3)
-                    continue
-                else:
-                    print("[ERROR] USBError while printing:", e)
-                    raise
-            finally:
-                if dev is not None:
-                    try:
-                        usb.util.dispose_resources(dev)
-                    except Exception:
-                        pass
-        if last_exc is not None:
-            raise last_exc
+            fn(write)
+        except USBError as e:
+            print("[ERROR] USBError while printing:", e)
+            raise
+        finally:
+            if dev is not None:
+                try:
+                    usb.util.dispose_resources(dev)
+                except Exception:
+                    pass
 
     # ---------- ESC/POS helpers ----------
 

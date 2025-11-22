@@ -178,10 +178,11 @@ class POSWindow(QMainWindow):
         top_bar = QHBoxLayout()
         top_bar.setContentsMargins(0, 0, 0, 4)
         top_bar.setSpacing(8)
-        self.title_lbl = QLabel("🛒")
+        self.title_lbl = QLabel()
         self.title_lbl.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         self.title_lbl.setObjectName("SectionTitle")
         self.title_lbl.setToolTip(i18n.t("cart"))
+        self.title_lbl.setText(i18n.t("cart"))
 
         self.lang_btn = QPushButton(i18n.t("lang"))
         self.lang_btn.setMinimumHeight(44)
@@ -189,7 +190,10 @@ class POSWindow(QMainWindow):
         self.lang_btn.setProperty("role", "ghost")
         self.lang_btn.clicked.connect(self._toggle_lang)
 
-        self.btn_reprint = QPushButton("🎟️")
+        self.btn_reprint = QPushButton()
+        self.btn_reprint.setIcon(self.style().standardIcon(QStyle.SP_FileIcon))
+        self.btn_reprint.setIconSize(QSize(20, 20))
+        self.btn_reprint.setContentsMargins(28, 0, 0, 0)
         self.btn_reprint.setMinimumHeight(44)
         self.btn_reprint.setProperty("role", "ghost")
         self.btn_reprint.clicked.connect(self._reprint_last)
@@ -217,8 +221,10 @@ class POSWindow(QMainWindow):
         self.btn_minus = QPushButton("−")
         self.btn_plus  = QPushButton("+")
         self.btn_qty   = QPushButton("N")
-        self.btn_remove= QPushButton()
-        self.btn_remove.setIcon(self.style().standardIcon(QStyle.SP_TrashIcon))
+        self.btn_remove= QPushButton("X")
+        font_remove = self.btn_remove.font()
+        font_remove.setBold(True)
+        self.btn_remove.setFont(font_remove)
         self.btn_clear = QPushButton(i18n.t("clear_cart") or "Vaciar")
         for b in (self.btn_minus, self.btn_plus, self.btn_qty, self.btn_remove, self.btn_clear):
             b.setMinimumHeight(44)
@@ -302,6 +308,7 @@ class POSWindow(QMainWindow):
 
         self.cart: list[CartItem] = []
         self.printer = EscposPrinter()
+        self._reprint_in_progress = False
 
         self.installEventFilter(self)
         self._refresh_total()
@@ -562,14 +569,22 @@ class POSWindow(QMainWindow):
         self.cart.clear(); self.list.clear(); self._refresh_total()
 
     def _reprint_last(self):
+        if self._reprint_in_progress:
+            return
         tid = get_last_ticket_id()
         if not tid:
             QMessageBox.information(self, "Ticket", i18n.t("no_last_ticket") or "No hay tickets previos."); return
         items = get_ticket_items(tid)
+        self._reprint_in_progress = True
+        self.btn_reprint.setEnabled(False)
         try:
             self.printer.print_cart(items)
         except Exception as e:
             print("Reprint error:", e)
+            QMessageBox.critical(self, "Ticket", f"{i18n.t('reprint_error') or 'No se pudo reimprimir.'}\n{e}")
+        finally:
+            self.btn_reprint.setEnabled(True)
+            self._reprint_in_progress = False
 
     def _go_admin(self):
         dlg = AdminPinDialog(self)
@@ -599,8 +614,8 @@ class POSWindow(QMainWindow):
         self.setWindowTitle(i18n.t("title"))
         self.title_lbl.setText(i18n.t("cart"))
         self.lang_btn.setText(i18n.t("lang"))
-        self.btn_reprint.setText(i18n.t("reprint") or "Reimprimir")
-        self.btn_remove.setText(i18n.t("delete") or "Eliminar")
+        self.btn_reprint.setToolTip(i18n.t("reprint") or "Reimprimir")
+        self.btn_remove.setToolTip(i18n.t("delete") or "Eliminar")
         self.btn_clear.setText(i18n.t("clear_cart") or "Vaciar")
         self.btn_charge.setText(i18n.t("pay_print"))
         self.total_label.setText(i18n.t("total", amount="{:.2f}".format(self._total_amount())))
