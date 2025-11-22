@@ -1039,6 +1039,7 @@ class AdminWindow(QMainWindow):
 
         # --- Sección turnos ---
         self.lbl_shift = QLabel(self._shift_label_text())
+        self.lbl_shift.setWordWrap(True)
         v.addWidget(self.lbl_shift)
 
         # Selector de empleado para el turno
