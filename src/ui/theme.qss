@@ -79,6 +79,43 @@ QTextEdit:focus, QPlainTextEdit:focus {
     background: #ffffff;
 }
 
+QComboBox::drop-down {
+    width: 46px;
+    border-left: 1px solid #d6deeb;
+    background: #f3f4f6;
+    border-top-right-radius: 12px;
+    border-bottom-right-radius: 12px;
+}
+
+QComboBox::down-arrow {
+    width: 16px;
+    height: 16px;
+    image: none;
+    border: none;
+}
+
+QComboBox QAbstractItemView {
+    background: #ffffff;
+    selection-background-color: #e2e7ff;
+    padding: 10px 8px;
+    border: 1px solid #d6deeb;
+    font-size: 18px;
+}
+
+QLineEdit[state="error"], QComboBox[state="error"], QSpinBox[state="error"],
+QTextEdit[state="error"], QPlainTextEdit[state="error"] {
+    border-color: #dc2626;
+    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.20);
+    background: #fff1f2;
+}
+
+QLineEdit[state="success"], QComboBox[state="success"], QSpinBox[state="success"],
+QTextEdit[state="success"], QPlainTextEdit[state="success"] {
+    border-color: #16a34a;
+    box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.18);
+    background: #f0fdf4;
+}
+
 /* Botones */
 QPushButton {
     font-size: 19px;
@@ -174,12 +211,50 @@ QListWidget::item:selected {
     color: #0f172a;
 }
 
+QListWidget#ShiftList::item {
+    padding: 14px 16px;
+    margin: 4px 6px;
+    border-radius: 12px;
+    background: #f8fafc;
+}
+
+QListWidget#ShiftList::item:selected {
+    background: #e2e8f0;
+    border: 1px solid #3f66d1;
+    color: #0f172a;
+}
+
+QLabel#EmptyStateLabel {
+    padding: 26px 18px;
+    background: #ffffff;
+    border: 1px dashed #cfd8e3;
+    border-radius: 14px;
+    color: #6b7280;
+    font-weight: 500;
+}
+
+QTableWidget::item {
+    padding: 14px 16px;
+    border: none;
+}
+
+QTableWidget::item:selected {
+    background: #e2e7ff;
+    color: #0f172a;
+    border: 1px solid #3f66d1;
+}
+
 QHeaderView::section {
     background: #f3f4f6;
     padding: 12px 14px;
     border: 1px solid #d6deeb;
     font-weight: 700;
     color: #111827;
+}
+
+QTableCornerButton::section {
+    background: #f3f4f6;
+    border: 1px solid #d6deeb;
 }
 
 /* Tabs */
@@ -229,6 +304,36 @@ QScrollBar::handle:hover {
 QScrollBar::add-line, QScrollBar::sub-line {
     height: 0;
     width: 0;
+}
+
+/* Toasts */
+#ToastContainer {
+    background: transparent;
+}
+
+#ToastFrame {
+    background: rgba(15, 23, 42, 0.94);
+    color: #f8fafc;
+    border-radius: 16px;
+    border: 1px solid #111827;
+    min-width: 320px;
+    max-width: 520px;
+    box-shadow: 0 14px 32px rgba(15, 23, 42, 0.25);
+}
+
+#ToastFrame[toastLevel="success"] {
+    background: #0f9d58;
+    border-color: #0b7a44;
+}
+
+#ToastFrame[toastLevel="error"] {
+    background: #b91c1c;
+    border-color: #991b1b;
+}
+
+#ToastFrame[toastLevel="info"] {
+    background: #111827;
+    border-color: #0f172a;
 }
 
 /* Dialogos */

@@ -2,9 +2,10 @@ from PySide6.QtWidgets import (
     QMainWindow, QWidget, QTabWidget, QVBoxLayout, QFormLayout,
     QLineEdit, QPushButton, QLabel, QHBoxLayout, QComboBox,
     QMessageBox, QSpinBox, QGridLayout, QTableWidget, QTableWidgetItem,
-    QAbstractItemView, QCheckBox, QDialog, QListWidget, QApplication
+    QAbstractItemView, QCheckBox, QDialog, QListWidget, QApplication,
+    QFrame, QStackedLayout
 )
-from PySide6.QtCore import Qt, QObject, QEvent
+from PySide6.QtCore import Qt, QObject, QEvent, QTimer
 from pathlib import Path
 
 import sys
@@ -133,6 +134,75 @@ def _scan_usb_printers() -> list[dict]:
         seen.add(key)
         uniq.append(d)
     return uniq
+
+
+class ToastManager(QObject):
+    """Muestra mensajes flotantes apilados para evitar encimarse."""
+
+    def __init__(self, host: QWidget):
+        super().__init__(host)
+        self.host = host
+        self.queue: list[tuple[str, str, int]] = []
+        self.container = QWidget(host)
+        self.container.setObjectName("ToastContainer")
+        self.container.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+        self.layout = QVBoxLayout(self.container)
+        self.layout.setAlignment(Qt.AlignTop | Qt.AlignRight)
+        self.layout.setSpacing(10)
+        self.layout.setContentsMargins(0, 0, 0, 0)
+        self.active: list[QFrame] = []
+        self.sync_geometry()
+
+    def sync_geometry(self):
+        margin = 18
+        self.container.setGeometry(
+            margin,
+            margin,
+            max(0, self.host.width() - (margin * 2)),
+            max(0, self.host.height() - (margin * 2)),
+        )
+
+    def show_toast(self, message: str, level: str = "info", duration_ms: int = 3600):
+        self.queue.append((message, level, duration_ms))
+        if len(self.queue) == 1:
+            self._dequeue()
+
+    def _dequeue(self):
+        if not self.queue:
+            return
+        msg, level, timeout = self.queue[0]
+
+        frame = QFrame(self.container)
+        frame.setObjectName("ToastFrame")
+        frame.setProperty("toastLevel", level)
+        layout = QHBoxLayout(frame)
+        layout.setContentsMargins(18, 14, 18, 14)
+        layout.setSpacing(8)
+        label = QLabel(msg)
+        label.setWordWrap(True)
+        layout.addWidget(label)
+        self.layout.addWidget(frame)
+        self.active.append(frame)
+        self.container.raise_()
+        self.container.show()
+
+        timer = QTimer(self)
+        timer.setSingleShot(True)
+        timer.timeout.connect(lambda: self._finish(frame))
+        timer.start(timeout)
+        frame._toast_timer = timer
+
+    def _finish(self, frame: QFrame):
+        if frame in self.active:
+            self.layout.removeWidget(frame)
+            self.active.remove(frame)
+            frame.deleteLater()
+        if self.queue:
+            self.queue.pop(0)
+        if self.queue:
+            self._dequeue()
+        elif not self.active:
+            self.container.hide()
 
 
 class _OskFocusFilter(QObject):
@@ -323,6 +393,19 @@ class AdminWindow(QMainWindow):
         lay.addWidget(top_wrap)
         lay.addWidget(self.tabs)
         self.setCentralWidget(wrap)
+        self.toast_mgr = ToastManager(self)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.toast_mgr.sync_geometry()
+
+    def _toast(self, message: str, *, level: str = "info", duration_ms: int = 3600):
+        self.toast_mgr.show_toast(message, level=level, duration_ms=duration_ms)
+
+    def _mark_field_state(self, widget: QWidget, state: str | None):
+        widget.setProperty("state", state or "")
+        widget.style().unpolish(widget)
+        widget.style().polish(widget)
 
     # ---------- Security
     def _tab_security(self) -> QWidget:
@@ -797,15 +880,18 @@ class AdminWindow(QMainWindow):
         w = QWidget()
         v = QVBoxLayout(w)
         v.setContentsMargins(10, 10, 10, 10)
-        v.setSpacing(10)
+        v.setSpacing(14)
 
         # --- Enviar reporte por correo (rango de fechas) ---
         v.addWidget(QLabel(i18n.t("send_mail") or "Enviar reporte por correo"))
 
         mail_row1 = QHBoxLayout()
+        mail_row1.setSpacing(12)
         self.date_from = QLineEdit()
+        self.date_from.setMinimumWidth(170)
         self.date_from.setPlaceholderText("YYYY-MM-DD")
         self.date_to = QLineEdit()
+        self.date_to.setMinimumWidth(170)
         self.date_to.setPlaceholderText("YYYY-MM-DD")
         mail_row1.addWidget(QLabel(i18n.t("dates_from") or "Desde"))
         mail_row1.addWidget(self.date_from)
@@ -814,12 +900,14 @@ class AdminWindow(QMainWindow):
         v.addLayout(mail_row1)
 
         mail_row2 = QHBoxLayout()
+        mail_row2.setSpacing(12)
         self.ed_emails = QLineEdit()
         self.ed_emails.setPlaceholderText(
             i18n.t("emails_placeholder")
             or "correo1@ejemplo.com, correo2@ejemplo.com"
         )
         self.cb_recent = QComboBox()
+        self.cb_recent.setMinimumHeight(52)
         self.cb_recent.addItem("")
         for e in recent_emails():
             self.cb_recent.addItem(e)
@@ -845,14 +933,28 @@ class AdminWindow(QMainWindow):
         )
 
         self.list_shifts = QListWidget()
+        self.list_shifts.setObjectName("ShiftList")
+        self.list_shifts.setAlternatingRowColors(True)
+        self.list_shifts.setSpacing(6)
+        self.list_shifts.setUniformItemSizes(True)
         v.addWidget(QLabel(i18n.t("week_shifts") or "Turnos de la semana"))
-        v.addWidget(self.list_shifts, 1)
+        self.shifts_stack = QStackedLayout()
+        self.lbl_shifts_empty = QLabel(
+            i18n.t("no_shifts")
+            or "Sin turnos recientes. Abre un turno para poder imprimir reportes."
+        )
+        self.lbl_shifts_empty.setObjectName("EmptyStateLabel")
+        self.lbl_shifts_empty.setAlignment(Qt.AlignCenter)
+        self.lbl_shifts_empty.setWordWrap(True)
+        self.shifts_stack.addWidget(self.list_shifts)
+        self.shifts_stack.addWidget(self.lbl_shifts_empty)
+        v.addLayout(self.shifts_stack, 1)
 
-        btn_print = QPushButton(
+        self.btn_print = QPushButton(
             i18n.t("print_shift_report") or "Imprimir reporte del turno"
         )
-        btn_print.clicked.connect(self._print_selected_shift)
-        v.addWidget(btn_print)
+        self.btn_print.clicked.connect(self._print_selected_shift)
+        v.addWidget(self.btn_print)
 
         # Cargar los turnos de los últimos 7 días
         self._reload_week_shifts()
@@ -883,10 +985,8 @@ class AdminWindow(QMainWindow):
             emp_code = self.cmb_shift_employee.currentData() or None
 
         if not emp_code:
-            QMessageBox.warning(
-                self,
-                i18n.t("tab_shifts") or "Turnos",
-                "Selecciona el empleado que abre el turno."
+            self._toast(
+                "Selecciona el empleado que abre el turno.", level="error"
             )
             return
 
@@ -894,11 +994,9 @@ class AdminWindow(QMainWindow):
         open_shift(opened_by=emp_code, opening_cash=0)
 
         self.lbl_shift.setText(self._shift_label_text())
-        QMessageBox.information(
-            self,
-            i18n.t("tab_shifts") or "Turnos",
-            "Turno abierto."
-        )
+        if hasattr(self, "list_shifts"):
+            self._reload_week_shifts()
+        self._toast("Turno abierto.", level="success")
 
     def _do_preview(self):
         txt, _ = report_x()
@@ -912,11 +1010,7 @@ class AdminWindow(QMainWindow):
         # Comprobamos que haya turno abierto antes de intentar cerrar
         sh = current_shift()
         if not sh:
-            QMessageBox.warning(
-                self,
-                i18n.t("tab_shifts") or "Turnos",
-                "No hay turno abierto."
-            )
+            self._toast("No hay turno abierto.", level="error")
             return
 
         # Genera reporte Z (incluye close_shift() por dentro)
@@ -933,16 +1027,12 @@ class AdminWindow(QMainWindow):
         # Intentar imprimir el reporte del turno que acabamos de cerrar
         try:
             EscposPrinter().print_text(txt)
-            QMessageBox.information(
-                self,
-                i18n.t("tab_shifts") or "Turnos",
-                f"Turno #{sh['id']} cerrado e impreso."
+            self._toast(
+                f"Turno #{sh['id']} cerrado e impreso.", level="success"
             )
         except Exception as e:
-            QMessageBox.critical(
-                self,
-                i18n.t("tab_shifts") or "Turnos",
-                f"Turno cerrado pero error al imprimir: {e}\n\n{txt}"
+            self._toast(
+                f"Turno cerrado pero error al imprimir: {e}", level="error"
             )
 
         # Actualizar etiqueta (ya no debe haber turno abierto)
@@ -971,10 +1061,18 @@ class AdminWindow(QMainWindow):
         rec_raw = (self.ed_emails.text() or "").strip()
         recipients = [x.strip() for x in rec_raw.split(",") if x.strip()]
         if not df or not dt or not recipients:
-            QMessageBox.warning(
-                self, i18n.t("tab_reports"), "Fechas y correos requeridos."
+            for field, empty in (
+                (self.date_from, not df),
+                (self.date_to, not dt),
+                (self.ed_emails, not recipients),
+            ):
+                self._mark_field_state(field, "error" if empty else None)
+            self._toast(
+                "Fechas y correos requeridos.", level="error", duration_ms=4200
             )
             return
+        for field in (self.date_from, self.date_to, self.ed_emails):
+            self._mark_field_state(field, None)
         body = render_range_text(df, dt)
         att = [
             (f"tickets_{df}_a_{dt}.csv", csv_tickets_bytes(df, dt)),
@@ -987,18 +1085,21 @@ class AdminWindow(QMainWindow):
             attachments=att,
         )
         if ok:
-            QMessageBox.information(
-                self, i18n.t("tab_reports"), i18n.t("report_sent_ok")
+            for field in (self.date_from, self.date_to, self.ed_emails):
+                self._mark_field_state(field, "success")
+            self._toast(
+                i18n.t("report_sent_ok") or "Reporte enviado.", level="success"
             )
             self.cb_recent.clear()
             self.cb_recent.addItem("")
             for e in recent_emails():
                 self.cb_recent.addItem(e)
         else:
-            QMessageBox.critical(
-                self,
-                i18n.t("tab_reports"),
-                i18n.t("report_sent_err", err=msg),
+            self._toast(
+                i18n.t("report_sent_err", err=msg)
+                or f"Error al enviar reporte: {msg}",
+                level="error",
+                duration_ms=5200
             )
 
     def _reload_week_shifts(self):
@@ -1009,30 +1110,34 @@ class AdminWindow(QMainWindow):
                 f"{'(cerrado)' if sh['closed_at'] else '(abierto)'}"
             )
             self.list_shifts.addItem(label)
+        self._update_shift_empty_state()
+
+    def _update_shift_empty_state(self):
+        has_rows = self.list_shifts.count() > 0
+        if hasattr(self, "shifts_stack"):
+            self.shifts_stack.setCurrentWidget(
+                self.list_shifts if has_rows else self.lbl_shifts_empty
+            )
+        if hasattr(self, "btn_print"):
+            self.btn_print.setEnabled(has_rows)
 
     def _print_selected_shift(self):
         row = self.list_shifts.currentRow()
         if row is None or row < 0:
-            QMessageBox.warning(
-                self, i18n.t("tab_reports"), i18n.t("select_shift")
-            )
+            self._toast(i18n.t("select_shift") or "Selecciona un turno.", level="error")
             return
         text = self.list_shifts.item(row).text()
         try:
             sid = int(text.split()[0].lstrip("#"))
         except Exception:
-            QMessageBox.warning(
-                self, i18n.t("tab_reports"), i18n.t("select_shift")
-            )
+            self._toast(i18n.t("select_shift") or "Selecciona un turno.", level="error")
             return
         try:
             report = render_shift_text(sid)
             EscposPrinter().print_text(report)
-            QMessageBox.information(self, i18n.t("tab_reports"), "OK")
+            self._toast("Reporte de turno enviado a impresión.", level="success")
         except Exception as e:
-            QMessageBox.critical(
-                self, i18n.t("tab_reports"), f"Error: {e}"
-            )
+            self._toast(f"Error al imprimir reporte: {e}", level="error")
 
     # ---------- Shifts (Turnos) + Empleados
     def _tab_shifts(self) -> QWidget:
