@@ -6,7 +6,7 @@ from pathlib import Path
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QLabel, QPushButton,
     QGridLayout, QListWidget, QHBoxLayout, QSizePolicy, QScrollArea,
-    QMessageBox, QDialog, QLineEdit, QApplication
+    QMessageBox, QDialog, QLineEdit, QApplication, QStyle
 )
 from PySide6.QtCore import Qt, QSize, QEvent
 from PySide6.QtGui import QCursor, QGuiApplication, QFontMetrics
@@ -178,9 +178,10 @@ class POSWindow(QMainWindow):
         top_bar = QHBoxLayout()
         top_bar.setContentsMargins(0, 0, 0, 4)
         top_bar.setSpacing(8)
-        self.title_lbl = QLabel(i18n.t("cart"))
+        self.title_lbl = QLabel("🛒")
         self.title_lbl.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         self.title_lbl.setObjectName("SectionTitle")
+        self.title_lbl.setToolTip(i18n.t("cart"))
 
         self.lang_btn = QPushButton(i18n.t("lang"))
         self.lang_btn.setMinimumHeight(44)
@@ -188,10 +189,11 @@ class POSWindow(QMainWindow):
         self.lang_btn.setProperty("role", "ghost")
         self.lang_btn.clicked.connect(self._toggle_lang)
 
-        self.btn_reprint = QPushButton(i18n.t("reprint") or "Reimprimir")
+        self.btn_reprint = QPushButton("🎟️")
         self.btn_reprint.setMinimumHeight(44)
         self.btn_reprint.setProperty("role", "ghost")
         self.btn_reprint.clicked.connect(self._reprint_last)
+        self.btn_reprint.setToolTip(i18n.t("reprint") or "Reimprimir")
 
         # NUEVO: botón Admin
         self.btn_admin = QPushButton(i18n.t("admin") or "Admin")
@@ -215,12 +217,14 @@ class POSWindow(QMainWindow):
         self.btn_minus = QPushButton("−")
         self.btn_plus  = QPushButton("+")
         self.btn_qty   = QPushButton("N")
-        self.btn_remove= QPushButton(i18n.t("delete") or "Eliminar")
+        self.btn_remove= QPushButton()
+        self.btn_remove.setIcon(self.style().standardIcon(QStyle.SP_TrashIcon))
         self.btn_clear = QPushButton(i18n.t("clear_cart") or "Vaciar")
         for b in (self.btn_minus, self.btn_plus, self.btn_qty, self.btn_remove, self.btn_clear):
             b.setMinimumHeight(44)
         self.btn_remove.setProperty("role", "danger")
         self.btn_clear.setProperty("role", "danger")
+        self.btn_remove.setToolTip(i18n.t("delete") or "Eliminar")
         self.btn_plus.clicked.connect(self._inc_qty)
         self.btn_minus.clicked.connect(self._dec_qty)
         self.btn_qty.clicked.connect(self._set_qty)

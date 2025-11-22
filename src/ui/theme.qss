@@ -147,17 +147,18 @@ QPushButton:disabled {
 
 /* Variantes por rol */
 QPushButton[role="primary"] {
-    background: linear-gradient(135deg, #3f66d1, #567ae0);
-    border: 1px solid #3f66d1;
-    color: #ffffff;
+    background: linear-gradient(135deg, #e6edff, #d9e3ff);
+    border: 1px solid #3656b3;
+    color: #3656b3;
 }
 
 QPushButton[role="primary"]:hover {
-    background: linear-gradient(135deg, #385bbd, #4f70cc);
+    background: linear-gradient(135deg, #d9e3ff, #cdd8ff);
 }
 
 QPushButton[role="primary"]:pressed {
     background: #3656b3;
+    color: #ffffff;
 }
 
 QPushButton[role="danger"] {
