@@ -159,6 +159,7 @@ class AdminPinDialog(QDialog):
 class POSWindow(QMainWindow):
     def __init__(self):
         super().__init__()
+        self._admin_win = None
         self.setWindowFlag(Qt.FramelessWindowHint, True)
         self.setCursor(QCursor(Qt.BlankCursor))
         self.setWindowTitle(i18n.t("title"))
@@ -380,6 +381,8 @@ class POSWindow(QMainWindow):
         return btn
 
     def _populate_grid(self):
+        self.categories_enabled = is_categories_enabled()
+
         # Clear grid
         while self.grid.count():
             item = self.grid.takeAt(0)
@@ -591,21 +594,17 @@ class POSWindow(QMainWindow):
         if dlg.exec() != QDialog.Accepted:
             return  # PIN cancelado o incorrecto
 
-        from PySide6.QtWidgets import QApplication
+        from ui.widgets.admin_window import AdminWindow
 
-        try:
-            env = os.environ.copy()
-            cmd = [sys.executable, "-m", "cli", "run-admin"]
-            subprocess.Popen(
-                cmd,
-                cwd=str(ROOT),
-                env=env,
-            )
-        except Exception as e:
-            QMessageBox.critical(self, "Admin", f"No se pudo abrir Admin:\n{e}")
-            return
+        self.hide()
+        self._admin_win = AdminWindow()
 
-        QApplication.instance().quit()
+        def _back_to_kiosk():
+            self._admin_win = None
+            self.showFullScreen()
+
+        self._admin_win.destroyed.connect(lambda _obj=None: _back_to_kiosk())
+        self._admin_win.showFullScreen()
 
 
     # ----- Language toggle -----
