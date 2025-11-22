@@ -15,6 +15,7 @@ POS minimal offline para Raspberry Pi OS Lite. UI fullscreen con PySide6/eglfs, 
 ```bash
 sudo apt update
 sudo apt install -y git
-git clone <TU_REPO_URL> pos-local
-cd pos-local
+git clone <TU_REPO_URL> Tottem
+cd Tottem
 bash scripts/install_deps.sh
+```
