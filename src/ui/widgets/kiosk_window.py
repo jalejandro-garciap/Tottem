@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
     QMessageBox, QDialog, QLineEdit, QApplication, QStyle
 )
 from PySide6.QtCore import Qt, QSize, QEvent
-from PySide6.QtGui import QCursor, QGuiApplication, QFontMetrics
+from PySide6.QtGui import QCursor, QGuiApplication, QFontMetrics, QIcon
 
 from services.sales import (
     get_active_products, CartItem, save_ticket,
@@ -182,8 +182,11 @@ class POSWindow(QMainWindow):
         self.title_lbl.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         self.title_lbl.setObjectName("SectionTitle")
         self.title_lbl.setToolTip(i18n.t("cart"))
-        cart_icon = self.style().standardIcon(QStyle.SP_DesktopIcon)
-        self.title_lbl.setPixmap(cart_icon.pixmap(QSize(24, 24)))
+        cart_icon = QIcon.fromTheme(
+            "shopping-cart",
+            QIcon.fromTheme("user-shopping", self.style().standardIcon(QStyle.SP_DirHomeIcon))
+        )
+        self.title_lbl.setPixmap(cart_icon.pixmap(QSize(28, 28)))
 
         self.lang_btn = QPushButton(i18n.t("lang"))
         self.lang_btn.setMinimumHeight(44)
@@ -194,6 +197,7 @@ class POSWindow(QMainWindow):
         self.btn_reprint = QPushButton()
         self.btn_reprint.setIcon(self.style().standardIcon(QStyle.SP_FileIcon))
         self.btn_reprint.setIconSize(QSize(20, 20))
+        self.btn_reprint.setContentsMargins(8, 0, 0, 0)
         self.btn_reprint.setMinimumHeight(44)
         self.btn_reprint.setProperty("role", "ghost")
         self.btn_reprint.clicked.connect(self._reprint_last)
@@ -222,7 +226,7 @@ class POSWindow(QMainWindow):
         self.btn_plus  = QPushButton("+")
         self.btn_qty   = QPushButton("N")
         self.btn_remove= QPushButton()
-        self.btn_remove.setIcon(self.style().standardIcon(QStyle.SP_TrashIcon))
+        self.btn_remove.setIcon(self.style().standardIcon(QStyle.SP_TitleBarCloseButton))
         self.btn_clear = QPushButton(i18n.t("clear_cart") or "Vaciar")
         for b in (self.btn_minus, self.btn_plus, self.btn_qty, self.btn_remove, self.btn_clear):
             b.setMinimumHeight(44)
