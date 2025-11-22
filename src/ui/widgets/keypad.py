@@ -39,6 +39,7 @@ class NumKeypad(QDialog):
         for text, r, c in buttons:
             b = QPushButton(text)
             b.setMinimumHeight(56)
+            b.setObjectName("KeypadButton")
             b.clicked.connect(lambda _=None, t=text: self._press(t))
             grid.addWidget(b, r, c)
 
@@ -52,6 +53,7 @@ class NumKeypad(QDialog):
         for idx, text in enumerate(last_row):
             b = QPushButton(text)
             b.setMinimumHeight(56)
+            b.setObjectName("KeypadButton")
             b.clicked.connect(lambda _=None, t=text: self._press(t))
             grid.addWidget(b, 3, idx)
 
@@ -60,9 +62,12 @@ class NumKeypad(QDialog):
         row = QHBoxLayout()
         ok = QPushButton("OK")
         ok.setMinimumHeight(48)
+        ok.setProperty("role", "primary")
+        ok.setObjectName("KeypadButton")
         ok.clicked.connect(self.accept)
         cancel = QPushButton("Cancelar")
         cancel.setMinimumHeight(48)
+        cancel.setObjectName("KeypadButton")
         cancel.clicked.connect(self.reject)
         row.addWidget(cancel)
         row.addWidget(ok)

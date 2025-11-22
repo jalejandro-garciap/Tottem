@@ -1,15 +1,229 @@
-QWidget { font-size: 17px; }
-QLabel { font-size: 18px; }
+/*
+ * Tema moderno minimalista enfocado en legibilidad y pantallas táctiles
+ * de 7" a 12". Usa colores suaves, alto contraste y controles grandes.
+ */
 
-QPushButton {
-  font-size: 18px;
-  padding: 10px 12px;
-  min-height: 56px;
-  border: 1px solid #444;
-  border-radius: 8px;
-  text-align: center;
+:root {
+    /* No-op, document anchors */
 }
-QPushButton:pressed { background: #e6e6e6; }
 
-QListWidget { font-size: 16px; }
+QWidget {
+    font-family: "Inter", "Segoe UI", sans-serif;
+    font-size: 17px;
+    color: #1f2933;
+    background: #f5f7fb;
+}
 
+QMainWindow, QDialog {
+    background: #f5f7fb;
+}
+
+/* Etiquetas principales */
+QLabel {
+    font-size: 18px;
+    font-weight: 600;
+    color: #1a2027;
+}
+
+QLabel#TotalLabel {
+    font-size: 24px;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+QLabel#SectionTitle {
+    font-size: 20px;
+    font-weight: 700;
+    color: #111827;
+}
+
+/* Contenedores tipo tarjeta */
+#CartPanel, #GridPanel {
+    background: #ffffff;
+    border: 1px solid #d8e2ef;
+    border-radius: 16px;
+    padding: 10px;
+}
+
+#CartPanel {
+    box-shadow: 0 8px 22px rgba(17, 24, 39, 0.08);
+}
+
+/* Campos de texto */
+QLineEdit, QComboBox, QSpinBox, QTextEdit, QPlainTextEdit {
+    font-size: 17px;
+    padding: 12px 14px;
+    border: 1px solid #cfd8e3;
+    border-radius: 10px;
+    background: #ffffff;
+    selection-background-color: #4f8cff;
+}
+
+QLineEdit:focus, QComboBox:focus, QSpinBox:focus,
+QTextEdit:focus, QPlainTextEdit:focus {
+    border: 1px solid #4f8cff;
+    box-shadow: 0 0 0 3px rgba(79, 140, 255, 0.2);
+}
+
+/* Botones */
+QPushButton {
+    font-size: 18px;
+    font-weight: 600;
+    padding: 12px 14px;
+    min-height: 56px;
+    border-radius: 12px;
+    border: 1px solid #d5deeb;
+    background: #ffffff;
+    color: #16202c;
+}
+
+QPushButton:hover {
+    background: #eef2ff;
+    border-color: #c7d2fe;
+}
+
+QPushButton:pressed {
+    background: #e0e7ff;
+}
+
+QPushButton:disabled {
+    color: #98a1b3;
+    background: #f3f4f6;
+    border-color: #e5e7eb;
+}
+
+/* Variantes por rol */
+QPushButton[role="primary"] {
+    background: linear-gradient(135deg, #4f8cff, #6ea8ff);
+    border: 1px solid #4f8cff;
+    color: #ffffff;
+}
+
+QPushButton[role="primary"]:hover {
+    background: linear-gradient(135deg, #467ee6, #6298f2);
+}
+
+QPushButton[role="primary"]:pressed {
+    background: #3f72d6;
+}
+
+QPushButton[role="danger"] {
+    background: #fee2e2;
+    border: 1px solid #fca5a5;
+    color: #b91c1c;
+}
+
+QPushButton[role="danger"]:hover {
+    background: #fecdd3;
+}
+
+QPushButton[role="ghost"] {
+    background: transparent;
+    border-color: transparent;
+    color: #16202c;
+}
+
+QPushButton[role="ghost"]:hover {
+    background: #eef2ff;
+    border-color: #c7d2fe;
+}
+
+/* Listas y tablas */
+QListWidget, QTableWidget, QTreeWidget, QScrollArea QWidget {
+    font-size: 17px;
+}
+
+QListWidget, QTableWidget {
+    background: #ffffff;
+    border: 1px solid #d8e2ef;
+    border-radius: 12px;
+}
+
+QListWidget::item {
+    padding: 14px 12px;
+}
+
+QListWidget::item:selected {
+    background: #e0e7ff;
+    color: #111827;
+}
+
+/* Tabs */
+QTabWidget::pane {
+    border: 1px solid #d8e2ef;
+    border-radius: 12px;
+    padding: 6px;
+    background: #ffffff;
+}
+
+QTabBar::tab {
+    background: #e5e7eb;
+    border: 1px solid #d8e2ef;
+    border-bottom-color: #d8e2ef;
+    min-width: 120px;
+    padding: 10px;
+    margin-right: 6px;
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
+    font-weight: 600;
+}
+
+QTabBar::tab:selected {
+    background: #ffffff;
+    color: #1a202c;
+    border-bottom-color: #ffffff;
+}
+
+/* Scrollbars tactiles */
+QScrollBar:vertical, QScrollBar:horizontal {
+    background: transparent;
+    width: 14px;
+    height: 14px;
+    margin: 4px;
+}
+
+QScrollBar::handle {
+    background: #c7d2fe;
+    border-radius: 7px;
+}
+
+QScrollBar::handle:hover {
+    background: #9fb5ff;
+}
+
+QScrollBar::add-line, QScrollBar::sub-line {
+    height: 0;
+    width: 0;
+}
+
+/* Dialogos */
+QDialog {
+    border-radius: 16px;
+    border: 1px solid #d5deeb;
+}
+
+QMessageBox {
+    background: #ffffff;
+}
+
+/* Teclado en pantalla */
+#KeypadButton {
+    min-height: 64px;
+    font-size: 20px;
+}
+
+/* Titulos secundarios dentro de formularios */
+QGroupBox {
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    margin-top: 12px;
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    left: 12px;
+    padding: 4px 6px;
+    background: #f5f7fb;
+    color: #4b5563;
+    font-weight: 700;
+}
