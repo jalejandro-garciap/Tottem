@@ -1,0 +1,34 @@
+store:
+  name: Mi Tienda
+  rfc: XAXX010101000
+  ticket_header: 'Mi Tienda
+
+    RFC: XAXX010101000
+
+    '
+  ticket_footer: 'Gracias por su compra
+
+    '
+hardware:
+  printer:
+    vendor_id: 1046
+    product_id: 20497
+    interface: 0
+    out_ep: 3
+    in_ep: 129
+ui:
+  font_family: Sans
+  kiosk_fullscreen: true
+  categories_enabled: false
+security:
+  admin_pin_hash: $argon2id$v=19$m=65536,t=3,p=4$Zb2l836daerXuBldZXMeiw$SZhLMlxhGonA4r3wMI/4HGX+tfH+zFlBnUPUGWTf9hQ
+notifications:
+  email:
+    smtp_host: smtp.tu-proveedor.com
+    smtp_port: 587
+    use_tls: true
+    username: pos@tu-dominio.com
+    password: TU_PASSWORD
+    from_addr: pos@tu-dominio.com
+  recent_emails:
+  - admin@tu-dominio.com

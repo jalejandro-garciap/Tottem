@@ -1,0 +1,7 @@
+PySide6
+python-escpos
+pyusb
+pydantic>=2
+typer
+rich
+argon2-cffi

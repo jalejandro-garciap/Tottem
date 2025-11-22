@@ -1,0 +1,58 @@
+# -*- coding: utf-8 -*-
+# services/receipts.py — Renderiza texto de ticket (ESC/POS)
+
+from __future__ import annotations
+from typing import Iterable, Optional
+from pathlib import Path
+import yaml
+from services.sales import CartItem, cents_to_money
+
+ROOT = Path(__file__).resolve().parents[2]
+CONFIG_PATH = ROOT / "config" / "config.yaml"
+
+
+def _load_cfg() -> dict:
+    try:
+        return yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8")) or {}
+    except Exception:
+        return {}
+
+
+def render_ticket(items: Iterable[CartItem], *, paid_cents: Optional[int] = None, change_cents: Optional[int] = None) -> str:
+    """
+    Devuelve un bloque de texto listo para imprimir en ESC/POS.
+    Si se incluyen paid_cents y change_cents, los muestra al final.
+    """
+    cfg = _load_cfg()
+    store = cfg.get("store", {}) or {}
+    head = (store.get("ticket_header") or "").strip()
+    foot = (store.get("ticket_footer") or "").strip()
+
+    out = []
+    if head:
+        out.append(head.rstrip() + "\n")
+    else:
+        out.append("Mi Tienda\n")
+
+    out.append("------------------------------\n")
+    total = 0
+    for it in items:
+        line_name = f"{it.name}".strip()
+        qty_str = f"x{it.qty}"
+        price_str = f"$ {cents_to_money(it.price)}"
+        out.append(f"{qty_str} {line_name}\n   {price_str}\n")
+        total += it.price * it.qty
+
+    out.append("------------------------------\n")
+    out.append(f"TOTAL: $ {cents_to_money(total)}\n")
+
+    if paid_cents is not None:
+        out.append(f"Pago:  $ {cents_to_money(int(paid_cents))}\n")
+    if change_cents is not None:
+        out.append(f"Cambio:$ {cents_to_money(int(change_cents))}\n")
+
+    if foot:
+        out.append("\n" + foot.rstrip() + "\n")
+
+    return "".join(out)
+

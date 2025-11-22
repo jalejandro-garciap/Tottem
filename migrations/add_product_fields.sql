@@ -1,0 +1,8 @@
+BEGIN;
+
+ALTER TABLE product ADD COLUMN unit TEXT DEFAULT 'pz';
+ALTER TABLE product ADD COLUMN allow_decimal INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE product ADD COLUMN category TEXT DEFAULT 'General';
+
+COMMIT;
+

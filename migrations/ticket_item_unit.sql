@@ -1,0 +1,6 @@
+BEGIN;
+
+ALTER TABLE ticket_item ADD COLUMN unit TEXT NOT NULL DEFAULT 'pz';
+
+COMMIT;
+

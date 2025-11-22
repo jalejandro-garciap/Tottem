@@ -1,0 +1,1 @@
+%posadm ALL=(root) NOPASSWD: /usr/sbin/poweroff, /usr/sbin/reboot, /usr/bin/nmcli

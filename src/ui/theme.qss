@@ -1,0 +1,15 @@
+QWidget { font-size: 17px; }
+QLabel { font-size: 18px; }
+
+QPushButton {
+  font-size: 18px;
+  padding: 10px 12px;
+  min-height: 56px;
+  border: 1px solid #444;
+  border-radius: 8px;
+  text-align: center;
+}
+QPushButton:pressed { background: #e6e6e6; }
+
+QListWidget { font-size: 16px; }
+

@@ -1,0 +1,17 @@
+type: object
+required: [store, hardware, ui, security]
+properties:
+store:
+type: object
+required: [name, rfc, ticket_header, ticket_footer]
+hardware:
+type: object
+required: [printer]
+ui:
+type: object
+properties:
+kiosk_fullscreen:
+type: boolean
+security:
+type: object
+required: [admin_pin_hash]

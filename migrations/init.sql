@@ -1,0 +1,34 @@
+BEGIN;
+
+CREATE TABLE IF NOT EXISTS product (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    price INTEGER NOT NULL,
+    active INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE TABLE IF NOT EXISTS ticket (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts TEXT NOT NULL,
+    total INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS ticket_item (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticket_id INTEGER NOT NULL,
+    product_id INTEGER,
+    name TEXT NOT NULL,
+    price INTEGER NOT NULL,
+    quantity INTEGER NOT NULL,
+    FOREIGN KEY(ticket_id) REFERENCES ticket(id),
+    FOREIGN KEY(product_id) REFERENCES product(id)
+);
+
+CREATE TABLE IF NOT EXISTS schema_migration (
+    id INTEGER PRIMARY KEY,
+    name TEXT UNIQUE NOT NULL,
+    applied_at TEXT NOT NULL
+);
+
+COMMIT;
+
