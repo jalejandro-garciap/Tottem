@@ -193,7 +193,7 @@ class POSWindow(QMainWindow):
         self.btn_reprint = QPushButton()
         self.btn_reprint.setIcon(self.style().standardIcon(QStyle.SP_FileIcon))
         self.btn_reprint.setIconSize(QSize(20, 20))
-        self.btn_reprint.setContentsMargins(8, 0, 0, 0)
+        self.btn_reprint.setContentsMargins(28, 0, 0, 0)
         self.btn_reprint.setMinimumHeight(44)
         self.btn_reprint.setProperty("role", "ghost")
         self.btn_reprint.clicked.connect(self._reprint_last)
