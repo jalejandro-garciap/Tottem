@@ -61,6 +61,7 @@ class PaymentDialog(QDialog):
         row3 = QHBoxLayout()
         btn_cancel = QPushButton(i18n.t('cancel') or "Cancelar")
         btn_ok     = QPushButton(i18n.t('charge') or "Cobrar")
+        btn_ok.setProperty("role", "primary")
         btn_cancel.clicked.connect(self.reject)
         btn_ok.clicked.connect(self._try_accept)
         row3.addWidget(btn_cancel)
@@ -129,6 +130,7 @@ class AdminPinDialog(QDialog):
         btn_row = QHBoxLayout()
         btn_cancel = QPushButton(i18n.t("cancel") or "Cancelar")
         btn_ok = QPushButton(i18n.t("ok") or "OK")
+        btn_ok.setProperty("role", "primary")
         btn_cancel.clicked.connect(self.reject)
         btn_ok.clicked.connect(self._on_ok)
         btn_row.addWidget(btn_cancel)
@@ -163,25 +165,30 @@ class POSWindow(QMainWindow):
 
         # Right (cart)
         self.right_wrap = QWidget(); self.right_wrap.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
+        self.right_wrap.setObjectName("CartPanel")
         right = QVBoxLayout(self.right_wrap); right.setContentsMargins(10,10,10,10); right.setSpacing(8)
 
         top_bar = QHBoxLayout()
         self.title_lbl = QLabel(i18n.t("cart"))
         self.title_lbl.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        self.title_lbl.setObjectName("SectionTitle")
 
         self.lang_btn = QPushButton(i18n.t("lang"))
         self.lang_btn.setMinimumHeight(40)
         self.lang_btn.setFixedWidth(64)
+        self.lang_btn.setProperty("role", "ghost")
         self.lang_btn.clicked.connect(self._toggle_lang)
 
         self.btn_reprint = QPushButton(i18n.t("reprint") or "Reimprimir")
         self.btn_reprint.setMinimumHeight(40)
+        self.btn_reprint.setProperty("role", "ghost")
         self.btn_reprint.clicked.connect(self._reprint_last)
 
         # NUEVO: botón Admin
         self.btn_admin = QPushButton(i18n.t("admin") or "Admin")
         self.btn_admin.setMinimumHeight(40)
         self.btn_admin.setFixedWidth(80)
+        self.btn_admin.setProperty("role", "ghost")
         self.btn_admin.clicked.connect(self._go_admin)
 
         top_bar.addWidget(self.title_lbl)
@@ -200,6 +207,8 @@ class POSWindow(QMainWindow):
         self.btn_clear = QPushButton(i18n.t("clear_cart") or "Vaciar")
         for b in (self.btn_minus, self.btn_plus, self.btn_qty, self.btn_remove, self.btn_clear):
             b.setMinimumHeight(44)
+        self.btn_remove.setProperty("role", "danger")
+        self.btn_clear.setProperty("role", "danger")
         self.btn_plus.clicked.connect(self._inc_qty)
         self.btn_minus.clicked.connect(self._dec_qty)
         self.btn_qty.clicked.connect(self._set_qty)
@@ -210,12 +219,14 @@ class POSWindow(QMainWindow):
 
         self.total_label = QLabel(i18n.t("total", amount="{:.2f}".format(0.0)))
         self.total_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        self.total_label.setObjectName("TotalLabel")
         self.total_label.mousePressEvent = lambda ev: self.charge()
 
         btn_row = QHBoxLayout()
         self.btn_charge = QPushButton(i18n.t("pay_print"))
         self.btn_charge.setMinimumHeight(56)
         self.btn_charge.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.btn_charge.setProperty("role", "primary")
         self.btn_charge.clicked.connect(self.charge)
         btn_row.addWidget(self.btn_charge)
 
@@ -227,7 +238,10 @@ class POSWindow(QMainWindow):
         self.products_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff); self.products_area.setWidgetResizable(True)
 
         products_panel = QWidget()
-        self.grid_wrap = QVBoxLayout(products_panel); self.grid_wrap.setContentsMargins(10,10,10,10); self.grid_wrap.setSpacing(8)
+        products_panel.setObjectName("GridPanel")
+        self.grid_wrap = QVBoxLayout(products_panel)
+        self.grid_wrap.setContentsMargins(10, 10, 10, 10)
+        self.grid_wrap.setSpacing(8)
 
         head = QHBoxLayout()
         self.btn_back = QPushButton("← " + (i18n.t("back") or "Atrás"))
@@ -235,6 +249,7 @@ class POSWindow(QMainWindow):
         self.btn_back.clicked.connect(self._back_to_categories)
         self.lbl_grid_title = QLabel(i18n.t("categories") or "Categorías")
         self.lbl_grid_title.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        self.lbl_grid_title.setObjectName("SectionTitle")
         head.addWidget(self.btn_back)
         head.addStretch(1)
         head.addWidget(self.lbl_grid_title)
