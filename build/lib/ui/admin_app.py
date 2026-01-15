@@ -10,10 +10,10 @@ from ui.widgets.admin_window import AdminWindow
 
 def run():
 
-    #os.environ["QT_QPA_PLATFORM"] = "linuxfb"
+    os.environ["QT_QPA_PLATFORM"] = "linuxfb"
 
-    #os.environ["QT_QPA_FB_HIDPI"] = "1"
-    #os.environ["QT_QPA_EVDEV_TOUCHSCREEN_PARAMETERS"] = "/dev/input/event0"
+    os.environ["QT_QPA_FB_HIDPI"] = "1"
+    os.environ["QT_QPA_EVDEV_TOUCHSCREEN_PARAMETERS"] = "/dev/input/event0"
 
     app = QApplication(sys.argv)
 

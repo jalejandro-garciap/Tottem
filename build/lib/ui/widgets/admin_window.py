@@ -235,40 +235,25 @@ class _OskFocusFilter(QObject):
 
 
 class ProductDialog(QDialog):
-    """Premium Product Editor"""
+    """Diálogo de producto con soporte de categoría y venta parcial."""
 
     def __init__(self, parent=None, *, product: dict | None = None):
         super().__init__(parent)
         self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
         self.setModal(True)
-        self.setMinimumWidth(480)
-
+        
         root = QVBoxLayout(self)
-        root.setContentsMargins(40, 40, 40, 40)
-        root.setSpacing(28)
+        root.setContentsMargins(32, 32, 32, 32)
+        root.setSpacing(24)
 
-        # Header
-        icon = QLabel("📦")
-        icon.setAlignment(Qt.AlignCenter)
-        icon.setStyleSheet("font-size: 40px;")
-
-        title = QLabel("PRODUCTO")
+        title = QLabel(i18n.t("tab_products") or "Producto")
+        title.setObjectName("SectionTitle")
         title.setAlignment(Qt.AlignCenter)
-        title.setStyleSheet("""
-            font-size: 12px;
-            font-weight: 700;
-            letter-spacing: 3px;
-            color: #64748b;
-        """)
-
-        root.addWidget(icon)
         root.addWidget(title)
 
-        # Form
         form = QFormLayout()
         form.setSpacing(16)
         form.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        form.setFormAlignment(Qt.AlignCenter)
 
         self.ed_name = QLineEdit(product["name"] if product else "")
         self.ed_price = QLineEdit(cents_to_money(product["price"]) if product else "")
@@ -283,28 +268,26 @@ class ProductDialog(QDialog):
         self.cb_partial.setChecked(bool(product.get("allow_decimal")) if product else False)
 
         for ed in (self.ed_name, self.ed_price, self.ed_unit, self.ed_category):
-            ed.setMinimumHeight(56)
+            ed.setMinimumHeight(52)
 
         form.addRow(i18n.t("prod_name"), self.ed_name)
         form.addRow(i18n.t("prod_price"), self.ed_price)
         form.addRow(i18n.t("prod_unit"), self.ed_unit)
         form.addRow(i18n.t("category") or "Categoría", self.ed_category)
-
+        
         checks = QHBoxLayout()
-        checks.setSpacing(24)
         checks.addWidget(self.cb_active)
         checks.addWidget(self.cb_partial)
         form.addRow(checks)
 
         root.addLayout(form)
 
-        # Actions
         row = QHBoxLayout()
-        row.setSpacing(16)
-        btn_cancel = QPushButton("Cancelar")
-        btn_cancel.setMinimumHeight(60)
-        btn_ok = QPushButton("→  Guardar")
-        btn_ok.setMinimumHeight(60)
+        row.setSpacing(12)
+        btn_cancel = QPushButton(i18n.t("cancel") or "Cancelar")
+        btn_cancel.setMinimumHeight(56)
+        btn_ok = QPushButton(i18n.t("ok") or "OK")
+        btn_ok.setMinimumHeight(56)
         btn_ok.setProperty("role", "primary")
         btn_cancel.clicked.connect(self.reject)
         btn_ok.clicked.connect(self.accept)
@@ -312,7 +295,7 @@ class ProductDialog(QDialog):
         row.addWidget(btn_ok)
         root.addLayout(row)
 
-        # OSK
+        # OSK en los campos del diálogo
         self._osk_filter = _OskFocusFilter(self)
         for w in (self.ed_name, self.ed_price, self.ed_unit, self.ed_category):
             w.installEventFilter(self._osk_filter)
@@ -340,36 +323,22 @@ class ProductDialog(QDialog):
 
 
 class EmployeeDialog(QDialog):
-    """Premium Employee Editor"""
+    """Diálogo para alta/edición de empleados."""
 
     def __init__(self, parent=None, *, employee: dict | None = None):
         super().__init__(parent)
         self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
         self.setModal(True)
-        self.setMinimumWidth(480)
-
+        
         root = QVBoxLayout(self)
-        root.setContentsMargins(40, 40, 40, 40)
-        root.setSpacing(28)
+        root.setContentsMargins(32, 32, 32, 32)
+        root.setSpacing(24)
 
-        # Header
-        icon = QLabel("👤")
-        icon.setAlignment(Qt.AlignCenter)
-        icon.setStyleSheet("font-size: 40px;")
-
-        title = QLabel("EMPLEADO")
+        title = QLabel(i18n.t("employees_title") or "Empleado")
+        title.setObjectName("SectionTitle")
         title.setAlignment(Qt.AlignCenter)
-        title.setStyleSheet("""
-            font-size: 12px;
-            font-weight: 700;
-            letter-spacing: 3px;
-            color: #64748b;
-        """)
-
-        root.addWidget(icon)
         root.addWidget(title)
 
-        # Form
         form = QFormLayout()
         form.setSpacing(16)
         form.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
@@ -381,7 +350,7 @@ class EmployeeDialog(QDialog):
         self.cb_active.setChecked(bool(employee.get("active", 1)) if employee else True)
 
         for ed in (self.ed_emp_no, self.ed_full_name, self.ed_phone):
-            ed.setMinimumHeight(56)
+            ed.setMinimumHeight(52)
 
         form.addRow(i18n.t("emp_no") or "No. empleado", self.ed_emp_no)
         form.addRow(i18n.t("emp_name") or "Nombre completo", self.ed_full_name)
@@ -390,13 +359,12 @@ class EmployeeDialog(QDialog):
 
         root.addLayout(form)
 
-        # Actions
         row = QHBoxLayout()
-        row.setSpacing(16)
-        btn_cancel = QPushButton("Cancelar")
-        btn_cancel.setMinimumHeight(60)
-        btn_ok = QPushButton("→  Guardar")
-        btn_ok.setMinimumHeight(60)
+        row.setSpacing(12)
+        btn_cancel = QPushButton(i18n.t("cancel") or "Cancelar")
+        btn_cancel.setMinimumHeight(56)
+        btn_ok = QPushButton(i18n.t("ok") or "OK")
+        btn_ok.setMinimumHeight(56)
         btn_ok.setProperty("role", "primary")
         btn_cancel.clicked.connect(self.reject)
         btn_ok.clicked.connect(self.accept)
@@ -404,7 +372,7 @@ class EmployeeDialog(QDialog):
         row.addWidget(btn_ok)
         root.addLayout(row)
 
-        # OSK
+        # OSK en campos de texto
         self._osk_filter = _OskFocusFilter(self)
         for w in (self.ed_emp_no, self.ed_full_name, self.ed_phone):
             w.installEventFilter(self._osk_filter)
@@ -429,68 +397,53 @@ class EmployeeDialog(QDialog):
 
 
 class AdminWindow(QMainWindow):
-    """Premium Administration Interface"""
-    
     def __init__(self):
         super().__init__()
         self.setWindowFlag(Qt.FramelessWindowHint, True)
         self.setWindowTitle(i18n.t("admin_title"))
-        self._osk_guard = False
-        self._osk_filter = _OskFocusFilter(self)
+        self._osk_guard = False  # evita reentrancia del OSK
+        self._osk_filter = _OskFocusFilter(self)  # <-- crear ANTES de addTab
 
-        # ─── Header Bar ───────────────────────────────────────────────────
         top_wrap = QWidget()
-        top_wrap.setStyleSheet("background: transparent;")
         top = QHBoxLayout(top_wrap)
-        top.setContentsMargins(24, 20, 24, 16)
+        top.setContentsMargins(16, 16, 16, 8)
         top.setSpacing(16)
-
-        title_lbl = QLabel("⚙  " + (i18n.t("admin_title") or "Administración"))
+        
+        title_lbl = QLabel(i18n.t("admin_title") or "Administración")
         title_lbl.setObjectName("SectionTitle")
-        title_lbl.setStyleSheet("""
-            font-size: 26px;
-            font-weight: 700;
-            color: #f8fafc;
-        """)
-
+        title_lbl.setStyleSheet("font-size: 24px;")
+        
         self.lang_btn = QPushButton(i18n.t("lang"))
-        self.lang_btn.setMinimumSize(72, 48)
+        self.lang_btn.setFixedWidth(80)
+        self.lang_btn.setMinimumHeight(52)
         self.lang_btn.setProperty("role", "ghost")
         self.lang_btn.clicked.connect(self._toggle_lang)
-
-        btn_close = QPushButton("←  " + (i18n.t("exit") or "Salir"))
+        
+        btn_close = QPushButton(i18n.t("exit"))
         btn_close.setMinimumHeight(52)
         btn_close.setProperty("role", "danger")
-        btn_close.setStyleSheet("""
-            QPushButton {
-                padding-left: 20px;
-                padding-right: 20px;
-            }
-        """)
         btn_close.clicked.connect(self._exit_to_kiosk)
-
+        
         top.addWidget(title_lbl)
         top.addStretch(1)
         top.addWidget(self.lang_btn)
         top.addWidget(btn_close)
 
-        # ─── Tab Widget ───────────────────────────────────────────────────
         self.tabs = QTabWidget()
         self.tabs.setObjectName("AdminTabs")
-        self.tabs.addTab(self._tab_security(), "🔐  " + i18n.t("tab_security"))
-        self.tabs.addTab(self._tab_devices(), "🖨  " + i18n.t("tab_devices"))
-        self.tabs.addTab(self._tab_store(), "🏪  " + i18n.t("tab_store"))
-        self.tabs.addTab(self._tab_products(), "📦  " + i18n.t("tab_products"))
-        self.tabs.addTab(self._tab_shifts(), "📊  " + (i18n.t("tab_shifts") or "Turnos"))
-        self.tabs.addTab(self._tab_reports(), "📈  " + i18n.t("tab_reports"))
-        self.tabs.addTab(self._tab_system(), "💻  " + i18n.t("tab_system"))
+        self.tabs.addTab(self._tab_security(), i18n.t("tab_security"))
+        self.tabs.addTab(self._tab_devices(), i18n.t("tab_devices"))
+        self.tabs.addTab(self._tab_store(), i18n.t("tab_store"))
+        self.tabs.addTab(self._tab_products(), i18n.t("tab_products"))
+        self.tabs.addTab(self._tab_shifts(), i18n.t("tab_shifts") or "Turnos")
+        self.tabs.addTab(self._tab_reports(), i18n.t("tab_reports"))
+        self.tabs.addTab(self._tab_system(), i18n.t("tab_system"))
 
-        # ─── Main Container ───────────────────────────────────────────────
         wrap = QWidget()
-        wrap.setObjectName("GridPanel")
+        wrap.setObjectName("GridPanel") # Reuse GridPanel style for background
         lay = QVBoxLayout(wrap)
-        lay.setContentsMargins(16, 16, 16, 16)
-        lay.setSpacing(16)
+        lay.setContentsMargins(12, 12, 12, 12)
+        lay.setSpacing(12)
         lay.addWidget(top_wrap)
         lay.addWidget(self.tabs)
         self.setCentralWidget(wrap)

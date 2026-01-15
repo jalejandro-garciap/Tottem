@@ -1,11 +1,11 @@
-# -*- coding: utf-8 -*-
-# ui/widgets/osk.py — Simple on-screen keyboard dialog for kiosk usage.
-# Spanish labels for user-facing buttons; code/comments in English.
-
+"""
+TOTTEM POS · On-Screen Keyboard
+Premium Text Input Experience
+"""
 from __future__ import annotations
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QGridLayout, QPushButton,
-    QLineEdit, QSizePolicy, QWidget, QLabel
+    QLineEdit, QSizePolicy, QWidget, QLabel, QFrame
 )
 from PySide6.QtCore import Qt, QSize
 
@@ -14,19 +14,23 @@ KEY_ROWS_LOWER = [
     list("asdfghjkl"),
     list("zxcvbnm"),
 ]
-KEY_ROWS_UPPER = [ [c.upper() for c in row] for row in KEY_ROWS_LOWER ]
+KEY_ROWS_UPPER = [[c.upper() for c in row] for row in KEY_ROWS_LOWER]
 
 KEY_NUMBERS = list("1234567890")
 KEY_SYMBOLS = ["@", ".", "_", "-", "+", "/", "\\", ":", ";", ",", "!", "?"]
 
+
 class OnScreenKeyboard(QDialog):
     """
-    Modal keyboard:
+    Premium on-screen keyboard with elegant design.
+    
+    Features:
       - Toggle lower/upper with Shift
       - Toggle symbols/numbers
       - Backspace, Clear, Space, OK/Cancel
-      - Optional password mode (echo as Password)
+      - Optional password mode
     """
+
     def __init__(self, title: str = "Teclado", initial_text: str = "",
                  password_mode: bool = False, parent: QWidget | None = None):
         super().__init__(parent)
@@ -36,51 +40,99 @@ class OnScreenKeyboard(QDialog):
         self._symbols = False
 
         root = QVBoxLayout(self)
-        root.setContentsMargins(10, 10, 10, 10)
-        root.setSpacing(8)
+        root.setContentsMargins(28, 28, 28, 28)
+        root.setSpacing(16)
 
-        # Title
-        top = QHBoxLayout()
-        lbl = QLabel(title)
+        # ─── Header ───────────────────────────────────────────────────────
+        header = QHBoxLayout()
+        lbl = QLabel(title.upper())
         lbl.setAlignment(Qt.AlignCenter)
-        top.addWidget(lbl)
-        root.addLayout(top)
+        lbl.setStyleSheet("""
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 3px;
+            color: #64748b;
+        """)
+        header.addWidget(lbl)
+        root.addLayout(header)
 
-        # Line edit
+        # ─── Input Display ────────────────────────────────────────────────
+        display_frame = QFrame()
+        display_frame.setStyleSheet("""
+            QFrame {
+                background: #16161e;
+                border-radius: 16px;
+            }
+        """)
+        display_layout = QVBoxLayout(display_frame)
+        display_layout.setContentsMargins(20, 16, 20, 16)
+
         self.ed = QLineEdit(initial_text)
         if password_mode:
             self.ed.setEchoMode(QLineEdit.Password)
-        self.ed.setMinimumHeight(44)
-        root.addWidget(self.ed)
+        self.ed.setStyleSheet("""
+            QLineEdit {
+                font-size: 28px;
+                font-weight: 600;
+                color: #f8fafc;
+                background: transparent;
+                border: none;
+                padding: 8px 0;
+            }
+        """)
+        self.ed.setPlaceholderText("Escriba aquí...")
+        display_layout.addWidget(self.ed)
+        root.addWidget(display_frame)
 
-        # Key area
+        # ─── Key Grid ─────────────────────────────────────────────────────
         self.grid = QGridLayout()
-        self.grid.setSpacing(6)
+        self.grid.setSpacing(8)
         root.addLayout(self.grid)
 
-        # Bottom actions
-        actions = QHBoxLayout()
-        self.btn_shift = QPushButton("Shift")
-        self.btn_nums  = QPushButton("123 / !@#")
-        self.btn_space = QPushButton("Espacio")
-        self.btn_clear = QPushButton("Limpiar")
-        self.btn_bsp   = QPushButton("←")
-        self.btn_cancel= QPushButton("Cancelar")
-        self.btn_ok    = QPushButton("OK")
-        for b in (self.btn_shift, self.btn_nums, self.btn_space, self.btn_clear, self.btn_bsp, self.btn_cancel, self.btn_ok):
-            b.setMinimumHeight(44)
+        # ─── Control Row ──────────────────────────────────────────────────
+        controls = QHBoxLayout()
+        controls.setSpacing(8)
+
+        self.btn_shift = QPushButton("⇧")
+        self.btn_shift.setToolTip("Shift")
+        self.btn_nums = QPushButton("123")
+        self.btn_space = QPushButton("━━━━━━━━")
+        self.btn_space.setToolTip("Espacio")
+        self.btn_bsp = QPushButton("⌫")
+        self.btn_bsp.setToolTip("Borrar")
+        self.btn_clear = QPushButton("✕")
+        self.btn_clear.setToolTip("Limpiar")
+        self.btn_clear.setProperty("role", "danger")
+
+        for b in (self.btn_shift, self.btn_nums, self.btn_space, self.btn_bsp, self.btn_clear):
+            b.setMinimumHeight(56)
             b.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
-        actions.addWidget(self.btn_shift)
-        actions.addWidget(self.btn_nums)
-        actions.addWidget(self.btn_space, 2)
-        actions.addWidget(self.btn_clear)
-        actions.addWidget(self.btn_bsp)
+        self.btn_space.setMinimumWidth(200)
+
+        controls.addWidget(self.btn_shift)
+        controls.addWidget(self.btn_nums)
+        controls.addWidget(self.btn_space, 3)
+        controls.addWidget(self.btn_bsp)
+        controls.addWidget(self.btn_clear)
+        root.addLayout(controls)
+
+        # ─── Action Buttons ───────────────────────────────────────────────
+        actions = QHBoxLayout()
+        actions.setSpacing(12)
+
+        self.btn_cancel = QPushButton("Cancelar")
+        self.btn_cancel.setMinimumHeight(60)
+
+        self.btn_ok = QPushButton("→  Aceptar")
+        self.btn_ok.setMinimumHeight(60)
+        self.btn_ok.setProperty("role", "primary")
+
         actions.addWidget(self.btn_cancel)
         actions.addWidget(self.btn_ok)
         root.addLayout(actions)
 
-        # Connections
+        # ─── Connections ──────────────────────────────────────────────────
         self.btn_shift.clicked.connect(self._toggle_shift)
         self.btn_nums.clicked.connect(self._toggle_symbols)
         self.btn_space.clicked.connect(lambda: self._append(" "))
@@ -90,30 +142,6 @@ class OnScreenKeyboard(QDialog):
         self.btn_ok.clicked.connect(self.accept)
 
         self._rebuild_keys()
-
-    # --- Public API
-    def text(self) -> str:
-        return self.ed.text()
-
-    # --- Internal
-    def _toggle_shift(self):
-        self._shift = not self._shift
-        self._rebuild_keys()
-
-    def _toggle_symbols(self):
-        self._symbols = not self._symbols
-        self._rebuild_keys()
-
-    def _append(self, ch: str):
-        self.ed.insert(ch)
-
-    def _backspace(self):
-        txt = self.ed.text()
-        if txt:
-            self.ed.setText(txt[:-1])
-
-    def _clear(self):
-        self.ed.clear()
 
     def _rebuild_keys(self):
         # Clear existing buttons
@@ -133,8 +161,50 @@ class OnScreenKeyboard(QDialog):
         for r, row in enumerate(rows):
             for c, ch in enumerate(row):
                 btn = QPushButton(ch)
-                btn.setMinimumSize(QSize(52, 52))
+                btn.setMinimumSize(QSize(56, 56))
                 btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
                 btn.clicked.connect(lambda _=None, s=ch: self._append(s))
+                btn.setObjectName("KeypadButton")
                 self.grid.addWidget(btn, r, c)
 
+        # Update shift button style
+        if self._shift:
+            self.btn_shift.setProperty("role", "primary")
+        else:
+            self.btn_shift.setProperty("role", "")
+        self.btn_shift.style().unpolish(self.btn_shift)
+        self.btn_shift.style().polish(self.btn_shift)
+
+        # Update numbers button style
+        if self._symbols:
+            self.btn_nums.setProperty("role", "primary")
+            self.btn_nums.setText("ABC")
+        else:
+            self.btn_nums.setProperty("role", "")
+            self.btn_nums.setText("123")
+        self.btn_nums.style().unpolish(self.btn_nums)
+        self.btn_nums.style().polish(self.btn_nums)
+
+    # ─── Public API ───────────────────────────────────────────────────────
+    def text(self) -> str:
+        return self.ed.text()
+
+    # ─── Internal ─────────────────────────────────────────────────────────
+    def _toggle_shift(self):
+        self._shift = not self._shift
+        self._rebuild_keys()
+
+    def _toggle_symbols(self):
+        self._symbols = not self._symbols
+        self._rebuild_keys()
+
+    def _append(self, ch: str):
+        self.ed.insert(ch)
+
+    def _backspace(self):
+        txt = self.ed.text()
+        if txt:
+            self.ed.setText(txt[:-1])
+
+    def _clear(self):
+        self.ed.clear()

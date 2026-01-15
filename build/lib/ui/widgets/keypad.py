@@ -1,22 +1,16 @@
-"""
-TOTTEM POS · Numeric Keypad
-Premium Touch Input Experience
-"""
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QGridLayout, QPushButton, QLineEdit, QHBoxLayout, QLabel, QFrame
+    QDialog, QVBoxLayout, QGridLayout, QPushButton, QLineEdit, QHBoxLayout
 )
 from PySide6.QtCore import Qt
 
 
 class NumKeypad(QDialog):
     """
-    Premium numeric keypad with elegant design.
-    Supports integers or decimals.
-    
+    Modal numeric keypad that supports integers or decimals.
     Usage:
         dlg = NumKeypad(title="Cantidad", allow_decimal=True)
         if dlg.exec() == QDialog.Accepted:
-            value = dlg.value_float()
+            value = dlg.value_float()  # use this; caller clamps range if needed
     """
 
     def __init__(self, title: str = "Cantidad", allow_decimal: bool = True):
@@ -24,57 +18,28 @@ class NumKeypad(QDialog):
         self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
         self.setModal(True)
         self.setWindowTitle(title)
-        self.setMinimumWidth(380)
         self.allow_decimal = bool(allow_decimal)
 
         root = QVBoxLayout(self)
-        root.setContentsMargins(32, 32, 32, 32)
-        root.setSpacing(24)
+        root.setContentsMargins(24, 24, 24, 24)
+        root.setSpacing(20)
 
-        # ─── Header ───────────────────────────────────────────────────────
-        title_lbl = QLabel(title.upper())
+        title_lbl = QLabel(title)
+        title_lbl.setObjectName("SectionTitle")
         title_lbl.setAlignment(Qt.AlignCenter)
-        title_lbl.setStyleSheet("""
-            font-size: 12px;
-            font-weight: 700;
-            letter-spacing: 3px;
-            color: #64748b;
-        """)
         root.addWidget(title_lbl)
-
-        # ─── Display ──────────────────────────────────────────────────────
-        display_frame = QFrame()
-        display_frame.setStyleSheet("""
-            QFrame {
-                background: #16161e;
-                border-radius: 18px;
-            }
-        """)
-        display_layout = QVBoxLayout(display_frame)
-        display_layout.setContentsMargins(24, 20, 24, 20)
 
         self.edit = QLineEdit()
         self.edit.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         self.edit.setReadOnly(True)
-        self.edit.setStyleSheet("""
-            QLineEdit {
-                font-size: 48px;
-                font-weight: 700;
-                color: #f8fafc;
-                background: transparent;
-                border: none;
-                padding: 8px 0;
-            }
-        """)
-        self.edit.setPlaceholderText("0")
-        display_layout.addWidget(self.edit)
-        root.addWidget(display_frame)
+        self.edit.setMinimumHeight(64)
+        self.edit.setStyleSheet("font-size: 32px; font-weight: 700; color: #1e293b;")
+        root.addWidget(self.edit)
 
-        # ─── Keypad Grid ──────────────────────────────────────────────────
         grid = QGridLayout()
         grid.setSpacing(12)
 
-        # Number buttons 1-9
+        # First three rows: 1..9
         buttons = [
             ("7", 0, 0), ("8", 0, 1), ("9", 0, 2),
             ("4", 1, 0), ("5", 1, 1), ("6", 1, 2),
@@ -86,7 +51,7 @@ class NumKeypad(QDialog):
             b.clicked.connect(lambda _=None, t=text: self._press(t))
             grid.addWidget(b, r, c)
 
-        # Bottom row
+        # Last row: C, 0, (.) if decimals enabled
         b_clear = QPushButton("C")
         b_clear.setObjectName("KeypadButton")
         b_clear.setProperty("role", "danger")
@@ -99,36 +64,29 @@ class NumKeypad(QDialog):
         grid.addWidget(b_zero, 3, 1)
 
         if self.allow_decimal:
-            b_dot = QPushButton("•")
+            b_dot = QPushButton(".")
             b_dot.setObjectName("KeypadButton")
             b_dot.clicked.connect(lambda: self._press("."))
             grid.addWidget(b_dot, 3, 2)
         else:
-            # Backspace button when no decimal
-            b_back = QPushButton("⌫")
-            b_back.setObjectName("KeypadButton")
-            b_back.clicked.connect(self._backspace)
-            grid.addWidget(b_back, 3, 2)
+            grid.setColumnStretch(2, 1)
 
         root.addLayout(grid)
 
-        # ─── Action Buttons ───────────────────────────────────────────────
         row = QHBoxLayout()
         row.setSpacing(12)
-
-        cancel = QPushButton("Cancelar")
-        cancel.setMinimumHeight(64)
-        cancel.clicked.connect(self.reject)
-
-        ok = QPushButton("→  Aceptar")
+        ok = QPushButton("OK")
         ok.setMinimumHeight(64)
         ok.setProperty("role", "primary")
         ok.clicked.connect(self.accept)
-
+        cancel = QPushButton("Cancelar")
+        cancel.setMinimumHeight(64)
+        cancel.clicked.connect(self.reject)
         row.addWidget(cancel)
         row.addWidget(ok)
         root.addLayout(row)
 
+    # ---- input handling
     def _press(self, t: str):
         s = self.edit.text()
         if t == "C":
@@ -138,7 +96,7 @@ class NumKeypad(QDialog):
             if not self.allow_decimal:
                 return
             if "." in s:
-                return
+                return  # only one dot
             if not s:
                 self.edit.setText("0.")
             else:
@@ -148,11 +106,7 @@ class NumKeypad(QDialog):
         if len(s) < 12:
             self.edit.setText(s + t)
 
-    def _backspace(self):
-        s = self.edit.text()
-        if s:
-            self.edit.setText(s[:-1])
-
+    # ---- value accessors
     def value_float(self) -> float:
         s = (self.edit.text() or "").strip()
         if not s or s == ".":
@@ -161,3 +115,4 @@ class NumKeypad(QDialog):
             return float(s)
         except ValueError:
             return 0.0
+
