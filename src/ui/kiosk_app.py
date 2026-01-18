@@ -9,9 +9,11 @@ from ui.widgets.kiosk_window import POSWindow
 
 
 def run():
-    #os.environ["QT_QPA_PLATFORM"] = "linuxfb"
-    #os.environ.setdefault("QT_QPA_FB_FORCE_FULLSCREEN", "1")
-    #os.environ.setdefault("QT_LOGGING_RULES", "qt.qpa.input=false;qt.qpa.input.devices=false;qt.qpa.evdev=false;qt.qpa.evdev.touch=false")
+    # Configuración del framebuffer para Raspberry Pi OS Lite
+    # Estas variables se configuran aquí como fallback si no están en el entorno
+    os.environ.setdefault("QT_QPA_PLATFORM", "linuxfb")
+    os.environ.setdefault("QT_QPA_FB_FORCE_FULLSCREEN", "1")
+    os.environ.setdefault("QT_LOGGING_RULES", "qt.qpa.input=false;qt.qpa.input.devices=false;qt.qpa.evdev=false;qt.qpa.evdev.touch=false")
 
     QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
     QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)

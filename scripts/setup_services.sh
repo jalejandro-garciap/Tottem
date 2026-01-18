@@ -37,7 +37,8 @@ log_error() {
 # Verificaciones iniciales
 # ─────────────────────────────────────────────────────────────────────────────
 
-if [ "$EUID" -ne 0 ]; then
+# Verificar si somos root (compatible con sh y bash)
+if [ "$(id -u)" -ne 0 ]; then
     log_error "Este script debe ejecutarse con sudo."
     log_error "Uso: sudo bash scripts/setup_services.sh"
     exit 1

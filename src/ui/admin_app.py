@@ -9,11 +9,10 @@ from ui.widgets.admin_window import AdminWindow
 
 
 def run():
-
-    #os.environ["QT_QPA_PLATFORM"] = "linuxfb"
-
-    #os.environ["QT_QPA_FB_HIDPI"] = "1"
-    #os.environ["QT_QPA_EVDEV_TOUCHSCREEN_PARAMETERS"] = "/dev/input/event0"
+    # Configuración del framebuffer para Raspberry Pi OS Lite
+    os.environ.setdefault("QT_QPA_PLATFORM", "linuxfb")
+    os.environ.setdefault("QT_QPA_FB_FORCE_FULLSCREEN", "1")
+    os.environ.setdefault("QT_LOGGING_RULES", "qt.qpa.input=false;qt.qpa.input.devices=false")
 
     app = QApplication(sys.argv)
 

@@ -72,11 +72,12 @@ sudo apt install -y \
     pkg-config
 
 # Librerías para Qt6/PySide6 en framebuffer
+# Nota: Algunos paquetes tienen sufijo t64 en Debian 13+ / RPi OS Bookworm
 sudo apt install -y \
     libxcb-cursor0 \
     libxkbcommon0 \
-    libinput10 \
-    libmtdev1 \
+    libinput10 || sudo apt install -y libinput-dev \
+    libmtdev1t64 || sudo apt install -y libmtdev1 || true \
     libudev1 \
     libxcb-xinerama0 \
     libxcb-xfixes0 \
@@ -91,13 +92,20 @@ sudo apt install -y \
     libxcb-sync1 \
     libxcb-xkb1 \
     libxkbcommon-x11-0 \
-    libgl1-mesa-dri \
-    libgl1-mesa-glx \
-    libegl1-mesa \
-    libgles2-mesa \
     libfontconfig1 \
     libfreetype6 \
     libdbus-1-3
+
+# Librerías OpenGL/EGL (nombres actualizados para Debian 12+/Bookworm)
+sudo apt install -y \
+    libegl1 \
+    libgles2 \
+    libgl1 \
+    libglx-mesa0 \
+    libopengl0 \
+    libglvnd0 \
+    libdrm2 \
+    libgbm1 || true
 
 # Para acceso a USB (impresoras ESC/POS)
 sudo apt install -y \
@@ -178,17 +186,33 @@ log_success "Permisos USB configurados."
 
 log_info "Inicializando base de datos..."
 
-# Ejecutar migraciones SQL
-if [ -d "migrations" ]; then
-    for sql_file in migrations/*.sql; do
-        if [ -f "$sql_file" ]; then
-            log_info "Aplicando: $(basename $sql_file)"
-            sqlite3 data.db < "$sql_file" 2>/dev/null || true
-        fi
-    done
+# Instalar sqlite3 si no está disponible
+if ! command -v sqlite3 &> /dev/null; then
+    log_info "Instalando sqlite3..."
+    sudo apt install -y sqlite3
 fi
 
-log_success "Base de datos inicializada."
+# Ejecutar migraciones SQL en orden
+if [ -d "migrations" ]; then
+    for sql_file in $(ls migrations/*.sql 2>/dev/null | sort); do
+        if [ -f "$sql_file" ]; then
+            log_info "Aplicando: $(basename $sql_file)"
+            sqlite3 data.db < "$sql_file" || log_warning "Migración ya aplicada o error: $(basename $sql_file)"
+        fi
+    done
+else
+    log_warning "Directorio migrations/ no encontrado"
+fi
+
+# Verificar que las tablas existen
+TABLES=$(sqlite3 data.db ".tables" 2>/dev/null || echo "")
+if echo "$TABLES" | grep -q "product"; then
+    log_success "Base de datos inicializada correctamente."
+    log_info "Tablas: $TABLES"
+else
+    log_error "ERROR: Las tablas no se crearon correctamente."
+    log_error "Ejecuta manualmente: for f in migrations/*.sql; do sqlite3 data.db < \"\$f\"; done"
+fi
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 8. Crear directorios necesarios
