@@ -428,6 +428,140 @@ class EmployeeDialog(QDialog):
         }
 
 
+class ShiftCloseDialog(QDialog):
+    """Dialog for closing shift with cash count"""
+
+    def __init__(self, parent=None, shift_info: dict | None = None):
+        super().__init__(parent)
+        self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
+        self.setModal(True)
+        self.setMinimumWidth(500)
+        
+        self.shift_info = shift_info or {}
+
+        root = QVBoxLayout(self)
+        root.setContentsMargins(40, 40, 40, 40)
+        root.setSpacing(24)
+
+        # Header
+        icon = QLabel("📊")
+        icon.setAlignment(Qt.AlignCenter)
+        icon.setStyleSheet("font-size: 48px;")
+
+        title = QLabel("CORTE DE CAJA")
+        title.setAlignment(Qt.AlignCenter)
+        title.setStyleSheet("""
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 3px;
+            color: #64748b;
+        """)
+
+        root.addWidget(icon)
+        root.addWidget(title)
+
+        # Info del turno
+        if shift_info:
+            sums = shift_totals(shift_info.get("id", 0))
+            opening = shift_info.get("opening_cash", 0)
+            expected = opening + sums.get("total", 0)
+            
+            info_frame = QFrame()
+            info_frame.setStyleSheet("""
+                QFrame {
+                    background: #16161e;
+                    border-radius: 16px;
+                    padding: 16px;
+                }
+            """)
+            info_layout = QVBoxLayout(info_frame)
+            info_layout.setSpacing(8)
+
+            info_layout.addWidget(QLabel(f"Turno #{shift_info.get('id', '?')}"))
+            info_layout.addWidget(QLabel(f"Ventas: {sums.get('tickets', 0)} tickets"))
+            info_layout.addWidget(QLabel(f"Total ventas: ${cents_to_money(sums.get('total', 0))}"))
+            
+            expected_lbl = QLabel(f"Efectivo esperado: ${cents_to_money(expected)}")
+            expected_lbl.setStyleSheet("font-size: 18px; font-weight: 700; color: #10b981;")
+            info_layout.addWidget(expected_lbl)
+            
+            root.addWidget(info_frame)
+            self._expected = expected
+        else:
+            self._expected = 0
+
+        # Form
+        form = QFormLayout()
+        form.setSpacing(16)
+        form.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
+
+        self.ed_cash = QLineEdit()
+        self.ed_cash.setMinimumHeight(64)
+        self.ed_cash.setPlaceholderText("0.00")
+        self.ed_cash.setStyleSheet("""
+            QLineEdit {
+                font-size: 28px;
+                font-weight: 700;
+                text-align: right;
+            }
+        """)
+
+        self.ed_closed_by = QLineEdit()
+        self.ed_closed_by.setMinimumHeight(56)
+        self.ed_closed_by.setPlaceholderText("Nombre del cajero")
+
+        form.addRow("Efectivo en caja $:", self.ed_cash)
+        form.addRow("Cerrado por:", self.ed_closed_by)
+
+        root.addLayout(form)
+
+        # Actions
+        row = QHBoxLayout()
+        row.setSpacing(16)
+
+        btn_cancel = QPushButton("Cancelar")
+        btn_cancel.setMinimumHeight(60)
+        btn_cancel.clicked.connect(self.reject)
+
+        btn_close = QPushButton("→  Cerrar Turno")
+        btn_close.setMinimumHeight(60)
+        btn_close.setProperty("role", "primary")
+        btn_close.setStyleSheet("font-size: 16px; font-weight: 700;")
+        btn_close.clicked.connect(self._validate_and_accept)
+
+        row.addWidget(btn_cancel)
+        row.addWidget(btn_close)
+        root.addLayout(row)
+
+        # OSK
+        self._osk_filter = _OskFocusFilter(self)
+        self.ed_cash.installEventFilter(self._osk_filter)
+        self.ed_closed_by.installEventFilter(self._osk_filter)
+
+    def _validate_and_accept(self):
+        cash_text = self.ed_cash.text().strip()
+        if not cash_text:
+            QMessageBox.warning(
+                self,
+                "Corte de Caja",
+                "Debe ingresar el efectivo contado en caja."
+            )
+            return
+        self.accept()
+
+    def data(self) -> dict:
+        cash_text = self.ed_cash.text().strip().replace(",", "")
+        try:
+            cash_cents = money_to_cents(cash_text)
+        except:
+            cash_cents = 0
+        
+        return {
+            "closing_cash": cash_cents,
+            "closed_by": self.ed_closed_by.text().strip(),
+        }
+
+
 class AdminWindow(QMainWindow):
     """Premium Administration Interface"""
     
@@ -1105,8 +1239,8 @@ class AdminWindow(QMainWindow):
 
     def _do_close(self):
         """
-        Cierra el turno actual usando report_z() (que ya llama close_shift internamente),
-        imprime el reporte y refresca el estado.
+        Cierra el turno actual con diálogo de conteo de efectivo,
+        genera reporte Z detallado e imprime.
         """
         # Comprobamos que haya turno abierto antes de intentar cerrar
         sh = current_shift()
@@ -1114,9 +1248,18 @@ class AdminWindow(QMainWindow):
             self._toast("No hay turno abierto.", level="error")
             return
 
+        # Mostrar diálogo de cierre para capturar efectivo y cajero
+        dlg = ShiftCloseDialog(self, shift_info=sh)
+        if dlg.exec() != QDialog.Accepted:
+            return
+        
+        close_data = dlg.data()
+        closing_cash = close_data.get("closing_cash", 0)
+        closed_by = close_data.get("closed_by", "")
+
         # Genera reporte Z (incluye close_shift() por dentro)
         try:
-            txt = report_z()
+            txt = report_z(closed_by=closed_by, closing_cash=closing_cash)
         except Exception as e:
             QMessageBox.critical(
                 self,
@@ -1125,15 +1268,21 @@ class AdminWindow(QMainWindow):
             )
             return
 
-        # Intentar imprimir el reporte del turno que acabamos de cerrar
+        # Intentar imprimir el reporte completo del turno
         try:
             EscposPrinter().print_text(txt)
             self._toast(
                 f"Turno #{sh['id']} cerrado e impreso.", level="success"
             )
         except Exception as e:
+            # Mostrar el reporte en pantalla si no se puede imprimir
+            QMessageBox.information(
+                self,
+                "Reporte de Turno",
+                txt[:2000] + ("..." if len(txt) > 2000 else "")
+            )
             self._toast(
-                f"Turno cerrado pero error al imprimir: {e}", level="error"
+                f"Turno cerrado. Error al imprimir: {e}", level="error"
             )
 
         # Actualizar etiqueta (ya no debe haber turno abierto)

@@ -1,18 +1,220 @@
 #!/usr/bin/env bash
+# ═══════════════════════════════════════════════════════════════════════════
+# TOTTEM POS - Configuración de Servicio Systemd
+# ═══════════════════════════════════════════════════════════════════════════
+# Este script configura TOTTEM POS como un servicio del sistema que
+# arranca automáticamente al encender la Raspberry Pi.
+#
+# Uso: sudo bash scripts/setup_services.sh
+# ═══════════════════════════════════════════════════════════════════════════
+
 set -euo pipefail
 
+# Colores para output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
 
-sudo groupadd -f posadm || true
-sudo usermod -aG posadm ${SUDO_USER:-$USER} || true
+log_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
 
+log_success() {
+    echo -e "${GREEN}[OK]${NC} $1"
+}
 
-sudo install -Dm644 system/pos.service /etc/systemd/system/pos.service
-sudo mkdir -p /etc/sudoers.d
-sudo install -Dm440 system/sudoers.d/pos /etc/sudoers.d/pos
+log_warning() {
+    echo -e "${YELLOW}[WARN]${NC} $1"
+}
 
+log_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
 
-sudo systemctl daemon-reload
-sudo systemctl enable pos.service
+# ─────────────────────────────────────────────────────────────────────────────
+# Verificaciones iniciales
+# ─────────────────────────────────────────────────────────────────────────────
 
+if [ "$EUID" -ne 0 ]; then
+    log_error "Este script debe ejecutarse con sudo."
+    log_error "Uso: sudo bash scripts/setup_services.sh"
+    exit 1
+fi
 
-echo "OK: installed service. Use 'sudo systemctl start pos.service' to start."
+if [ ! -f "pyproject.toml" ]; then
+    log_error "Este script debe ejecutarse desde el directorio raíz del proyecto."
+    exit 1
+fi
+
+# Obtener el directorio actual y el usuario
+APP_DIR="$(pwd)"
+APP_USER="${SUDO_USER:-$USER}"
+APP_GROUP="$(id -gn $APP_USER)"
+
+log_info "Configurando servicio TOTTEM POS..."
+log_info "Directorio: $APP_DIR"
+log_info "Usuario: $APP_USER"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 1. Crear grupo de administración POS
+# ─────────────────────────────────────────────────────────────────────────────
+
+log_info "Configurando grupos..."
+
+groupadd -f posadm || true
+usermod -aG posadm "$APP_USER" || true
+
+log_success "Grupos configurados."
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 2. Generar archivo de servicio personalizado
+# ─────────────────────────────────────────────────────────────────────────────
+
+log_info "Generando archivo de servicio..."
+
+cat > /etc/systemd/system/pos.service << EOF
+[Unit]
+Description=TOTTEM POS - Punto de Venta (linuxfb)
+After=network-online.target local-fs.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=$APP_DIR
+Environment=PYTHONUNBUFFERED=1
+Environment=QT_QPA_PLATFORM=linuxfb
+Environment=QT_QPA_FB_FORCE_FULLSCREEN=1
+Environment=QT_QPA_FONTDIR=/usr/share/fonts
+Environment=QT_LOGGING_RULES=*.debug=false
+
+# Ejecutar en TTY1 para control del framebuffer
+TTYPath=/dev/tty1
+StandardInput=tty
+TTYVHangup=yes
+
+# Preparar la consola antes de iniciar
+ExecStartPre=/bin/sh -lc 'echo 0 > /sys/class/graphics/fbcon/cursor_blink 2>/dev/null || true'
+ExecStartPre=/bin/sh -lc "printf '\\033[?25l' > /dev/tty1 || true"
+ExecStartPre=/bin/sh -lc 'chvt 1 && setterm -cursor off -blank 0 -powersave off -clear all </dev/tty1 2>/dev/null || true'
+
+# Iniciar el kiosk
+ExecStart=$APP_DIR/.venv/bin/pos run-kiosk
+
+# Restaurar la consola al salir
+ExecStopPost=/bin/sh -lc "printf '\\033[?25h' > /dev/tty1 || true"
+ExecStopPost=/bin/sh -lc 'echo 1 > /sys/class/graphics/fbcon/cursor_blink 2>/dev/null || true'
+ExecStopPost=/bin/sh -lc 'setterm -cursor on </dev/tty1 2>/dev/null || true'
+
+User=$APP_USER
+Group=$APP_GROUP
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+log_success "Archivo de servicio generado."
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 3. Configurar sudoers para operaciones de sistema
+# ─────────────────────────────────────────────────────────────────────────────
+
+log_info "Configurando permisos sudo..."
+
+mkdir -p /etc/sudoers.d
+
+cat > /etc/sudoers.d/pos << EOF
+# Permisos para TOTTEM POS
+# Permite al grupo posadm ejecutar comandos de sistema necesarios
+
+%posadm ALL=(ALL) NOPASSWD: /sbin/reboot
+%posadm ALL=(ALL) NOPASSWD: /sbin/poweroff
+%posadm ALL=(ALL) NOPASSWD: /sbin/shutdown
+%posadm ALL=(ALL) NOPASSWD: /usr/bin/nmcli
+%posadm ALL=(ALL) NOPASSWD: /bin/systemctl restart pos.service
+%posadm ALL=(ALL) NOPASSWD: /bin/systemctl stop pos.service
+%posadm ALL=(ALL) NOPASSWD: /bin/systemctl start pos.service
+EOF
+
+chmod 440 /etc/sudoers.d/pos
+
+log_success "Permisos sudo configurados."
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 4. Configurar autologin en TTY1 (opcional pero recomendado)
+# ─────────────────────────────────────────────────────────────────────────────
+
+log_info "Configurando autologin..."
+
+mkdir -p /etc/systemd/system/getty@tty1.service.d
+
+cat > /etc/systemd/system/getty@tty1.service.d/autologin.conf << EOF
+[Service]
+ExecStart=
+ExecStart=-/sbin/agetty --autologin $APP_USER --noclear %I \$TERM
+EOF
+
+log_success "Autologin configurado."
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 5. Habilitar y arrancar el servicio
+# ─────────────────────────────────────────────────────────────────────────────
+
+log_info "Habilitando servicio..."
+
+systemctl daemon-reload
+systemctl enable pos.service
+
+log_success "Servicio habilitado."
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 6. Configuraciones adicionales del sistema
+# ─────────────────────────────────────────────────────────────────────────────
+
+log_info "Aplicando configuraciones adicionales..."
+
+# Desactivar screen blanking
+cat > /etc/profile.d/pos-console.sh << 'EOF'
+# Desactivar screen blanking para POS
+setterm -blank 0 -powersave off 2>/dev/null || true
+EOF
+
+# Configurar resolución de pantalla si es necesario (para monitores comunes)
+if [ -f /boot/config.txt ]; then
+    if ! grep -q "disable_overscan=1" /boot/config.txt; then
+        echo "" >> /boot/config.txt
+        echo "# TOTTEM POS - Configuración de pantalla" >> /boot/config.txt
+        echo "disable_overscan=1" >> /boot/config.txt
+        echo "hdmi_force_hotplug=1" >> /boot/config.txt
+        log_success "Configuración de pantalla actualizada."
+    fi
+fi
+
+log_success "Configuraciones adicionales aplicadas."
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Resumen final
+# ─────────────────────────────────────────────────────────────────────────────
+
+echo ""
+echo "═══════════════════════════════════════════════════════════════════════════"
+echo -e "${GREEN}SERVICIO CONFIGURADO${NC}"
+echo "═══════════════════════════════════════════════════════════════════════════"
+echo ""
+echo "Comandos útiles:"
+echo "  Iniciar servicio:    sudo systemctl start pos.service"
+echo "  Detener servicio:    sudo systemctl stop pos.service"
+echo "  Reiniciar servicio:  sudo systemctl restart pos.service"
+echo "  Ver estado:          sudo systemctl status pos.service"
+echo "  Ver logs:            sudo journalctl -u pos.service -f"
+echo ""
+echo "El servicio se iniciará automáticamente al arrancar el sistema."
+echo ""
+log_warning "IMPORTANTE: Reinicie el sistema para aplicar todos los cambios:"
+echo "  sudo reboot"
+echo ""

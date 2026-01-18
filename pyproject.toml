@@ -3,22 +3,37 @@ requires = ["setuptools>=64", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "pos-local"
+name = "tottem-pos"
 version = "1.0.0"
-description = "POS minimal para Raspberry Pi (kiosk, ESC/POS, SQLite)"
+description = "Sistema de Punto de Venta minimalista y offline para Raspberry Pi"
+readme = "README.md"
 requires-python = ">=3.9"
+license = {text = "Proprietary"}
+authors = [
+  {name = "TOTTEM Team"}
+]
+keywords = ["pos", "point-of-sale", "raspberry-pi", "kiosk", "escpos"]
 dependencies = [
-  "PySide6",
-  "python-escpos",
-  "pyusb",
-  "pydantic>=2",
-  "typer",
-  "rich",
-  "argon2-cffi",
+  "PySide6>=6.4.0",
+  "python-escpos>=3.0",
+  "pyusb>=1.2.0",
+  "pydantic>=2.0",
+  "typer>=0.9.0",
+  "rich>=13.0",
+  "argon2-cffi>=21.0",
+  "PyYAML>=6.0",
 ]
 
 [project.scripts]
 pos = "cli:app"
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=7.0",
+  "pytest-cov",
+  "black",
+  "ruff",
+]
 
 [tool.setuptools]
 package-dir = {"" = "src"}

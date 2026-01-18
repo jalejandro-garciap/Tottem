@@ -1,1 +1,27 @@
-%posadm ALL=(root) NOPASSWD: /usr/sbin/poweroff, /usr/sbin/reboot, /usr/bin/nmcli
+# ═══════════════════════════════════════════════════════════════════════════
+# TOTTEM POS - Permisos sudo
+# ═══════════════════════════════════════════════════════════════════════════
+# Este archivo otorga permisos específicos al grupo posadm para ejecutar
+# comandos del sistema necesarios para la operación del POS.
+#
+# IMPORTANTE: Este archivo debe tener permisos 440 y ser propiedad de root
+# sudo chown root:root /etc/sudoers.d/pos
+# sudo chmod 440 /etc/sudoers.d/pos
+# ═══════════════════════════════════════════════════════════════════════════
+
+# Control de energía del sistema
+%posadm ALL=(ALL) NOPASSWD: /sbin/reboot
+%posadm ALL=(ALL) NOPASSWD: /sbin/poweroff
+%posadm ALL=(ALL) NOPASSWD: /sbin/shutdown
+
+# Control de red (NetworkManager)
+%posadm ALL=(ALL) NOPASSWD: /usr/bin/nmcli
+
+# Control del servicio POS
+%posadm ALL=(ALL) NOPASSWD: /bin/systemctl restart pos.service
+%posadm ALL=(ALL) NOPASSWD: /bin/systemctl stop pos.service
+%posadm ALL=(ALL) NOPASSWD: /bin/systemctl start pos.service
+%posadm ALL=(ALL) NOPASSWD: /bin/systemctl status pos.service
+
+# Configuración de fecha/hora
+%posadm ALL=(ALL) NOPASSWD: /usr/bin/timedatectl
