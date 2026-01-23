@@ -25,6 +25,7 @@ from drivers.printer_escpos import EscposPrinter
 from services import i18n
 from ui.widgets.keypad import NumKeypad
 from services.auth import check_admin_pin
+from ui.icon_helper import get_icon_char
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -152,12 +153,12 @@ class PaymentDialog(QDialog):
         quick_row = QHBoxLayout()
         quick_row.setSpacing(12)
 
-        btn_exact = QPushButton("✓  " + (i18n.t('exact') or "Exacto"))
+        btn_exact = QPushButton((get_icon_char('check') or '✓') + "  " + (i18n.t('exact') or "Exacto"))
         btn_exact.setMinimumHeight(64)
         btn_exact.setProperty("role", "success")
         btn_exact.clicked.connect(self._exact)
 
-        btn_other = QPushButton("⌨  " + (i18n.t('other_amount') or "Otro monto"))
+        btn_other = QPushButton((get_icon_char('keyboard') or '⌨') + "  " + (i18n.t('other_amount') or "Otro monto"))
         btn_other.setMinimumHeight(64)
         btn_other.clicked.connect(self._other)
 
@@ -173,7 +174,7 @@ class PaymentDialog(QDialog):
         btn_cancel.setMinimumHeight(72)
         btn_cancel.clicked.connect(self.reject)
 
-        btn_charge = QPushButton("→  " + (i18n.t('charge') or "COBRAR"))
+        btn_charge = QPushButton((get_icon_char('arrow-right') or '→') + "  " + (i18n.t('charge') or "COBRAR"))
         btn_charge.setMinimumHeight(72)
         btn_charge.setProperty("role", "primary")
         btn_charge.setStyleSheet("""
@@ -415,13 +416,13 @@ class POSWindow(QMainWindow):
         self.lang_btn.setProperty("role", "ghost")
         self.lang_btn.clicked.connect(self._toggle_lang)
 
-        self.btn_reprint = QPushButton("🖨")
+        self.btn_reprint = QPushButton(get_icon_char('print') or '🖨')
         self.btn_reprint.setMinimumSize(56, 48)
         self.btn_reprint.setProperty("role", "ghost")
         self.btn_reprint.setToolTip(i18n.t("reprint") or "Reimprimir")
         self.btn_reprint.clicked.connect(self._reprint_last)
 
-        self.btn_admin = QPushButton("⚙")
+        self.btn_admin = QPushButton(get_icon_char('gear') or '⚙')
         self.btn_admin.setMinimumSize(56, 48)
         self.btn_admin.setProperty("role", "ghost")
         self.btn_admin.setToolTip(i18n.t("admin") or "Admin")
@@ -627,6 +628,8 @@ class POSWindow(QMainWindow):
         return btn
 
     def _make_product_button(self, p: dict, btn_min: QSize, est_width: int) -> QPushButton:
+        from ui.icon_helper import get_icon_char
+        
         btn = QPushButton()
         btn.setObjectName("ProductButton")
         btn.setMinimumSize(btn_min)
@@ -635,7 +638,18 @@ class POSWindow(QMainWindow):
         name = self._elide_two_lines(p.get("name", ""), fm, est_width, max_lines=2)
         price = "${:,.2f}".format(p.get("price", 0) / 100.0)
         unit = (p.get("unit") or "pz").strip()
-        btn.setText(f"{name}\n{price} / {unit}")
+        
+        # Icon rendering logic: icon + text OR text-only
+        icon_name = (p.get("icon") or "").strip()
+        icon_char = get_icon_char(icon_name) if icon_name else ""
+        
+        if icon_char:
+            # With icon: show icon on first line, then name, price/unit
+            btn.setText(f"{icon_char}\n{name}\n{price} / {unit}")
+        else:
+            # Without icon: show name, price/unit (original behavior)
+            btn.setText(f"{name}\n{price} / {unit}")
+        
         btn.clicked.connect(lambda _=None, prod=p: self.add_item(prod))
         return btn
 

@@ -20,6 +20,15 @@ def run():
 
     app = QApplication(sys.argv)
 
+    # Load FontAwesome icons (before creating UI)
+    try:
+        from ui.icon_helper import load_icon_font
+        if not load_icon_font():
+            print("WARNING: FontAwesome font not loaded. Icons may not display correctly.")
+            print("Please download fa-solid-900.ttf to src/ui/assets/fonts/")
+    except Exception as e:
+        print(f"WARNING: Failed to load icon font: {e}")
+
     qss_path = Path(__file__).resolve().parent / "theme.qss"
     if qss_path.exists():
         app.setStyleSheet(qss_path.read_text(encoding="utf-8"))

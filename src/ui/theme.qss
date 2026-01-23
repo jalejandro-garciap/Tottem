@@ -108,9 +108,8 @@ QLabel#PriceTag {
 }
 
 #GridPanel {
-    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                stop:0 #1a1a26, stop:1 #14141e);
-    border: 1px solid #2a2a3a;
+    background: transparent;
+    border: none;
     border-radius: 28px;
     padding: 24px;
 }
@@ -824,4 +823,28 @@ QWidget[state="active"] {
 /* Loading state */
 QWidget[state="loading"] {
     color: #64748b;
+}
+
+/* ---------------------------------------------------------------------------
+   ICON LABEL - FontAwesome Support
+   --------------------------------------------------------------------------- */
+
+QLabel#IconLabel {
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    color: #818cf8;
+    background: transparent;
+    border: none;
+}
+
+QLabel#IconLabel[state="error"] {
+    color: #ef4444;
+}
+
+QLabel#IconLabel[state="success"] {
+    color: #10b981;
+}
+
+QLabel#IconLabel[state="warning"] {
+    color: #f59e0b;
 }

@@ -51,7 +51,8 @@ def get_active_products() -> List[Dict[str, Any]]:
             SELECT id, name, price, active,
                    COALESCE(unit,'pz') AS unit,
                    COALESCE(allow_decimal,0) AS allow_decimal,
-                   COALESCE(category,'General') AS category
+                   COALESCE(category,'General') AS category,
+                   COALESCE(icon,'') AS icon
             FROM product
             WHERE active = 1
             ORDER BY name COLLATE NOCASE
@@ -64,7 +65,8 @@ def list_products(q: str = "", include_inactive: bool = True) -> List[Dict[str, 
       SELECT id, name, price, active,
              COALESCE(unit,'pz') AS unit,
              COALESCE(allow_decimal,0) AS allow_decimal,
-             COALESCE(category,'General') AS category
+             COALESCE(category,'General') AS category,
+             COALESCE(icon,'') AS icon
       FROM product
       WHERE 1=1
     """
@@ -85,7 +87,8 @@ def list_products_by_category(q: str = "", category: str | None = None, include_
       SELECT id, name, price, active,
              COALESCE(unit,'pz') AS unit,
              COALESCE(allow_decimal,0) AS allow_decimal,
-             COALESCE(category,'General') AS category
+             COALESCE(category,'General') AS category,
+             COALESCE(icon,'') AS icon
       FROM product
       WHERE 1=1
     """
@@ -118,23 +121,25 @@ def upsert_product(*,
                    unit: str,
                    allow_decimal: bool,
                    active: bool,
-                   category: str) -> int:
+                   category: str,
+                   icon: str = "") -> int:
     unit = (unit or "pz").strip()
     category = (category or "General").strip()
+    icon = (icon or "").strip()
     allow_decimal_i = 1 if allow_decimal else 0
     active_i = 1 if active else 0
     with connect() as c:
         if product_id:
             c.execute("""
                 UPDATE product
-                   SET name=?, price=?, unit=?, allow_decimal=?, active=?, category=?
+                   SET name=?, price=?, unit=?, allow_decimal=?, active=?, category=?, icon=?
                  WHERE id=?
-            """, (name, price_cents, unit, allow_decimal_i, active_i, category, product_id))
+            """, (name, price_cents, unit, allow_decimal_i, active_i, category, icon, product_id))
             return int(product_id)
         cur = c.execute("""
-            INSERT INTO product(name, price, unit, allow_decimal, active, category)
-            VALUES(?,?,?,?,?,?)
-        """, (name, price_cents, unit, allow_decimal_i, active_i, category))
+            INSERT INTO product(name, price, unit, allow_decimal, active, category, icon)
+            VALUES(?,?,?,?,?,?,?)
+        """, (name, price_cents, unit, allow_decimal_i, active_i, category, icon))
         return int(cur.lastrowid)
 
 
@@ -149,7 +154,8 @@ def get_product(product_id: int) -> Optional[Dict[str, Any]]:
           SELECT id, name, price, active,
                  COALESCE(unit,'pz') AS unit,
                  COALESCE(allow_decimal,0) AS allow_decimal,
-                 COALESCE(category,'General') AS category
+                 COALESCE(category,'General') AS category,
+                 COALESCE(icon,'') AS icon
             FROM product WHERE id=?
         """, (product_id,)).fetchone()
     return dict(r) if r else None
