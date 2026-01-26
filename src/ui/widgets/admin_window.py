@@ -963,6 +963,19 @@ class AdminWindow(QMainWindow):
         self.tbl.setSelectionMode(QAbstractItemView.SingleSelection)
         self.tbl.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.tbl.verticalHeader().setVisible(False)
+        
+        # Configure responsive columns for 22" display
+        from PySide6.QtWidgets import QHeaderView
+        header = self.tbl.horizontalHeader()
+        header.setStretchLastSection(False)
+        header.setSectionResizeMode(0, QHeaderView.ResizeToContents)  # ID: auto-size
+        header.setSectionResizeMode(1, QHeaderView.Stretch)           # Nombre: espacio restante
+        header.setSectionResizeMode(2, QHeaderView.ResizeToContents)  # Precio: auto-size
+        header.setSectionResizeMode(3, QHeaderView.ResizeToContents)  # Activo: auto-size
+        header.setSectionResizeMode(4, QHeaderView.ResizeToContents)  # Unidad: auto-size
+        header.setSectionResizeMode(5, QHeaderView.ResizeToContents)  # Decimal: auto-size
+        header.setSectionResizeMode(6, QHeaderView.Interactive)       # Categoría: ajustable
+
         self.tbl.setColumnWidth(0, 60)
         self.tbl.setColumnWidth(2, 100)
         self.tbl.setColumnWidth(3, 90)
@@ -1494,10 +1507,16 @@ class AdminWindow(QMainWindow):
         self.tbl_employees.setSelectionMode(QAbstractItemView.SingleSelection)
         self.tbl_employees.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.tbl_employees.verticalHeader().setVisible(False)
-        self.tbl_employees.setColumnWidth(0, 60)
-        self.tbl_employees.setColumnWidth(1, 110)
-        self.tbl_employees.setColumnWidth(2, 200)
-        self.tbl_employees.setColumnWidth(3, 140)
+        
+        # Configure responsive columns for 22" display (en lugar de widths fijos)
+        from PySide6.QtWidgets import QHeaderView
+        header = self.tbl_employees.horizontalHeader()
+        header.setStretchLastSection(False)
+        header.setSectionResizeMode(0, QHeaderView.ResizeToContents)  # ID: auto-size
+        header.setSectionResizeMode(1, QHeaderView.Interactive)       # No. Empleado: ajustable
+        header.setSectionResizeMode(2, QHeaderView.Stretch)           # Nombre: espacio restante
+        header.setSectionResizeMode(3, QHeaderView.Interactive)       # Contacto: ajustable
+        header.setSectionResizeMode(4, QHeaderView.ResizeToContents)  # Activo: auto-size
         self.tbl_employees.setColumnWidth(4, 70)
         v.addWidget(self.tbl_employees, 2)
 
