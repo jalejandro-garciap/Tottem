@@ -255,7 +255,9 @@ class AdminPinDialog(QDialog):
         layout.setSpacing(28)
 
         # Icon/Title
-        icon_lbl = QLabel("🔐")
+        from ui.icon_helper import get_icon_char
+        icon_lbl = QLabel(get_icon_char("lock") or "🔐")
+        icon_lbl.setObjectName("IconLabel")
         icon_lbl.setAlignment(Qt.AlignCenter)
         icon_lbl.setStyleSheet("font-size: 48px;")
 
@@ -444,10 +446,10 @@ class POSWindow(QMainWindow):
         ctrls.setSpacing(10)
 
         ctrl_buttons = [
-            ("−", None, self._dec_qty),
+            ("-", None, self._dec_qty),
             ("+", None, self._inc_qty),
             ("#", None, self._set_qty),
-            ("✕", "danger", self._remove_item),
+            (get_icon_char('xmark') or "✕", "danger", self._remove_item),
             (i18n.t("clear_cart") or "Vaciar", "danger", self._clear_cart),
         ]
 
@@ -468,7 +470,7 @@ class POSWindow(QMainWindow):
                 self.btn_plus = btn
             elif text == "#":
                 self.btn_qty = btn
-            elif text == "✕":
+            elif text == get_icon_char('xmark') or text == "✕":
                 self.btn_remove = btn
             else:
                 self.btn_clear = btn

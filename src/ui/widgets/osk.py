@@ -100,7 +100,8 @@ class OnScreenKeyboard(QDialog):
         self.btn_space.setToolTip("Espacio")
         self.btn_bsp = QPushButton("⌫")
         self.btn_bsp.setToolTip("Borrar")
-        self.btn_clear = QPushButton("✕")
+        from ui.icon_helper import get_icon_char
+        self.btn_clear = QPushButton(get_icon_char('xmark') or "✕")
         self.btn_clear.setToolTip("Limpiar")
         self.btn_clear.setProperty("role", "danger")
 
@@ -124,7 +125,8 @@ class OnScreenKeyboard(QDialog):
         self.btn_cancel = QPushButton("Cancelar")
         self.btn_cancel.setMinimumHeight(60)
 
-        self.btn_ok = QPushButton("→  Aceptar")
+        from ui.icon_helper import get_icon_char
+        self.btn_ok = QPushButton(f"{get_icon_char('arrow-right') or '→'}  Aceptar")
         self.btn_ok.setMinimumHeight(60)
         self.btn_ok.setProperty("role", "primary")
 

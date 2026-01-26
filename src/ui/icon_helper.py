@@ -29,31 +29,61 @@ ICON_MAP = {
     "apple-whole": "\uf5d1",
     "lemon": "\uf094",
     
-    # Categories
+    # Categories & Organization
     "tags": "\uf02c",
     "box": "\uf466",
+    "cube": "\uf1b2",
+    "boxes-stacked": "\uf468",
     "bags-shopping": "\uf847",
     "basket-shopping": "\uf291",
     "cart-shopping": "\uf07a",
+    "store": "\uf54e",
+    "shop": "\uf54f",
     
-    # Actions
+    # People & Users
+    "user": "\uf007",
+    "users": "\uf0c0",
+    "user-tie": "\uf508",
+    "user-gear": "\uf4fe",
+    
+    # Actions & Controls
     "print": "\uf02f",
     "gear": "\uf013",
+    "gears": "\uf085",
     "lock": "\uf023",
     "check": "\uf00c",
     "xmark": "\uf00d",
+    "circle-xmark": "\uf057",
     "plus": "\u002b",
     "minus": "\u2212",
     "arrow-right": "\uf061",
     "arrow-left": "\uf060",
     "keyboard": "\uf11c",
+    "floppy-disk": "\uf0c7",
+    "ban": "\uf05e",
+    "circle-dot": "\uf192",
     
-    # Money
+    # Money & Commerce
     "dollar-sign": "\u0024",
     "coins": "\uf51e",
     "money-bill": "\uf0d6",
     "cash-register": "\uf788",
     "circle-check": "\uf058",
+    "receipt": "\uf543",
+    "credit-card": "\uf09d",
+    
+    # Charts & Reports
+    "chart-simple": "\ue473",
+    "chart-line": "\uf201",
+    "chart-bar": "\uf080",
+    "chart-pie": "\uf200",
+    
+    # System & Technology
+    "computer": "\uf108",
+    "laptop": "\uf109",
+    "desktop": "\uf390",
+    "server": "\uf233",
+    "network-wired": "\uf6ff",
 }
 
 

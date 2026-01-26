@@ -248,7 +248,9 @@ class ProductDialog(QDialog):
         root.setSpacing(28)
 
         # Header
-        icon = QLabel("📦")
+        from ui.icon_helper import get_icon_char
+        icon = QLabel(get_icon_char("box") or "📦")
+        icon.setObjectName("IconLabel")
         icon.setAlignment(Qt.AlignCenter)
         icon.setStyleSheet("font-size: 40px;")
 
@@ -324,7 +326,8 @@ class ProductDialog(QDialog):
         row.setSpacing(16)
         btn_cancel = QPushButton("Cancelar")
         btn_cancel.setMinimumHeight(60)
-        btn_ok = QPushButton("→  Guardar")
+        from ui.icon_helper import get_icon_char
+        btn_ok = QPushButton(f"{get_icon_char('arrow-right') or '→'}  Guardar")
         btn_ok.setMinimumHeight(60)
         btn_ok.setProperty("role", "primary")
         btn_cancel.clicked.connect(self.reject)
@@ -376,7 +379,9 @@ class EmployeeDialog(QDialog):
         root.setSpacing(28)
 
         # Header
-        icon = QLabel("👤")
+        from ui.icon_helper import get_icon_char
+        icon = QLabel(get_icon_char("user") or "👤")
+        icon.setObjectName("IconLabel")
         icon.setAlignment(Qt.AlignCenter)
         icon.setStyleSheet("font-size: 40px;")
 
@@ -418,7 +423,8 @@ class EmployeeDialog(QDialog):
         row.setSpacing(16)
         btn_cancel = QPushButton("Cancelar")
         btn_cancel.setMinimumHeight(60)
-        btn_ok = QPushButton("→  Guardar")
+        from ui.icon_helper import get_icon_char
+        btn_ok = QPushButton(f"{get_icon_char('arrow-right') or '→'}  Guardar")
         btn_ok.setMinimumHeight(60)
         btn_ok.setProperty("role", "primary")
         btn_cancel.clicked.connect(self.reject)
@@ -467,7 +473,9 @@ class ShiftCloseDialog(QDialog):
         root.setSpacing(24)
 
         # Header
-        icon = QLabel("📊")
+        from ui.icon_helper import get_icon_char
+        icon = QLabel(get_icon_char("chart-bar") or "📊")
+        icon.setObjectName("IconLabel")
         icon.setAlignment(Qt.AlignCenter)
         icon.setStyleSheet("font-size: 48px;")
 
@@ -546,7 +554,8 @@ class ShiftCloseDialog(QDialog):
         btn_cancel.setMinimumHeight(60)
         btn_cancel.clicked.connect(self.reject)
 
-        btn_close = QPushButton("→  Cerrar Turno")
+        from ui.icon_helper import get_icon_char
+        btn_close = QPushButton(f"{get_icon_char('arrow-right') or '→'}  Cerrar Turno")
         btn_close.setMinimumHeight(60)
         btn_close.setProperty("role", "primary")
         btn_close.setStyleSheet("font-size: 16px; font-weight: 700;")
@@ -602,7 +611,8 @@ class AdminWindow(QMainWindow):
         top.setContentsMargins(24, 20, 24, 16)
         top.setSpacing(16)
 
-        title_lbl = QLabel("⚙  " + (i18n.t("admin_title") or "Administración"))
+        from ui.icon_helper import get_icon_char
+        title_lbl = QLabel(f"{get_icon_char('gear') or '⚙'}  " + (i18n.t("admin_title") or "Administración"))
         title_lbl.setObjectName("SectionTitle")
         title_lbl.setStyleSheet("""
             font-size: 26px;
@@ -615,7 +625,8 @@ class AdminWindow(QMainWindow):
         self.lang_btn.setProperty("role", "ghost")
         self.lang_btn.clicked.connect(self._toggle_lang)
 
-        btn_close = QPushButton("←  " + (i18n.t("exit") or "Salir"))
+        from ui.icon_helper import get_icon_char
+        btn_close = QPushButton(f"{get_icon_char('arrow-left') or '←'}  " + (i18n.t("exit") or "Salir"))
         btn_close.setMinimumHeight(52)
         btn_close.setProperty("role", "danger")
         btn_close.setStyleSheet("""
@@ -634,13 +645,14 @@ class AdminWindow(QMainWindow):
         # ─── Tab Widget ───────────────────────────────────────────────────
         self.tabs = QTabWidget()
         self.tabs.setObjectName("AdminTabs")
-        self.tabs.addTab(self._tab_security(), "🔐  " + i18n.t("tab_security"))
-        self.tabs.addTab(self._tab_devices(), "🖨  " + i18n.t("tab_devices"))
-        self.tabs.addTab(self._tab_store(), "🏪  " + i18n.t("tab_store"))
-        self.tabs.addTab(self._tab_products(), "📦  " + i18n.t("tab_products"))
-        self.tabs.addTab(self._tab_shifts(), "📊  " + (i18n.t("tab_shifts") or "Turnos"))
-        self.tabs.addTab(self._tab_reports(), "📈  " + i18n.t("tab_reports"))
-        self.tabs.addTab(self._tab_system(), "💻  " + i18n.t("tab_system"))
+        from ui.icon_helper import get_icon_char
+        self.tabs.addTab(self._tab_security(), f"{get_icon_char('lock') or '🔐'}  " + i18n.t("tab_security"))
+        self.tabs.addTab(self._tab_devices(), f"{get_icon_char('print') or '🖨'}  " + i18n.t("tab_devices"))
+        self.tabs.addTab(self._tab_store(), f"{get_icon_char('store') or '🏪'}  " + i18n.t("tab_store"))
+        self.tabs.addTab(self._tab_products(), f"{get_icon_char('box') or '📦'}  " + i18n.t("tab_products"))
+        self.tabs.addTab(self._tab_shifts(), f"{get_icon_char('chart-bar') or '📊'}  " + (i18n.t("tab_shifts") or "Turnos"))
+        self.tabs.addTab(self._tab_reports(), f"{get_icon_char('chart-line') or '📈'}  " + i18n.t("tab_reports"))
+        self.tabs.addTab(self._tab_system(), f"{get_icon_char('computer') or '💻'}  " + i18n.t("tab_system"))
 
         # ─── Main Container ───────────────────────────────────────────────
         wrap = QWidget()

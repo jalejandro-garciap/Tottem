@@ -120,7 +120,8 @@ class NumKeypad(QDialog):
         cancel.setMinimumHeight(64)
         cancel.clicked.connect(self.reject)
 
-        ok = QPushButton("→  Aceptar")
+        from ui.icon_helper import get_icon_char
+        ok = QPushButton(f"{get_icon_char('arrow-right') or '→'}  Aceptar")
         ok.setMinimumHeight(64)
         ok.setProperty("role", "primary")
         ok.clicked.connect(self.accept)
