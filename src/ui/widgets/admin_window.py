@@ -276,6 +276,26 @@ class ProductDialog(QDialog):
         self.ed_category = QLineEdit(
             (product.get("category") if product else None) or "General"
         )
+        
+        # Icon selector
+        from ui.icon_helper import ICON_MAP, get_icon_char
+        self.combo_icon = QComboBox()
+        self.combo_icon.setMinimumHeight(56)
+        
+        # Add "No icon" option first
+        self.combo_icon.addItem("(Sin ícono)", "")
+        
+        # Add available icons sorted by name
+        for icon_name in sorted(ICON_MAP.keys()):
+            icon_char = get_icon_char(icon_name)
+            display_text = f"{icon_char}  {icon_name}"
+            self.combo_icon.addItem(display_text, icon_name)
+        
+        # Select current icon if exists
+        if product and product.get("icon"):
+            idx = self.combo_icon.findData(product.get("icon"))
+            if idx >= 0:
+                self.combo_icon.setCurrentIndex(idx)
 
         self.cb_active = QCheckBox(i18n.t("prod_active"))
         self.cb_active.setChecked(bool(product["active"]) if product else True)
@@ -289,6 +309,7 @@ class ProductDialog(QDialog):
         form.addRow(i18n.t("prod_price"), self.ed_price)
         form.addRow(i18n.t("prod_unit"), self.ed_unit)
         form.addRow(i18n.t("category") or "Categoría", self.ed_category)
+        form.addRow("Ícono", self.combo_icon)
 
         checks = QHBoxLayout()
         checks.setSpacing(24)
@@ -329,6 +350,7 @@ class ProductDialog(QDialog):
             return None
         unit = (self.ed_unit.text() or "pz").strip() or "pz"
         category = (self.ed_category.text() or "General").strip() or "General"
+        icon = self.combo_icon.currentData() or ""
         return {
             "name": name,
             "price": cents,
@@ -336,6 +358,7 @@ class ProductDialog(QDialog):
             "unit": unit,
             "allow_decimal": self.cb_partial.isChecked(),
             "category": category,
+            "icon": icon,
         }
 
 
@@ -1027,7 +1050,7 @@ class AdminWindow(QMainWindow):
             data = dlg.data()
             if not data:
                 return
-            # create_product(*, name, price_money, unit, allow_decimal, active, category)
+            # create_product(*, name, price_money, unit, allow_decimal, active, category, icon)
             create_product(
                 name=data["name"],
                 price_money=data["price"],  # ya está en centavos; el wrapper acepta int/float/str
@@ -1035,6 +1058,7 @@ class AdminWindow(QMainWindow):
                 allow_decimal=data["allow_decimal"],
                 active=data["active"],
                 category=data["category"],
+                icon=data.get("icon", ""),
             )
             QMessageBox.information(self, i18n.t("tab_products"), i18n.t("prod_saved"))
             self._prod_refresh()
@@ -1053,7 +1077,7 @@ class AdminWindow(QMainWindow):
             data = dlg.data()
             if not data:
                 return
-            # update_product(product_id, *, name, price_money, unit, allow_decimal, active, category)
+            # update_product(product_id, *, name, price_money, unit, allow_decimal, active, category, icon)
             update_product(
                 product_id=pid,
                 name=data["name"],
@@ -1062,6 +1086,7 @@ class AdminWindow(QMainWindow):
                 allow_decimal=data["allow_decimal"],
                 active=data["active"],
                 category=data["category"],
+                icon=data.get("icon", ""),
             )
             QMessageBox.information(self, i18n.t("tab_products"), i18n.t("prod_saved"))
             self._prod_refresh()
