@@ -550,7 +550,7 @@ QTabBar::tab:selected {
 
 QScrollBar:vertical {
     background: transparent;
-    width: 8px;
+    width: 20px;              /* Era 8px → 20px touch-friendly */
     margin: 8px 2px;
     border-radius: 4px;
 }
@@ -579,7 +579,7 @@ QScrollBar::sub-page:vertical {
 
 QScrollBar:horizontal {
     background: transparent;
-    height: 8px;
+    height: 20px;             /* Era 8px → 20px touch-friendly */
     margin: 2px 8px;
     border-radius: 4px;
 }

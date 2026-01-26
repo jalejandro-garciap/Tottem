@@ -857,15 +857,35 @@ class POSWindow(QMainWindow):
     # ═══════════════════════════════════════════════════════════════════════
 
     def charge(self):
+        """Procesar pago y guardar ticket.
+        
+        Valida que exista un turno activo antes de permitir la venta.
+        """
         if not self.cart:
             return
+        
+        # CRÍTICO: Validar que hay turno activo
+        from services.shifts import current_shift
+        sh = current_shift()
+        if not sh:
+            QMessageBox.critical(
+                self,
+                "Sin Turno Activo",
+                "No hay un turno abierto.\n\n"
+                "Debe abrir un turno desde el panel de administración "
+                "antes de realizar ventas."
+            )
+            return
+        
         total_cents = int(round(sum(round(i.price * i.qty) for i in self.cart)))
         dlg = PaymentDialog(total_cents, self)
         if dlg.exec() != QDialog.Accepted:
             return
         paid_cents, change_cents = dlg.result_values()
 
-        _ = save_ticket(self.cart)
+        # Guardar ticket asociado al turno activo
+        ticket_id = save_ticket(self.cart, shift_id=sh["id"])
+        
         try:
             try:
                 from services.receipts import render_ticket

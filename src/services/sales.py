@@ -162,10 +162,31 @@ def get_product(product_id: int) -> Optional[Dict[str, Any]]:
 
 
 # ---------- Tickets ----------
-def save_ticket(items: List[CartItem]) -> int:
+def save_ticket(items: List[CartItem], shift_id: int | None = None) -> int:
+    """Guardar ticket asociado a un turno.
+    
+    Args:
+        items: Items del carrito
+        shift_id: ID del turno activo. Si es None, intenta obtener turno actual.
+    
+    Returns:
+        ticket_id generado
+    """
+    if not items:
+        raise ValueError("No hay items para guardar en el ticket")
+    
+    # Obtener shift_id si no se proporcionó
+    if shift_id is None:
+        from services.shifts import current_shift
+        sh = current_shift()
+        shift_id = sh["id"] if sh else None
     total_cents = int(round(sum(round(i.price * i.qty) for i in items)))
     with connect() as c:
-        cur = c.execute("INSERT INTO ticket(ts, total) VALUES(datetime('now'), ?)", (total_cents,))
+        # CRÍTICO: Incluir shift_id para asociar venta con turno
+        cur = c.execute(
+            "INSERT INTO ticket(ts, total, shift_id) VALUES(datetime('now'), ?, ?)",
+            (total_cents, shift_id)
+        )
         tid = int(cur.lastrowid)
         for it in items:
             c.execute("""
