@@ -615,11 +615,24 @@ class POSWindow(QMainWindow):
         return "\n".join(lines[:max_lines])
 
     def _available_grid_width(self) -> int:
+        """Calcula el ancho disponible para el grid de productos.
+        
+        Resta:
+        - Ancho del panel derecho (Total/Cart)
+        - Márgenes del contenedor raíz (16px × 2 = 32px)
+        - Spacing entre paneles (16px)
+        """
         screen = QGuiApplication.primaryScreen()
         total_w = screen.geometry().width() if screen else self.width()
         right_min = self._target_right_min_width(total_w)
         self.right_wrap.setMinimumWidth(right_min)
-        return max(0, total_w - right_min)
+        
+        # Restar: panel derecho + márgenes del root (16*2) + spacing entre paneles (16)
+        container_margins = 16 * 2  # Left + Right margins del contenedor principal
+        panel_spacing = 16           # Spacing entre grid panel y cart panel
+        
+        available = total_w - right_min - container_margins - panel_spacing
+        return max(0, available)
 
     def _make_category_button(self, name: str, btn_min: QSize) -> QPushButton:
         btn = QPushButton(name)

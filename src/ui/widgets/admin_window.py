@@ -282,7 +282,24 @@ class ProductDialog(QDialog):
         # Icon selector
         from ui.icon_helper import ICON_MAP, get_icon_char
         self.combo_icon = QComboBox()
-        self.combo_icon.setMinimumHeight(56)
+        self.combo_icon.setMinimumHeight(64)  # Touch-friendly height
+        self.combo_icon.setMaxVisibleItems(8)  # Reduce scroll, show 8 items at once
+        
+        # Touch-friendly styling
+        self.combo_icon.setStyleSheet("""
+            QComboBox {
+                font-size: 16px;
+                padding: 12px;
+            }
+            QComboBox::drop-down {
+                width: 50px;
+            }
+            QComboBox QAbstractItemView::item {
+                min-height: 56px;
+                padding: 12px 16px;
+                font-size: 16px;
+            }
+        """)
         
         # Add "No icon" option first
         self.combo_icon.addItem("(Sin ícono)", "")
