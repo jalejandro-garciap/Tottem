@@ -183,9 +183,9 @@ def render_shift_closure_report(shift_id: int, closing_cash: int = 0, closed_by:
     
     # Header
     out.append("\n")
-    out.append("╔══════════════════════════════╗\n")
-    out.append("║     CORTE DE CAJA - Z        ║\n")
-    out.append("╚══════════════════════════════╝\n")
+    out.append("================================\n")
+    out.append("      CORTE DE CAJA - Z         \n")
+    out.append("================================\n")
     out.append("\n")
     
     # Fecha y hora
@@ -237,9 +237,9 @@ def render_shift_closure_report(shift_id: int, closing_cash: int = 0, closed_by:
     # Detalle de transacciones
     tickets_detail = get_shift_tickets_detail(shift_id)
     if tickets_detail:
-        out.append("═══════════════════════════════\n")
+        out.append("================================\n")
         out.append("DETALLE DE TRANSACCIONES\n")
-        out.append("═══════════════════════════════\n\n")
+        out.append("================================\n\n")
         
         for ticket in tickets_detail:
             try:
@@ -268,9 +268,9 @@ def render_shift_closure_report(shift_id: int, closing_cash: int = 0, closed_by:
             out.append("\n")
     
     # Footer
-    out.append("═══════════════════════════════\n")
+    out.append("================================\n")
     out.append("       FIN DEL REPORTE\n")
-    out.append("═══════════════════════════════\n")
+    out.append("================================\n")
     out.append("\n\n\n")  # Espacio para corte
     
     return "".join(out)

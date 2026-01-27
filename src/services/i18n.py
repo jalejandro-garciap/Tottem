@@ -173,7 +173,7 @@ _STRINGS: Dict[str, Dict[str, str]] = {
     "en": {
         "title": "Local POS",
         "cart": "Cart",
-        "pay_print": "Pay & Print (Receipt)",
+        "pay_print": "Pay and Print (Receipt)",
         "total": "TOTAL: $ {amount}",
         "lang": "EN",
 

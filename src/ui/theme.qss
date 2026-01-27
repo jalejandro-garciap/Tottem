@@ -101,7 +101,9 @@ QLabel#PriceTag {
 
 #CartPanel {
     background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                stop:0 #1a1a26, stop:1 #14141e);
+                                stop:0 #1a1a26, 
+                                stop:0.6 #1a1a26, 
+                                stop:1 #14141e);
     border: 1px solid #2a2a3a;
     border-radius: 28px;
     padding: 24px;
@@ -550,7 +552,7 @@ QTabBar::tab:selected {
 
 QScrollBar:vertical {
     background: transparent;
-    width: 20px;              /* Era 8px → 20px touch-friendly */
+    width: 20px;
     margin: 8px 2px;
     border-radius: 4px;
 }
@@ -579,7 +581,7 @@ QScrollBar::sub-page:vertical {
 
 QScrollBar:horizontal {
     background: transparent;
-    height: 20px;             /* Era 8px → 20px touch-friendly */
+    height: 20px;
     margin: 2px 8px;
     border-radius: 4px;
 }

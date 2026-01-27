@@ -1513,9 +1513,9 @@ class AdminWindow(QMainWindow):
         header = self.tbl_employees.horizontalHeader()
         header.setStretchLastSection(False)
         header.setSectionResizeMode(0, QHeaderView.ResizeToContents)  # ID: auto-size
-        header.setSectionResizeMode(1, QHeaderView.Interactive)       # No. Empleado: ajustable
+        header.setSectionResizeMode(1, QHeaderView.ResizeToContents)  # No. Empleado: auto-size
         header.setSectionResizeMode(2, QHeaderView.Stretch)           # Nombre: espacio restante
-        header.setSectionResizeMode(3, QHeaderView.Interactive)       # Contacto: ajustable
+        header.setSectionResizeMode(3, QHeaderView.ResizeToContents)  # Contacto: auto-size
         header.setSectionResizeMode(4, QHeaderView.ResizeToContents)  # Activo: auto-size
         self.tbl_employees.setColumnWidth(4, 70)
         v.addWidget(self.tbl_employees, 2)
