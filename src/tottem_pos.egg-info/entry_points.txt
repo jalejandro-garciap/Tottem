@@ -1,0 +1,2 @@
+[console_scripts]
+pos = cli:app
