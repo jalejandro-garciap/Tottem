@@ -198,26 +198,26 @@ def render_shift_closure_report(shift_id: int, closing_cash: int = 0, closed_by:
     out.append("\n")
     
     # Tiempos
-    out.append("───────────────────────────────\n")
+    out.append("--------------------------------\n")
     out.append("PERIODO DEL TURNO\n")
-    out.append("───────────────────────────────\n")
+    out.append("--------------------------------\n")
     out.append(f"Apertura: {sh[1] or '-'}\n")
     out.append(f"Cierre:   {now.strftime('%Y-%m-%d %H:%M:%S')}\n")
     out.append("\n")
     
     # Resumen de ventas
-    out.append("───────────────────────────────\n")
+    out.append("--------------------------------\n")
     out.append("RESUMEN DE VENTAS\n")
-    out.append("───────────────────────────────\n")
+    out.append("--------------------------------\n")
     out.append(f"Transacciones:     {sums['tickets']:>10}\n")
     out.append(f"Articulos vendidos:{sums['items']:>10}\n")
     out.append(f"Total en ventas:   ${cents_to_money(sums['total']):>9}\n")
     out.append("\n")
     
     # Cuadre de caja
-    out.append("───────────────────────────────\n")
+    out.append("--------------------------------\n")
     out.append("CUADRE DE CAJA\n")
-    out.append("───────────────────────────────\n")
+    out.append("--------------------------------\n")
     out.append(f"Fondo inicial:     ${cents_to_money(opening_cash_cents):>9}\n")
     out.append(f"(+) Ventas:        ${cents_to_money(sums['total']):>9}\n")
     expected = opening_cash_cents + sums['total']
@@ -225,7 +225,7 @@ def render_shift_closure_report(shift_id: int, closing_cash: int = 0, closed_by:
     out.append(f"Efectivo contado:  ${cents_to_money(closing_cash):>9}\n")
     
     diff = closing_cash - expected
-    out.append("───────────────────────────────\n")
+    out.append("--------------------------------\n")
     if diff > 0:
         out.append(f"SOBRANTE:          ${cents_to_money(diff):>9}\n")
     elif diff < 0:
@@ -263,7 +263,7 @@ def render_shift_closure_report(shift_id: int, closing_cash: int = 0, closed_by:
                 out.append(f"  {qty_str}x {name}\n")
                 out.append(f"               ${cents_to_money(subtotal):>6}\n")
             
-            out.append(f"  ─────────────────────\n")
+            out.append("--------------------------------\n")
             out.append(f"  SUBTOTAL:    ${cents_to_money(ticket['total']):>6}\n")
             out.append("\n")
     
