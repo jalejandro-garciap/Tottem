@@ -308,7 +308,7 @@ class AdminPinDialog(QDialog):
             keypad.addWidget(b, r, c)
 
         # Fila inferior: Limpiar, 0, Borrar
-        btn_clear = QPushButton(i18n.t("clear") or "Limpiar")
+        btn_clear = QPushButton("C")
         btn_clear.setMinimumHeight(56)
         btn_clear.setProperty("role", "danger")
         btn_clear.setObjectName("KeypadButton")
