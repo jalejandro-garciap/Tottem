@@ -154,6 +154,13 @@ class NumKeypad(QDialog):
         if s:
             self.edit.setText(s[:-1])
 
+    def value_text(self) -> str:
+        """
+        Devuelve el texto tal cual fue capturado en el display.
+        Útil para campos como PIN donde no se requiere convertir a número.
+        """
+        return (self.edit.text() or "").strip()
+
     def value_float(self) -> float:
         s = (self.edit.text() or "").strip()
         if not s or s == ".":

@@ -40,6 +40,7 @@ from services.reports import (
 from services.emailer import send_mail, recent_emails
 from services.settings import is_categories_enabled, set_categories_enabled
 from ui.widgets.osk import OnScreenKeyboard
+from ui.widgets.keypad import NumKeypad
 from services.auth import check_admin_pin
 
 try:
@@ -230,6 +231,32 @@ class _OskFocusFilter(QObject):
                     obj.setCursorPosition(len(obj.text()))
             finally:
                 self.win._osk_guard = False
+            return False
+        return False
+
+
+class _PinKeypadFocusFilter(QObject):
+    """Abre el keypad numérico cuando un QLineEdit de PIN recibe foco (sin OSK)."""
+
+    def __init__(self, parent_window):
+        super().__init__(parent_window)
+        self.win = parent_window
+
+    def eventFilter(self, obj, event):
+        if isinstance(obj, QLineEdit) and event.type() == QEvent.FocusIn:
+            if getattr(self.win, "_pinpad_guard", False):
+                return False
+            self.win._pinpad_guard = True
+            try:
+                dlg = NumKeypad(title=i18n.t("admin_pin_prompt") or "PIN administrador", allow_decimal=False)
+                # Usar el valor actual como texto inicial
+                if obj.text():
+                    dlg.edit.setText(obj.text())
+                if dlg.exec():
+                    obj.setText(dlg.value_text())
+                    obj.setCursorPosition(len(obj.text()))
+            finally:
+                self.win._pinpad_guard = False
             return False
         return False
 
@@ -620,6 +647,8 @@ class AdminWindow(QMainWindow):
         self.setWindowTitle(i18n.t("admin_title"))
         self._osk_guard = False
         self._osk_filter = _OskFocusFilter(self)
+        self._pinpad_guard = False
+        self._pinpad_filter = _PinKeypadFocusFilter(self)
 
         # ─── Header Bar ───────────────────────────────────────────────────
         top_wrap = QWidget()
@@ -715,8 +744,9 @@ class AdminWindow(QMainWindow):
         f.addRow(i18n.t("repeat_pin"), self.pin_new2)
         f.addRow(btn_set)
 
+        # Para seguridad usamos keypad numérico en lugar de OSK completo
         for wle in (self.pin_in, self.pin_new, self.pin_new2):
-            wle.installEventFilter(self._osk_filter)
+            wle.installEventFilter(self._pinpad_filter)
         return w
 
     def _check_pin(self):

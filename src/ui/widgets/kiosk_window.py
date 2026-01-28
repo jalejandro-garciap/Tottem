@@ -248,7 +248,7 @@ class AdminPinDialog(QDialog):
         super().__init__(parent)
         self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
         self.setModal(True)
-        self.setMinimumWidth(400)
+        self.setMinimumWidth(420)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(48, 48, 48, 48)
@@ -290,6 +290,43 @@ class AdminPinDialog(QDialog):
         """)
         self.ed_pin.setPlaceholderText("• • • •")
 
+        # ─── Keypad numérico integrado ─────────────────────────────────────
+        keypad = QGridLayout()
+        keypad.setSpacing(12)
+
+        # Números 1–9
+        nums = [
+            ("1", 0, 0), ("2", 0, 1), ("3", 0, 2),
+            ("4", 1, 0), ("5", 1, 1), ("6", 1, 2),
+            ("7", 2, 0), ("8", 2, 1), ("9", 2, 2),
+        ]
+        for txt, r, c in nums:
+            b = QPushButton(txt)
+            b.setMinimumHeight(56)
+            b.setObjectName("KeypadButton")
+            b.clicked.connect(lambda _=None, t=txt: self._press_digit(t))
+            keypad.addWidget(b, r, c)
+
+        # Fila inferior: Limpiar, 0, Borrar
+        btn_clear = QPushButton(i18n.t("clear") or "Limpiar")
+        btn_clear.setMinimumHeight(56)
+        btn_clear.setProperty("role", "danger")
+        btn_clear.setObjectName("KeypadButton")
+        btn_clear.clicked.connect(self._clear_pin)
+        keypad.addWidget(btn_clear, 3, 0)
+
+        btn_zero = QPushButton("0")
+        btn_zero.setMinimumHeight(56)
+        btn_zero.setObjectName("KeypadButton")
+        btn_zero.clicked.connect(lambda _=None: self._press_digit("0"))
+        keypad.addWidget(btn_zero, 3, 1)
+
+        btn_back = QPushButton("⌫")
+        btn_back.setMinimumHeight(56)
+        btn_back.setObjectName("KeypadButton")
+        btn_back.clicked.connect(self._backspace_pin)
+        keypad.addWidget(btn_back, 3, 2)
+
         btn_row = QHBoxLayout()
         btn_row.setSpacing(16)
         btn_cancel = QPushButton(i18n.t("cancel") or "Cancelar")
@@ -308,9 +345,23 @@ class AdminPinDialog(QDialog):
         layout.addSpacing(8)
         layout.addWidget(self.ed_pin)
         layout.addSpacing(8)
+        layout.addLayout(keypad)
+        layout.addSpacing(8)
         layout.addLayout(btn_row)
 
         self.ed_pin.setFocus()
+
+    def _press_digit(self, digit: str):
+        """Agrega un dígito al PIN respetando la longitud máxima."""
+        self.ed_pin.insert(digit)
+
+    def _backspace_pin(self):
+        """Elimina el último dígito capturado."""
+        self.ed_pin.backspace()
+
+    def _clear_pin(self):
+        """Limpia completamente el PIN capturado."""
+        self.ed_pin.clear()
 
     def _on_ok(self):
         pin = self.ed_pin.text() or ""
