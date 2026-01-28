@@ -673,15 +673,20 @@ class POSWindow(QMainWindow):
         - Márgenes del contenedor raíz (16px × 2 = 32px)
         - Spacing entre paneles (16px)
         """
+        viewport = self.products_area.viewport()
+        viewport_width = viewport.width() if viewport else 0
+        if viewport_width > 0:
+            return viewport_width
+
         screen = QGuiApplication.primaryScreen()
         total_w = screen.geometry().width() if screen else self.width()
         right_min = self._target_right_min_width(total_w)
         self.right_wrap.setMinimumWidth(right_min)
-        
+
         # Restar: panel derecho + márgenes del root (16*2) + spacing entre paneles (16)
         container_margins = 16 * 2  # Left + Right margins del contenedor principal
         panel_spacing = 16           # Spacing entre grid panel y cart panel
-        
+
         available = total_w - right_min - container_margins - panel_spacing
         return max(0, available)
 
@@ -732,7 +737,7 @@ class POSWindow(QMainWindow):
         avail_w = self._available_grid_width()
         btn_min = self._target_button_min_size(avail_w)
         spacing = self.grid.spacing()
-        margins = 0
+        margins = self.grid_wrap.contentsMargins().left()
         cols = self._calc_cols(avail_w, btn_min.width(), spacing, margins)
         self._current_cols = cols
         est_text_w = max(60, btn_min.width() - 24)
