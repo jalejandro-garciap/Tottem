@@ -292,7 +292,7 @@ class AdminPinDialog(QDialog):
 
         # ─── Keypad numérico integrado ─────────────────────────────────────
         keypad = QGridLayout()
-        keypad.setSpacing(12)
+        keypad.setSpacing(8)
 
         # Números 1–9
         nums = [
@@ -302,27 +302,27 @@ class AdminPinDialog(QDialog):
         ]
         for txt, r, c in nums:
             b = QPushButton(txt)
-            b.setMinimumHeight(56)
+            b.setMinimumHeight(48)
             b.setObjectName("KeypadButton")
             b.clicked.connect(lambda _=None, t=txt: self._press_digit(t))
             keypad.addWidget(b, r, c)
 
         # Fila inferior: Limpiar, 0, Borrar
         btn_clear = QPushButton("C")
-        btn_clear.setMinimumHeight(56)
+        btn_clear.setMinimumHeight(48)
         btn_clear.setProperty("role", "danger")
         btn_clear.setObjectName("KeypadButton")
         btn_clear.clicked.connect(self._clear_pin)
         keypad.addWidget(btn_clear, 3, 0)
 
         btn_zero = QPushButton("0")
-        btn_zero.setMinimumHeight(56)
+        btn_zero.setMinimumHeight(48)
         btn_zero.setObjectName("KeypadButton")
         btn_zero.clicked.connect(lambda _=None: self._press_digit("0"))
         keypad.addWidget(btn_zero, 3, 1)
 
         btn_back = QPushButton("⌫")
-        btn_back.setMinimumHeight(56)
+        btn_back.setMinimumHeight(48)
         btn_back.setObjectName("KeypadButton")
         btn_back.clicked.connect(self._backspace_pin)
         keypad.addWidget(btn_back, 3, 2)
