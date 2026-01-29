@@ -3,7 +3,7 @@ from PySide6.QtWidgets import (
     QLineEdit, QPushButton, QLabel, QHBoxLayout, QComboBox,
     QMessageBox, QSpinBox, QGridLayout, QTableWidget, QTableWidgetItem,
     QAbstractItemView, QCheckBox, QDialog, QListWidget, QApplication,
-    QFrame, QStackedLayout
+    QFrame, QStackedLayout, QTextEdit, QDialogButtonBox
 )
 from PySide6.QtCore import Qt, QObject, QEvent, QTimer
 from pathlib import Path
@@ -1332,7 +1332,28 @@ class AdminWindow(QMainWindow):
 
     def _do_preview(self):
         txt, _ = report_x()
-        QMessageBox.information(self, i18n.t("tab_shifts") or "Turnos", txt)
+        dlg = QDialog(self)
+        dlg.setWindowTitle(i18n.t("tab_shifts") or "Turnos")
+        dlg.setMinimumSize(560, 420)
+        dlg.setModal(True)
+        dlg.setSizeGripEnabled(True)
+
+        layout = QVBoxLayout(dlg)
+        title = QLabel(i18n.t("preview_shift") or "Vista previa")
+        title.setStyleSheet("font-weight: 600;")
+        layout.addWidget(title)
+
+        preview = QTextEdit()
+        preview.setReadOnly(True)
+        preview.setLineWrapMode(QTextEdit.WidgetWidth)
+        preview.setPlainText(txt)
+        layout.addWidget(preview, 1)
+
+        buttons = QDialogButtonBox(QDialogButtonBox.Close)
+        buttons.rejected.connect(dlg.reject)
+        layout.addWidget(buttons)
+
+        dlg.exec()
 
     def _do_close(self):
         """
@@ -1835,4 +1856,3 @@ class AdminWindow(QMainWindow):
             self.lbl_shift.setText(self._shift_label_text())
         if hasattr(self, "list_shifts"):
             self._reload_week_shifts()
-
