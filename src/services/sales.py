@@ -220,3 +220,98 @@ def get_ticket_items(ticket_id: int) -> List[CartItem]:
         ))
     return items
 
+
+def list_tickets(limit: int = 50, offset: int = 0) -> List[Dict[str, Any]]:
+    """Lista paginada de tickets ordenados por fecha descendente.
+    
+    Args:
+        limit: Número máximo de tickets a retornar
+        offset: Offset para paginación
+        
+    Returns:
+        Lista de diccionarios con información de tickets
+    """
+    with connect() as c:
+        rows = c.execute("""
+            SELECT 
+                t.id,
+                t.ts,
+                t.total,
+                t.shift_id,
+                s.opened_by
+            FROM ticket t
+            LEFT JOIN shift s ON t.shift_id = s.id
+            ORDER BY t.id DESC
+            LIMIT ? OFFSET ?
+        """, (limit, offset)).fetchall()
+    
+    tickets = []
+    for r in rows:
+        tickets.append({
+            "id": r["id"],
+            "ts": r["ts"],
+            "total": r["total"],
+            "shift_id": r["shift_id"],
+            "served_by": r["opened_by"] or ""
+        })
+    return tickets
+
+
+def search_tickets_by_id(ticket_id: int) -> Optional[Dict[str, Any]]:
+    """Buscar ticket específico por ID.
+    
+    Args:
+        ticket_id: ID del ticket a buscar
+        
+    Returns:
+        Diccionario con información del ticket o None si no existe
+    """
+    with connect() as c:
+        row = c.execute("""
+            SELECT 
+                t.id,
+                t.ts,
+                t.total,
+                t.shift_id,
+                s.opened_by
+            FROM ticket t
+            LEFT JOIN shift s ON t.shift_id = s.id
+            WHERE t.id = ?
+        """, (ticket_id,)).fetchone()
+    
+    if not row:
+        return None
+    
+    return {
+        "id": row["id"],
+        "ts": row["ts"],
+        "total": row["total"],
+        "shift_id": row["shift_id"],
+        "served_by": row["opened_by"] or ""
+    }
+
+
+def get_ticket_details(ticket_id: int) -> Optional[Dict[str, Any]]:
+    """Obtener detalles completos de un ticket incluyendo items.
+    
+    Args:
+        ticket_id: ID del ticket
+        
+    Returns:
+        Diccionario con ticket completo (info + items) o None si no existe
+    """
+    ticket_info = search_tickets_by_id(ticket_id)
+    if not ticket_info:
+        return None
+    
+    items = get_ticket_items(ticket_id)
+    
+    return {
+        "id": ticket_info["id"],
+        "ts": ticket_info["ts"],
+        "total": ticket_info["total"],
+        "shift_id": ticket_info["shift_id"],
+        "served_by": ticket_info["served_by"],
+        "items": items
+    }
+

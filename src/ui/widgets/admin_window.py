@@ -25,7 +25,10 @@ from services.employees import (
     list_employees, get_employee, create_employee,
     update_employee, set_employee_active, delete_employee
 )
-from services.sales import money_to_cents, cents_to_money
+from services.sales import (
+    money_to_cents, cents_to_money, list_tickets,
+    search_tickets_by_id, get_ticket_details
+)
 from services.shifts import (
     open_shift,
     current_shift,
@@ -37,6 +40,7 @@ from services.reports import (
     report_x, report_z, render_shift_text, render_range_text,
     csv_tickets_bytes, csv_items_bytes
 )
+from services.receipts import render_ticket
 from services.emailer import send_mail, recent_emails
 from services.settings import is_categories_enabled, set_categories_enabled
 from ui.widgets.osk import OnScreenKeyboard
@@ -697,6 +701,7 @@ class AdminWindow(QMainWindow):
         self.tabs.addTab(self._tab_store(), f"{get_icon_char('store') or '🏪'}  " + i18n.t("tab_store"))
         self.tabs.addTab(self._tab_products(), f"{get_icon_char('box') or '📦'}  " + i18n.t("tab_products"))
         self.tabs.addTab(self._tab_shifts(), f"{get_icon_char('chart-bar') or '📊'}  " + (i18n.t("tab_shifts") or "Turnos"))
+        self.tabs.addTab(self._tab_tickets(), f"{get_icon_char('receipt') or '🧾'}  Tickets")
         self.tabs.addTab(self._tab_reports(), f"{get_icon_char('chart-line') or '📈'}  " + i18n.t("tab_reports"))
         self.tabs.addTab(self._tab_system(), f"{get_icon_char('computer') or '💻'}  " + i18n.t("tab_system"))
 
@@ -1206,6 +1211,247 @@ class AdminWindow(QMainWindow):
                 i18n.t("tab_products") or "Productos",
                 i18n.t("categories_disabled") or "Categorías deshabilitadas. El kiosko mostrará un solo menú de productos.",
             )
+
+    # ---------- Tickets
+    def _tab_tickets(self) -> QWidget:
+        """Tab para visualizar, buscar y reimprimir tickets de venta."""
+        w = QWidget()
+        v = QVBoxLayout(w)
+        v.setContentsMargins(10, 10, 10, 10)
+        v.setSpacing(10)
+
+        # Barra de búsqueda
+        search_row = QHBoxLayout()
+        search_row.setSpacing(12)
+        self.ed_ticket_search = QLineEdit()
+        self.ed_ticket_search.setPlaceholderText("Buscar por número de ticket...")
+        self.ed_ticket_search.setMinimumHeight(52)
+        btn_search = QPushButton("Buscar")
+        btn_search.setMinimumHeight(52)
+        btn_search.clicked.connect(self._tickets_search)
+        btn_clear = QPushButton("Limpiar")
+        btn_clear.setMinimumHeight(52)
+        btn_clear.clicked.connect(self._tickets_clear_search)
+        search_row.addWidget(self.ed_ticket_search, 1)
+        search_row.addWidget(btn_search)
+        search_row.addWidget(btn_clear)
+        v.addLayout(search_row)
+
+        # OSK para el campo de búsqueda
+        self.ed_ticket_search.installEventFilter(self._osk_filter)
+
+        # Tabla de tickets
+        self.tbl_tickets = QTableWidget(0, 5)
+        self.tbl_tickets.setHorizontalHeaderLabels([
+            "ID", "Fecha", "Total", "Turno", "Empleado"
+        ])
+        self.tbl_tickets.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.tbl_tickets.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.tbl_tickets.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.tbl_tickets.verticalHeader().setVisible(False)
+        self.tbl_tickets.setAlternatingRowColors(True)
+        
+        # Responsive columns
+        from PySide6.QtWidgets import QHeaderView
+        header = self.tbl_tickets.horizontalHeader()
+        header.setStretchLastSection(False)
+        header.setSectionResizeMode(0, QHeaderView.ResizeToContents)  # ID
+        header.setSectionResizeMode(1, QHeaderView.Stretch)           # Fecha
+        header.setSectionResizeMode(2, QHeaderView.ResizeToContents)  # Total
+        header.setSectionResizeMode(3, QHeaderView.ResizeToContents)  # Turno
+        header.setSectionResizeMode(4, QHeaderView.Interactive)       # Empleado
+        
+        # Evento de selección para mostrar detalles
+        self.tbl_tickets.itemSelectionChanged.connect(self._tickets_show_details)
+        
+        v.addWidget(self.tbl_tickets, 2)
+
+        # Paginación
+        page_row = QHBoxLayout()
+        self.btn_tickets_prev = QPushButton("◀ Anterior")
+        self.btn_tickets_prev.setMinimumHeight(40)
+        self.btn_tickets_prev.clicked.connect(self._tickets_prev_page)
+        self.lbl_tickets_page = QLabel("Página 1")
+        self.lbl_tickets_page.setAlignment(Qt.AlignCenter)
+        self.btn_tickets_next = QPushButton("Siguiente ▶")
+        self.btn_tickets_next.setMinimumHeight(40)
+        self.btn_tickets_next.clicked.connect(self._tickets_next_page)
+        page_row.addWidget(self.btn_tickets_prev)
+        page_row.addWidget(self.lbl_tickets_page, 1)
+        page_row.addWidget(self.btn_tickets_next)
+        v.addLayout(page_row)
+
+        # Panel de detalles
+        v.addWidget(QLabel("Detalles del ticket:"))
+        self.txt_ticket_details = QTextEdit()
+        self.txt_ticket_details.setReadOnly(True)
+        self.txt_ticket_details.setMaximumHeight(200)
+        self.txt_ticket_details.setPlainText("Selecciona un ticket para ver los detalles...")
+        v.addWidget(self.txt_ticket_details, 1)
+
+        # Botón de reimpresión
+        btn_reprint = QPushButton("🖨 Reimprimir Ticket Seleccionado")
+        btn_reprint.setMinimumHeight(52)
+        btn_reprint.setProperty("role", "primary")
+        btn_reprint.clicked.connect(self._tickets_reprint)
+        v.addWidget(btn_reprint)
+
+        # Inicializar variables de paginación
+        self.tickets_offset = 0
+        self.tickets_page_size = 20
+
+        # Cargar tickets iniciales
+        self._tickets_refresh()
+
+        return w
+
+    def _tickets_refresh(self, offset: int = 0):
+        """Carga tickets desde la BD y llena la tabla."""
+        self.tickets_offset = offset
+        tickets = list_tickets(limit=self.tickets_page_size, offset=offset)
+        
+        self.tbl_tickets.setRowCount(0)
+        for t in tickets:
+            r = self.tbl_tickets.rowCount()
+            self.tbl_tickets.insertRow(r)
+            self.tbl_tickets.setItem(r, 0, QTableWidgetItem(str(t["id"])))
+            self.tbl_tickets.setItem(r, 1, QTableWidgetItem(t["ts"] or ""))
+            self.tbl_tickets.setItem(r, 2, QTableWidgetItem(f"$ {cents_to_money(t['total'])}"))
+            self.tbl_tickets.setItem(r, 3, QTableWidgetItem(f"#{t['shift_id']}" if t['shift_id'] else "—"))
+            self.tbl_tickets.setItem(r, 4, QTableWidgetItem(t["served_by"] or "—"))
+        
+        # Actualizar label de página
+        page_num = (offset // self.tickets_page_size) + 1
+        self.lbl_tickets_page.setText(f"Página {page_num}")
+        
+        # Habilitar/deshabilitar botones de navegación
+        self.btn_tickets_prev.setEnabled(offset > 0)
+        self.btn_tickets_next.setEnabled(len(tickets) == self.tickets_page_size)
+
+    def _tickets_search(self):
+        """Busca ticket específico por número ingresado."""
+        search_text = self.ed_ticket_search.text().strip()
+        if not search_text:
+            self._toast("Ingresa un número de ticket para buscar.", level="error")
+            return
+        
+        try:
+            ticket_id = int(search_text)
+        except ValueError:
+            self._toast("El número de ticket debe ser un número válido.", level="error")
+            return
+        
+        ticket = search_tickets_by_id(ticket_id)
+        if not ticket:
+            self._toast(f"No se encontró el ticket #{ticket_id}.", level="error")
+            self.tbl_tickets.setRowCount(0)
+            return
+        
+        # Mostrar solo ese ticket en la tabla
+        self.tbl_tickets.setRowCount(0)
+        self.tbl_tickets.insertRow(0)
+        self.tbl_tickets.setItem(0, 0, QTableWidgetItem(str(ticket["id"])))
+        self.tbl_tickets.setItem(0, 1, QTableWidgetItem(ticket["ts"] or ""))
+        self.tbl_tickets.setItem(0, 2, QTableWidgetItem(f"$ {cents_to_money(ticket['total'])}"))
+        self.tbl_tickets.setItem(0, 3, QTableWidgetItem(f"#{ticket['shift_id']}" if ticket['shift_id'] else "—"))
+        self.tbl_tickets.setItem(0, 4, QTableWidgetItem(ticket["served_by"] or "—"))
+        
+        # Deshabilitar paginación durante búsqueda
+        self.btn_tickets_prev.setEnabled(False)
+        self.btn_tickets_next.setEnabled(False)
+        self.lbl_tickets_page.setText("Búsqueda")
+
+    def _tickets_clear_search(self):
+        """Limpia la búsqueda y regresa a mostrar todos los tickets."""
+        self.ed_ticket_search.clear()
+        self._tickets_refresh(0)
+
+    def _tickets_show_details(self):
+        """Muestra detalles del ticket seleccionado en el panel."""
+        row = self.tbl_tickets.currentRow()
+        if row < 0:
+            self.txt_ticket_details.setPlainText("Selecciona un ticket para ver los detalles...")
+            return
+        
+        ticket_id_item = self.tbl_tickets.item(row, 0)
+        if not ticket_id_item:
+            return
+        
+        try:
+            ticket_id = int(ticket_id_item.text())
+        except ValueError:
+            return
+        
+        details = get_ticket_details(ticket_id)
+        if not details:
+            self.txt_ticket_details.setPlainText("Error al cargar detalles del ticket.")
+            return
+        
+        # Formatear detalles para mostrar
+        lines = []
+        lines.append(f"TICKET #{details['id']}")
+        lines.append(f"Fecha: {details['ts']}")
+        lines.append(f"Turno: #{details['shift_id']}" if details['shift_id'] else "Turno: —")
+        lines.append(f"Atendió: {details['served_by']}" if details['served_by'] else "Atendió: —")
+        lines.append("")
+        lines.append("Items:")
+        lines.append("─" * 40)
+        
+        for item in details["items"]:
+            lines.append(f"x{item.qty} {item.name}")
+            lines.append(f"   $ {cents_to_money(item.price)}")
+        
+        lines.append("─" * 40)
+        lines.append(f"TOTAL: $ {cents_to_money(details['total'])}")
+        
+        self.txt_ticket_details.setPlainText("\n".join(lines))
+
+    def _tickets_reprint(self):
+        """Reimprimir el ticket seleccionado."""
+        row = self.tbl_tickets.currentRow()
+        if row < 0:
+            self._toast("Selecciona un ticket para reimprimir.", level="error")
+            return
+        
+        ticket_id_item = self.tbl_tickets.item(row, 0)
+        if not ticket_id_item:
+            return
+        
+        try:
+            ticket_id = int(ticket_id_item.text())
+        except ValueError:
+            return
+        
+        details = get_ticket_details(ticket_id)
+        if not details:
+            self._toast("Error al cargar ticket.", level="error")
+            return
+        
+        # Generar ticket usando render_ticket con los parámetros extendidos
+        ticket_text = render_ticket(
+            details["items"],
+            ticket_number=details["id"],
+            timestamp=details["ts"],
+            served_by=details["served_by"]
+        )
+        
+        # Imprimir
+        try:
+            EscposPrinter().print_text(ticket_text)
+            self._toast(f"Ticket #{ticket_id} enviado a impresión.", level="success")
+        except Exception as e:
+            self._toast(f"Error al imprimir: {e}", level="error")
+
+    def _tickets_next_page(self):
+        """Navegar a la siguiente página de tickets."""
+        new_offset = self.tickets_offset + self.tickets_page_size
+        self._tickets_refresh(new_offset)
+
+    def _tickets_prev_page(self):
+        """Navegar a la página anterior de tickets."""
+        new_offset = max(0, self.tickets_offset - self.tickets_page_size)
+        self._tickets_refresh(new_offset)
+
 
     # ---------- Reports (solo rango de fechas + correo)
     def _tab_reports(self) -> QWidget:
@@ -1810,8 +2056,10 @@ class AdminWindow(QMainWindow):
         self.tabs.setTabText(2, i18n.t("tab_store") or "Tienda")
         self.tabs.setTabText(3, i18n.t("tab_products") or "Productos")
         self.tabs.setTabText(4, i18n.t("tab_shifts") or "Turnos")
-        self.tabs.setTabText(5, i18n.t("tab_reports") or "Reportes")
-        self.tabs.setTabText(6, i18n.t("tab_system") or "Sistema")
+        self.tabs.setTabText(5, "Tickets")  # Nuevo tab de Tickets (sin i18n por ahora)
+        self.tabs.setTabText(6, i18n.t("tab_reports") or "Reportes")
+        self.tabs.setTabText(7, i18n.t("tab_system") or "Sistema")
+
 
         # Productos – actualizar textos visibles
         if hasattr(self, "tbl"):

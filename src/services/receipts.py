@@ -18,10 +18,19 @@ def _load_cfg() -> dict:
         return {}
 
 
-def render_ticket(items: Iterable[CartItem], *, paid_cents: Optional[int] = None, change_cents: Optional[int] = None) -> str:
+def render_ticket(
+    items: Iterable[CartItem], 
+    *, 
+    paid_cents: Optional[int] = None, 
+    change_cents: Optional[int] = None,
+    ticket_number: Optional[int] = None,
+    timestamp: Optional[str] = None,
+    served_by: Optional[str] = None
+) -> str:
     """
     Devuelve un bloque de texto listo para imprimir en ESC/POS.
     Si se incluyen paid_cents y change_cents, los muestra al final.
+    Si se incluyen ticket_number, timestamp, served_by, los muestra al inicio.
     """
     cfg = _load_cfg()
     store = cfg.get("store", {}) or {}
@@ -34,6 +43,14 @@ def render_ticket(items: Iterable[CartItem], *, paid_cents: Optional[int] = None
     else:
         out.append("Mi Tienda\n")
 
+    # Agregar metadatos del ticket si están disponibles
+    if ticket_number is not None:
+        out.append(f"\nTICKET #{ticket_number}\n")
+    if timestamp:
+        out.append(f"Fecha: {timestamp}\n")
+    if served_by:
+        out.append(f"Atendio: {served_by}\n")
+    
     out.append("------------------------------\n")
     total = 0
     for it in items:
