@@ -252,7 +252,7 @@ class _PinKeypadFocusFilter(QObject):
                 return False
             self.win._pinpad_guard = True
             try:
-                dlg = NumKeypad(title=i18n.t("admin_pin_prompt") or "PIN administrador", allow_decimal=False)
+                dlg = NumKeypad(title=i18n.t("keypad_title") or "Teclado", allow_decimal=False)
                 # Usar el valor actual como texto inicial
                 if obj.text():
                     dlg.edit.setText(obj.text())
@@ -804,7 +804,7 @@ class AdminWindow(QMainWindow):
         self._osk_guard = False
         self._osk_filter = _OskFocusFilter(self)
         self._pinpad_guard = False
-        self._pinpad_filter = _PinKeypadFocusFilter(self)
+        self._keypad_filter = _PinKeypadFocusFilter(self)
 
         # ─── Header Bar ───────────────────────────────────────────────────
         top_wrap = QWidget()
@@ -903,7 +903,7 @@ class AdminWindow(QMainWindow):
 
         # Para seguridad usamos keypad numérico en lugar de OSK completo
         for wle in (self.pin_in, self.pin_new, self.pin_new2):
-            wle.installEventFilter(self._pinpad_filter)
+            wle.installEventFilter(self._keypad_filter)
         return w
 
     def _check_pin(self):
@@ -1390,7 +1390,7 @@ class AdminWindow(QMainWindow):
         v.addLayout(search_row)
 
         # Keypad numérico para el campo de búsqueda
-        self.ed_ticket_search.installEventFilter(self._pinpad_filter)
+        self.ed_ticket_search.installEventFilter(self._keypad_filter)
 
         # Tabla de tickets
         self.tbl_tickets = QTableWidget(0, 5)
