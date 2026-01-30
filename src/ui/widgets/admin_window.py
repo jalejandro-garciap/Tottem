@@ -2,7 +2,7 @@ from PySide6.QtWidgets import (
     QMainWindow, QWidget, QTabWidget, QVBoxLayout, QFormLayout,
     QLineEdit, QPushButton, QLabel, QHBoxLayout, QComboBox,
     QMessageBox, QSpinBox, QGridLayout, QTableWidget, QTableWidgetItem,
-    QAbstractItemView, QCheckBox, QDialog, QListWidget, QApplication,
+    QAbstractItemView, QCheckBox, QDialog, QListWidget, QListWidgetItem, QApplication,
     QFrame, QStackedLayout, QTextEdit, QDialogButtonBox
 )
 from PySide6.QtCore import Qt, QObject, QEvent, QTimer
