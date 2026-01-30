@@ -1395,7 +1395,7 @@ class AdminWindow(QMainWindow):
         # Tabla de tickets
         self.tbl_tickets = QTableWidget(0, 5)
         self.tbl_tickets.setHorizontalHeaderLabels([
-            "ID", "Fecha", "Total", "Turno", "Empleado"
+            "Ticket", "Fecha", "Empleado", "Turno", "Total"
         ])
         self.tbl_tickets.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.tbl_tickets.setSelectionMode(QAbstractItemView.SingleSelection)
@@ -1411,15 +1411,13 @@ class AdminWindow(QMainWindow):
         from PySide6.QtWidgets import QHeaderView
         header = self.tbl_tickets.horizontalHeader()
         header.setStretchLastSection(False)
-        header.setSectionResizeMode(0, QHeaderView.ResizeToContents)  # ID
+        header.setSectionResizeMode(0, QHeaderView.ResizeToContents)  # Ticket
         header.setSectionResizeMode(1, QHeaderView.Stretch)           # Fecha
-        header.setSectionResizeMode(2, QHeaderView.ResizeToContents)  # Total
+        header.setSectionResizeMode(2, QHeaderView.ResizeToContents)  # Empleado
         header.setSectionResizeMode(3, QHeaderView.ResizeToContents)  # Turno
-        header.setSectionResizeMode(4, QHeaderView.Interactive)       # Empleado
+        header.setSectionResizeMode(4, QHeaderView.ResizeToContents)  # Total
         
         v.addWidget(self.tbl_tickets, 1)
-
-        # Paginación
 
         # Paginación
         page_row = QHBoxLayout()
@@ -1443,7 +1441,7 @@ class AdminWindow(QMainWindow):
 
         # Inicializar variables de paginación
         self.tickets_offset = 0
-        self.tickets_page_size = 20
+        self.tickets_page_size = 15
 
         # Cargar tickets iniciales
         self._tickets_refresh()
