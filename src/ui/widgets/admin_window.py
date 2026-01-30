@@ -32,6 +32,7 @@ from services.sales import (
 from services.shifts import (
     open_shift,
     current_shift,
+    close_shift,
     list_shifts_since,
     shift_totals,
     close_current_shift,
@@ -902,15 +903,9 @@ class ShiftPreviewDialog(QDialog):
         self.shift_data = sh
         self.shift_totals = shift_totals(self.shift_id)
         
+        
         # Panel con grid de información
         panel = QWidget()
-        panel.setStyleSheet("""
-            QWidget {
-                background: #16161e;
-                border-radius: 12px;
-                padding: 16px;
-            }
-        """)
         
         grid = QGridLayout(panel)
         grid.setSpacing(12)
