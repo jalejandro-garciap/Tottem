@@ -1389,8 +1389,8 @@ class AdminWindow(QMainWindow):
         search_row.addWidget(btn_clear)
         v.addLayout(search_row)
 
-        # OSK para el campo de búsqueda
-        self.ed_ticket_search.installEventFilter(self._osk_filter)
+        # Keypad numérico para el campo de búsqueda
+        self.ed_ticket_search.installEventFilter(self._pinpad_filter)
 
         # Tabla de tickets
         self.tbl_tickets = QTableWidget(0, 5)
