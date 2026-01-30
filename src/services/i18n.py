@@ -33,6 +33,7 @@ _STRINGS: Dict[str, Dict[str, str]] = {
         "pin_bad": "PIN incorrecto",
         "pin_required": "Capture el PIN.",
         "pin_saved": "PIN actualizado. Reinicia la aplicación.",
+        "admin_pin_prompt": "Ingrese PIN de administrador",
         "admin_pin_title": "PIN de administrador",
 
         # Devices
