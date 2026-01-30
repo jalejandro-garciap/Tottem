@@ -1431,6 +1431,7 @@ class AdminWindow(QMainWindow):
         self.btn_tickets_next.clicked.connect(self._tickets_next_page)
         page_row.addWidget(self.btn_tickets_prev)
         page_row.addWidget(self.lbl_tickets_page, 1)
+        page_row.addWidget(self.btn_tickets_next)
         v.addLayout(page_row)
 
         # Instrucción para el usuario
