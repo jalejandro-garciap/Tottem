@@ -641,7 +641,7 @@ class POSWindow(QMainWindow):
 
     def _target_category_button_min_size(self, avail_width: int) -> QSize:
         base = self._target_button_min_size(avail_width)
-        return QSize(int(base.width() * 1.35), int(base.height() * 1.2))
+        return QSize(int(base.width() * 1.40), int(base.height()))
 
     def _calc_cols(self, avail_width: int, min_btn_w: int, spacing: int, margins: int) -> int:
         usable = max(0, avail_width - 2 * margins)
