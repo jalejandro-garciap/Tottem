@@ -45,11 +45,11 @@ def render_ticket(
 
     # Agregar metadatos del ticket si están disponibles
     if ticket_number is not None:
-        out.append(f"\nTICKET #{ticket_number}\n")
+        out.append(f"\nTicket: {ticket_number}\n")
+    if served_by:
+        out.append(f"Cajero: {served_by}\n")
     if timestamp:
         out.append(f"Fecha: {timestamp}\n")
-    if served_by:
-        out.append(f"Atendio: {served_by}\n")
     
     out.append("------------------------------\n")
     total = 0
@@ -63,13 +63,15 @@ def render_ticket(
     out.append("------------------------------\n")
     out.append(f"TOTAL: $ {cents_to_money(total)}\n")
 
-    if paid_cents is not None:
+    # Mostrar pago y cambio si están disponibles
+    if paid_cents is not None and paid_cents > 0:
         out.append(f"Pago:  $ {cents_to_money(int(paid_cents))}\n")
-    if change_cents is not None:
+    if change_cents is not None and change_cents > 0:
         out.append(f"Cambio:$ {cents_to_money(int(change_cents))}\n")
 
     if foot:
         out.append("\n" + foot.rstrip() + "\n")
 
     return "".join(out)
+
 

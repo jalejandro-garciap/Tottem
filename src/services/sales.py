@@ -162,12 +162,19 @@ def get_product(product_id: int) -> Optional[Dict[str, Any]]:
 
 
 # ---------- Tickets ----------
-def save_ticket(items: List[CartItem], shift_id: int | None = None) -> int:
+def save_ticket(
+    items: List[CartItem], 
+    shift_id: int | None = None,
+    paid_cents: int = 0,
+    change_cents: int = 0
+) -> int:
     """Guardar ticket asociado a un turno.
     
     Args:
         items: Items del carrito
         shift_id: ID del turno activo. Si es None, intenta obtener turno actual.
+        paid_cents: Cantidad pagada en centavos
+        change_cents: Cambio devuelto en centavos
     
     Returns:
         ticket_id generado
@@ -182,11 +189,11 @@ def save_ticket(items: List[CartItem], shift_id: int | None = None) -> int:
         shift_id = sh["id"] if sh else None
     total_cents = int(round(sum(round(i.price * i.qty) for i in items)))
     with connect() as c:
-        # CRÍTICO: Incluir shift_id para asociar venta con turno
-        cur = c.execute(
-            "INSERT INTO ticket(ts, total, shift_id) VALUES(datetime('now'), ?, ?)",
-            (total_cents, shift_id)
-        )
+        # CRÍTICO: Incluir shift_id para asociar venta con turno, y paid/change
+        cur = c.execute("""
+            INSERT INTO ticket(ts, total, shift_id, paid, change_amount) 
+            VALUES(datetime('now'), ?, ?, ?, ?)
+        """, (total_cents, shift_id, paid_cents, change_cents))
         tid = int(cur.lastrowid)
         for it in items:
             c.execute("""
@@ -238,9 +245,10 @@ def list_tickets(limit: int = 50, offset: int = 0) -> List[Dict[str, Any]]:
                 t.ts,
                 t.total,
                 t.shift_id,
-                s.opened_by
+                COALESCE(e.full_name, s.opened_by, '') as served_by
             FROM ticket t
             LEFT JOIN shift s ON t.shift_id = s.id
+            LEFT JOIN employee e ON s.opened_by = e.emp_no
             ORDER BY t.id DESC
             LIMIT ? OFFSET ?
         """, (limit, offset)).fetchall()
@@ -252,7 +260,7 @@ def list_tickets(limit: int = 50, offset: int = 0) -> List[Dict[str, Any]]:
             "ts": r["ts"],
             "total": r["total"],
             "shift_id": r["shift_id"],
-            "served_by": r["opened_by"] or ""
+            "served_by": r["served_by"] or ""
         })
     return tickets
 
@@ -273,9 +281,12 @@ def search_tickets_by_id(ticket_id: int) -> Optional[Dict[str, Any]]:
                 t.ts,
                 t.total,
                 t.shift_id,
-                s.opened_by
+                COALESCE(t.paid, 0) as paid,
+                COALESCE(t.change_amount, 0) as change_amount,
+                COALESCE(e.full_name, s.opened_by, '') as served_by
             FROM ticket t
             LEFT JOIN shift s ON t.shift_id = s.id
+            LEFT JOIN employee e ON s.opened_by = e.emp_no
             WHERE t.id = ?
         """, (ticket_id,)).fetchone()
     
@@ -287,7 +298,9 @@ def search_tickets_by_id(ticket_id: int) -> Optional[Dict[str, Any]]:
         "ts": row["ts"],
         "total": row["total"],
         "shift_id": row["shift_id"],
-        "served_by": row["opened_by"] or ""
+        "paid": row["paid"],
+        "change_amount": row["change_amount"],
+        "served_by": row["served_by"] or ""
     }
 
 
@@ -311,6 +324,8 @@ def get_ticket_details(ticket_id: int) -> Optional[Dict[str, Any]]:
         "ts": ticket_info["ts"],
         "total": ticket_info["total"],
         "shift_id": ticket_info["shift_id"],
+        "paid": ticket_info["paid"],
+        "change_amount": ticket_info["change_amount"],
         "served_by": ticket_info["served_by"],
         "items": items
     }

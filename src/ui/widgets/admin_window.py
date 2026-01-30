@@ -642,6 +642,158 @@ class ShiftCloseDialog(QDialog):
         }
 
 
+class TicketDetailDialog(QDialog):
+    """Dialog reutilizable para mostrar detalles de ticket con opción de reimpresión."""
+
+    def __init__(self, parent=None, ticket_id: int | None = None):
+        super().__init__(parent)
+        self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
+        self.setModal(True)
+        self.setMinimumWidth(550)
+        self.setMinimumHeight(600)
+        
+        self.ticket_id = ticket_id
+        self.ticket_details = None
+        
+        root = QVBoxLayout(self)
+        root.setContentsMargins(40, 40, 40, 40)
+        root.setSpacing(24)
+
+        # Header
+        from ui.icon_helper import get_icon_char
+        icon = QLabel(get_icon_char('receipt') or '🧾')
+        icon.setObjectName("IconLabel")
+        icon.setAlignment(Qt.AlignCenter)
+        icon.setStyleSheet("font-size: 48px;")
+
+        title = QLabel("DETALLES DEL TICKET")
+        title.setAlignment(Qt.AlignCenter)
+        title.setStyleSheet("""
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 3px;
+            color: #64748b;
+        """)
+
+        root.addWidget(icon)
+        root.addWidget(title)
+
+        # Detalles del ticket
+        self.txt_details = QTextEdit()
+        self.txt_details.setReadOnly(True)
+        self.txt_details.setStyleSheet("""
+            QTextEdit {
+                background: #16161e;
+                border-radius: 12px;
+                padding: 16px;
+                font-family: 'Courier New', monospace;
+                font-size: 13px;
+                line-height: 1.5;
+            }
+        """)
+        root.addWidget(self.txt_details, 1)
+
+        # Actions
+        row = QHBoxLayout()
+        row.setSpacing(16)
+
+        btn_cancel = QPushButton("Cerrar")
+        btn_cancel.setMinimumHeight(60)
+        btn_cancel.clicked.connect(self.reject)
+
+        from ui.icon_helper import get_icon_char
+        btn_print = QPushButton(f"{get_icon_char('print') or '🖨'}  Reimprimir Ticket")
+        btn_print.setMinimumHeight(60)
+        btn_print.setProperty("role", "primary")
+        btn_print.setStyleSheet("font-size: 16px; font-weight: 700;")
+        btn_print.clicked.connect(self._reprint_ticket)
+
+        row.addWidget(btn_cancel)
+        row.addWidget(btn_print)
+        root.addLayout(row)
+
+        # Cargar detalles si se proporcionó ticket_id
+        if ticket_id:
+            self.load_ticket(ticket_id)
+
+    def load_ticket(self, ticket_id: int):
+        """Carga y muestra los detalles de un ticket."""
+        from services.sales import get_ticket_details, cents_to_money
+        
+        self.ticket_id = ticket_id
+        self.ticket_details = get_ticket_details(ticket_id)
+        
+        if not self.ticket_details:
+            self.txt_details.setPlainText("Error: No se pudo cargar el ticket.")
+            return
+        
+        # Formatear detalles con mejor diseño
+        lines = []
+        lines.append("═" * 50)
+        lines.append(f"  Ticket: {self.ticket_details['id']}")
+        lines.append(f"  Cajero: {self.ticket_details['served_by'] or '—'}")
+        lines.append(f"  Fecha:  {self.ticket_details['ts']}")
+        if self.ticket_details['shift_id']:
+            lines.append(f"  Turno:  #{self.ticket_details['shift_id']}")
+        lines.append("═" * 50)
+        lines.append("")
+        lines.append("PRODUCTOS:")
+        lines.append("")
+        
+        from services.sales import cents_to_money
+        for item in self.ticket_details["items"]:
+            qty_str = f"x{item.qty}".ljust(6)
+            price_str = f"$ {cents_to_money(item.price)}".rjust(12)
+            lines.append(f"{qty_str}{item.name}")
+            lines.append(f"      {price_str}")
+            lines.append("")
+        
+        lines.append("─" * 50)
+        total_str = f"$ {cents_to_money(self.ticket_details['total'])}".rjust(12)
+        lines.append(f"{'TOTAL:'.ljust(38)}{total_str}")
+        
+        # Mostrar pago y cambio si están disponibles
+        paid = self.ticket_details.get('paid', 0)
+        change_amt = self.ticket_details.get('change_amount', 0)
+        if paid > 0:
+            paid_str = f"$ {cents_to_money(paid)}".rjust(12)
+            lines.append(f"{'Pago:'.ljust(38)}{paid_str}")
+        if change_amt > 0:
+            change_str = f"$ {cents_to_money(change_amt)}".rjust(12)
+            lines.append(f"{'Cambio:'.ljust(38)}{change_str}")
+        
+        lines.append("═" * 50)
+        
+        self.txt_details.setPlainText("\n".join(lines))
+
+    def _reprint_ticket(self):
+        """Reimprimir el ticket actual."""
+        if not self.ticket_details:
+            QMessageBox.warning(self, "Error", "No hay ticket cargado.")
+            return
+        
+        from services.receipts import render_ticket
+        from drivers.printer_escpos import EscposPrinter
+        
+        # Generar ticket con todos los parámetros
+        ticket_text = render_ticket(
+            self.ticket_details["items"],
+            ticket_number=self.ticket_details["id"],
+            timestamp=self.ticket_details["ts"],
+            served_by=self.ticket_details["served_by"],
+            paid_cents=self.ticket_details.get('paid', 0),
+            change_cents=self.ticket_details.get('change_amount', 0)
+        )
+        
+        # Imprimir
+        try:
+            EscposPrinter().print_text(ticket_text)
+            QMessageBox.information(self, "Éxito", f"Ticket #{self.ticket_id} enviado a impresión.")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Error al imprimir: {e}")
+
+
+
 class AdminWindow(QMainWindow):
     """Premium Administration Interface"""
     
@@ -1249,9 +1401,13 @@ class AdminWindow(QMainWindow):
         self.tbl_tickets.setSelectionMode(QAbstractItemView.SingleSelection)
         self.tbl_tickets.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.tbl_tickets.verticalHeader().setVisible(False)
-        self.tbl_tickets.setAlternatingRowColors(True)
+        # NO usar alternating row colors para evitar problemas visuales en tema oscuro
+        self.tbl_tickets.setAlternatingRowColors(False)
         
-        # Responsive columns
+        # Evento de doble clic para mostrar detalles
+        self.tbl_tickets.itemDoubleClicked.connect(self._tickets_show_details_dialog)
+        
+        # Continuar con responsive columns después de la tabla
         from PySide6.QtWidgets import QHeaderView
         header = self.tbl_tickets.horizontalHeader()
         header.setStretchLastSection(False)
@@ -1261,10 +1417,9 @@ class AdminWindow(QMainWindow):
         header.setSectionResizeMode(3, QHeaderView.ResizeToContents)  # Turno
         header.setSectionResizeMode(4, QHeaderView.Interactive)       # Empleado
         
-        # Evento de selección para mostrar detalles
-        self.tbl_tickets.itemSelectionChanged.connect(self._tickets_show_details)
-        
-        v.addWidget(self.tbl_tickets, 2)
+        v.addWidget(self.tbl_tickets, 1)
+
+        # Paginación
 
         # Paginación
         page_row = QHBoxLayout()
@@ -1278,23 +1433,13 @@ class AdminWindow(QMainWindow):
         self.btn_tickets_next.clicked.connect(self._tickets_next_page)
         page_row.addWidget(self.btn_tickets_prev)
         page_row.addWidget(self.lbl_tickets_page, 1)
-        page_row.addWidget(self.btn_tickets_next)
         v.addLayout(page_row)
 
-        # Panel de detalles
-        v.addWidget(QLabel("Detalles del ticket:"))
-        self.txt_ticket_details = QTextEdit()
-        self.txt_ticket_details.setReadOnly(True)
-        self.txt_ticket_details.setMaximumHeight(200)
-        self.txt_ticket_details.setPlainText("Selecciona un ticket para ver los detalles...")
-        v.addWidget(self.txt_ticket_details, 1)
-
-        # Botón de reimpresión
-        btn_reprint = QPushButton("🖨 Reimprimir Ticket Seleccionado")
-        btn_reprint.setMinimumHeight(52)
-        btn_reprint.setProperty("role", "primary")
-        btn_reprint.clicked.connect(self._tickets_reprint)
-        v.addWidget(btn_reprint)
+        # Instrucción para el usuario
+        hint_label = QLabel("💡 Haz doble clic en un ticket para ver detalles y reimprimir")
+        hint_label.setStyleSheet("color: #64748b; font-size: 12px; font-style: italic;")
+        hint_label.setAlignment(Qt.AlignCenter)
+        v.addWidget(hint_label)
 
         # Inicializar variables de paginación
         self.tickets_offset = 0
@@ -1366,11 +1511,10 @@ class AdminWindow(QMainWindow):
         self.ed_ticket_search.clear()
         self._tickets_refresh(0)
 
-    def _tickets_show_details(self):
-        """Muestra detalles del ticket seleccionado en el panel."""
+    def _tickets_show_details_dialog(self):
+        """Muestra el diálogo de detalles del ticket seleccionado."""
         row = self.tbl_tickets.currentRow()
         if row < 0:
-            self.txt_ticket_details.setPlainText("Selecciona un ticket para ver los detalles...")
             return
         
         ticket_id_item = self.tbl_tickets.item(row, 0)
@@ -1382,65 +1526,9 @@ class AdminWindow(QMainWindow):
         except ValueError:
             return
         
-        details = get_ticket_details(ticket_id)
-        if not details:
-            self.txt_ticket_details.setPlainText("Error al cargar detalles del ticket.")
-            return
-        
-        # Formatear detalles para mostrar
-        lines = []
-        lines.append(f"TICKET #{details['id']}")
-        lines.append(f"Fecha: {details['ts']}")
-        lines.append(f"Turno: #{details['shift_id']}" if details['shift_id'] else "Turno: —")
-        lines.append(f"Atendió: {details['served_by']}" if details['served_by'] else "Atendió: —")
-        lines.append("")
-        lines.append("Items:")
-        lines.append("─" * 40)
-        
-        for item in details["items"]:
-            lines.append(f"x{item.qty} {item.name}")
-            lines.append(f"   $ {cents_to_money(item.price)}")
-        
-        lines.append("─" * 40)
-        lines.append(f"TOTAL: $ {cents_to_money(details['total'])}")
-        
-        self.txt_ticket_details.setPlainText("\n".join(lines))
-
-    def _tickets_reprint(self):
-        """Reimprimir el ticket seleccionado."""
-        row = self.tbl_tickets.currentRow()
-        if row < 0:
-            self._toast("Selecciona un ticket para reimprimir.", level="error")
-            return
-        
-        ticket_id_item = self.tbl_tickets.item(row, 0)
-        if not ticket_id_item:
-            return
-        
-        try:
-            ticket_id = int(ticket_id_item.text())
-        except ValueError:
-            return
-        
-        details = get_ticket_details(ticket_id)
-        if not details:
-            self._toast("Error al cargar ticket.", level="error")
-            return
-        
-        # Generar ticket usando render_ticket con los parámetros extendidos
-        ticket_text = render_ticket(
-            details["items"],
-            ticket_number=details["id"],
-            timestamp=details["ts"],
-            served_by=details["served_by"]
-        )
-        
-        # Imprimir
-        try:
-            EscposPrinter().print_text(ticket_text)
-            self._toast(f"Ticket #{ticket_id} enviado a impresión.", level="success")
-        except Exception as e:
-            self._toast(f"Error al imprimir: {e}", level="error")
+        # Abrir diálogo con detalles del ticket
+        dlg = TicketDetailDialog(self, ticket_id=ticket_id)
+        dlg.exec()
 
     def _tickets_next_page(self):
         """Navegar a la siguiente página de tickets."""
