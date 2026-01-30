@@ -1459,9 +1459,9 @@ class AdminWindow(QMainWindow):
             self.tbl_tickets.insertRow(r)
             self.tbl_tickets.setItem(r, 0, QTableWidgetItem(str(t["id"])))
             self.tbl_tickets.setItem(r, 1, QTableWidgetItem(t["ts"] or ""))
-            self.tbl_tickets.setItem(r, 2, QTableWidgetItem(f"$ {cents_to_money(t['total'])}"))
-            self.tbl_tickets.setItem(r, 3, QTableWidgetItem(f"#{t['shift_id']}" if t['shift_id'] else "—"))
-            self.tbl_tickets.setItem(r, 4, QTableWidgetItem(t["served_by"] or "—"))
+            self.tbl_tickets.setItem(r, 2, QTableWidgetItem(t["served_by"] or "—"))
+            self.tbl_tickets.setItem(r, 3, QTableWidgetItem(f"{t['shift_id']}" if t['shift_id'] else "—"))
+            self.tbl_tickets.setItem(r, 4, QTableWidgetItem(f"$ {cents_to_money(t['total'])}"))
         
         # Actualizar label de página
         page_num = (offset // self.tickets_page_size) + 1
@@ -1495,9 +1495,9 @@ class AdminWindow(QMainWindow):
         self.tbl_tickets.insertRow(0)
         self.tbl_tickets.setItem(0, 0, QTableWidgetItem(str(ticket["id"])))
         self.tbl_tickets.setItem(0, 1, QTableWidgetItem(ticket["ts"] or ""))
-        self.tbl_tickets.setItem(0, 2, QTableWidgetItem(f"$ {cents_to_money(ticket['total'])}"))
-        self.tbl_tickets.setItem(0, 3, QTableWidgetItem(f"#{ticket['shift_id']}" if ticket['shift_id'] else "—"))
-        self.tbl_tickets.setItem(0, 4, QTableWidgetItem(ticket["served_by"] or "—"))
+        self.tbl_tickets.setItem(0, 2, QTableWidgetItem(ticket["served_by"] or "—"))
+        self.tbl_tickets.setItem(0, 3, QTableWidgetItem(f"{ticket['shift_id']}" if ticket['shift_id'] else "—"))
+        self.tbl_tickets.setItem(0, 4, QTableWidgetItem(f"$ {cents_to_money(ticket['total'])}"))
         
         # Deshabilitar paginación durante búsqueda
         self.btn_tickets_prev.setEnabled(False)
