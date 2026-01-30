@@ -805,6 +805,8 @@ class AdminWindow(QMainWindow):
         self._osk_filter = _OskFocusFilter(self)
         self._pinpad_guard = False
         self._keypad_filter = _PinKeypadFocusFilter(self)
+        self._prod_dialog_open = False
+        self._prod_save_in_progress = False
 
         # ─── Header Bar ───────────────────────────────────────────────────
         top_wrap = QWidget()
@@ -1274,23 +1276,35 @@ class AdminWindow(QMainWindow):
         self._fill_table(items)
 
     def _prod_new(self):
-        dlg = ProductDialog(self)
-        if dlg.exec():
-            data = dlg.data()
-            if not data:
-                return
-            # create_product(*, name, price_money, unit, allow_decimal, active, category, icon)
-            create_product(
-                name=data["name"],
-                price_money=data["price"],  # ya está en centavos; el wrapper acepta int/float/str
-                unit=data["unit"],
-                allow_decimal=data["allow_decimal"],
-                active=data["active"],
-                category=data["category"],
-                icon=data.get("icon", ""),
-            )
-            QMessageBox.information(self, i18n.t("tab_products"), i18n.t("prod_saved"))
-            self._prod_refresh()
+        if self._prod_dialog_open:
+            return
+        self._prod_dialog_open = True
+        try:
+            dlg = ProductDialog(self)
+            if dlg.exec():
+                data = dlg.data()
+                if not data:
+                    return
+                if self._prod_save_in_progress:
+                    return
+                self._prod_save_in_progress = True
+                try:
+                    # create_product(*, name, price_money, unit, allow_decimal, active, category, icon)
+                    create_product(
+                        name=data["name"],
+                        price_money=data["price"],  # ya está en centavos; el wrapper acepta int/float/str
+                        unit=data["unit"],
+                        allow_decimal=data["allow_decimal"],
+                        active=data["active"],
+                        category=data["category"],
+                        icon=data.get("icon", ""),
+                    )
+                finally:
+                    self._prod_save_in_progress = False
+                QMessageBox.information(self, i18n.t("tab_products"), i18n.t("prod_saved"))
+                self._prod_refresh()
+        finally:
+            self._prod_dialog_open = False
 
     def _prod_edit(self):
         pid = self._current_prod_id()
