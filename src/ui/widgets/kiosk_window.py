@@ -639,6 +639,10 @@ class POSWindow(QMainWindow):
             return QSize(170, 120)
         return QSize(190, 130)
 
+    def _target_category_button_min_size(self, avail_width: int) -> QSize:
+        base = self._target_button_min_size(avail_width)
+        return QSize(int(base.width() * 1.35), int(base.height() * 1.2))
+
     def _calc_cols(self, avail_width: int, min_btn_w: int, spacing: int, margins: int) -> int:
         usable = max(0, avail_width - 2 * margins)
         cols = max(2, (usable + spacing) // (min_btn_w + spacing))
@@ -756,8 +760,11 @@ class POSWindow(QMainWindow):
         if self.current_category is None:
             self.btn_back.setVisible(False)
             self.lbl_grid_title.setText(i18n.t("categories") or "Categorías")
+            cat_btn_min = self._target_category_button_min_size(avail_w)
+            cols = self._calc_cols(avail_w, cat_btn_min.width(), spacing, margins)
+            self._current_cols = cols
             for idx, c in enumerate(self.categories):
-                btn = self._make_category_button(c, btn_min)
+                btn = self._make_category_button(c, cat_btn_min)
                 self.grid.addWidget(btn, idx // cols, idx % cols)
             self.grid.setRowStretch((len(self.categories) // cols) + 1, 1)
         else:
@@ -784,7 +791,11 @@ class POSWindow(QMainWindow):
     def eventFilter(self, obj, event):
         if event.type() in (QEvent.Show, QEvent.Resize):
             avail_w = self._available_grid_width()
-            new_cols = self._calc_cols(avail_w, self._target_button_min_size(avail_w).width(), self.grid.spacing(), 0)
+            if self.categories_enabled and self.current_category is None:
+                min_size = self._target_category_button_min_size(avail_w)
+            else:
+                min_size = self._target_button_min_size(avail_w)
+            new_cols = self._calc_cols(avail_w, min_size.width(), self.grid.spacing(), 0)
             if new_cols != self._current_cols:
                 self._populate_grid()
         return super().eventFilter(obj, event)
