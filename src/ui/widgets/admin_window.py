@@ -793,6 +793,262 @@ class TicketDetailDialog(QDialog):
             QMessageBox.critical(self, "Error", f"Error al imprimir: {e}")
 
 
+class ShiftPreviewDialog(QDialog):
+    """Diálogo premium para vista previa de turno con lista de tickets clickeable."""
+
+    def __init__(self, parent=None, shift_id: int | None = None):
+        super().__init__(parent)
+        self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
+        self.setModal(True)
+        self.setMinimumWidth(750)
+        self.setMinimumHeight(700)
+        
+        self.shift_id = shift_id
+        self.shift_data = None
+        self.shift_totals = None
+        
+        root = QVBoxLayout(self)
+        root.setContentsMargins(40, 40, 40, 40)
+        root.setSpacing(24)
+
+        # Header
+        from ui.icon_helper import get_icon_char
+        icon = QLabel(get_icon_char('chart-bar') or '📊')
+        icon.setObjectName("IconLabel")
+        icon.setAlignment(Qt.AlignCenter)
+        icon.setStyleSheet("font-size: 48px;")
+
+        title = QLabel("VISTA PREVIA DEL TURNO")
+        title.setAlignment(Qt.AlignCenter)
+        title.setStyleSheet("""
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 3px;
+            color: #64748b;
+        """)
+
+        root.addWidget(icon)
+        root.addWidget(title)
+
+        # Panel de información del turno
+        if shift_id:
+            info_panel = self._build_info_panel()
+            root.addWidget(info_panel)
+
+        # Lista de tickets
+        lbl_tickets = QLabel("Tickets del turno:")
+        lbl_tickets.setStyleSheet("font-weight: 600; font-size: 14px;")
+        root.addWidget(lbl_tickets)
+        
+        self.lst_tickets = QListWidget()
+        self.lst_tickets.setStyleSheet("""
+            QListWidget {
+                background: #16161e;
+                border-radius: 12px;
+                padding: 8px;
+                font-family: 'Courier New', monospace;
+            }
+            QListWidget::item {
+                padding: 12px;
+                border-radius: 6px;
+                margin: 2px 0;
+            }
+            QListWidget::item:hover {
+                background: #1f1f28;
+                cursor: pointer;
+            }
+            QListWidget::item:selected {
+                background: #2a2a37;
+            }
+        """)
+        self.lst_tickets.itemDoubleClicked.connect(self._open_ticket_details)
+        root.addWidget(self.lst_tickets, 1)
+        
+        hint = QLabel("💡 Haz doble clic en un ticket para ver detalles y reimprimir")
+        hint.setStyleSheet("color: #64748b; font-size: 12px; font-style: italic;")
+        hint.setAlignment(Qt.AlignCenter)
+        root.addWidget(hint)
+
+        # Botón cerrar
+        btn_close = QPushButton("Cerrar")
+        btn_close.setMinimumHeight(60)
+        btn_close.clicked.connect(self.reject)
+        root.addWidget(btn_close)
+
+        # Cargar datos
+        if shift_id:
+            self._load_data()
+
+    def _build_info_panel(self) -> QWidget:
+        """Construye panel de información del turno."""
+        from services.shifts import shift_totals
+        from services.sales import cents_to_money
+        from core.db import connect
+        
+        # Obtener datos del turno
+        conn = connect()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT id, opened_at, opened_by, closed_at, closed_by, opening_cash, closing_cash 
+            FROM shift WHERE id=?
+        """, (int(self.shift_id),))
+        sh = cur.fetchone()
+        
+        if not sh:
+            lbl = QLabel("Error: Turno no encontrado")
+            lbl.setStyleSheet("color: #ef4444;")
+            return lbl
+        
+        self.shift_data = sh
+        self.shift_totals = shift_totals(self.shift_id)
+        
+        # Panel con grid de información
+        panel = QWidget()
+        panel.setStyleSheet("""
+            QWidget {
+                background: #16161e;
+                border-radius: 12px;
+                padding: 16px;
+            }
+        """)
+        
+        grid = QGridLayout(panel)
+        grid.setSpacing(12)
+        grid.setContentsMargins(16, 16, 16, 16)
+        
+        # Fila 1: Turno # y Estado
+        lbl_turno = QLabel("Turno #:")
+        lbl_turno.setStyleSheet("color: #94a3b8; font-weight: 600;")
+        val_turno = QLabel(str(sh[0]))
+        val_turno.setStyleSheet("color: #f8fafc; font-size: 14px;")
+        
+        estado = "CERRADO" if sh[3] else "EN CURSO"
+        color_estado = "#ef4444" if sh[3] else "#10b981"
+        lbl_estado = QLabel("Estado:")
+        lbl_estado.setStyleSheet("color: #94a3b8; font-weight: 600;")
+        val_estado = QLabel(estado)
+        val_estado.setStyleSheet(f"color: {color_estado}; font-weight: 700; font-size: 14px;")
+        
+        grid.addWidget(lbl_turno, 0, 0)
+        grid.addWidget(val_turno, 0, 1)
+        grid.addWidget(lbl_estado, 0, 2)
+        grid.addWidget(val_estado, 0, 3)
+        
+        # Fila 2: Apertura y Cierre
+        lbl_apertura = QLabel("Apertura:")
+        lbl_apertura.setStyleSheet("color: #94a3b8; font-weight: 600;")
+        val_apertura = QLabel(sh[1] or "-")
+        val_apertura.setStyleSheet("color: #f8fafc;")
+        
+        lbl_cierre = QLabel("Cierre:")
+        lbl_cierre.setStyleSheet("color: #94a3b8; font-weight: 600;")
+        val_cierre = QLabel(sh[3] or "EN CURSO")
+        val_cierre.setStyleSheet("color: #f8fafc;")
+        
+        grid.addWidget(lbl_apertura, 1, 0)
+        grid.addWidget(val_apertura, 1, 1)
+        grid.addWidget(lbl_cierre, 1, 2)
+        grid.addWidget(val_cierre, 1, 3)
+        
+        # Fila 3: Cajeros
+        if sh[2]:  # opened_by
+            lbl_abierto = QLabel("Abierto por:")
+            lbl_abierto.setStyleSheet("color: #94a3b8; font-weight: 600;")
+            val_abierto = QLabel(sh[2])
+            val_abierto.setStyleSheet("color: #f8fafc;")
+            grid.addWidget(lbl_abierto, 2, 0)
+            grid.addWidget(val_abierto, 2, 1)
+        
+        if sh[4]:  # closed_by
+            lbl_cerrado = QLabel("Cerrado por:")
+            lbl_cerrado.setStyleSheet("color: #94a3b8; font-weight: 600;")
+            val_cerrado = QLabel(sh[4])
+            val_cerrado.setStyleSheet("color: #f8fafc;")
+            grid.addWidget(lbl_cerrado, 2, 2)
+            grid.addWidget(val_cerrado, 2, 3)
+        
+        # Separador
+        line = QFrame()
+        line.setFrameShape(QFrame.HLine)
+        line.setStyleSheet("background: #2a2a37;")
+        grid.addWidget(line, 3, 0, 1, 4)
+        
+        # Fila 4: Resumen
+        lbl_tickets = QLabel("Tickets:")
+        lbl_tickets.setStyleSheet("color: #94a3b8; font-weight: 600;")
+        val_tickets = QLabel(str(self.shift_totals['tickets']))
+        val_tickets.setStyleSheet("color: #f8fafc; font-size: 16px; font-weight: 700;")
+        
+        lbl_items = QLabel("Artículos:")
+        lbl_items.setStyleSheet("color: #94a3b8; font-weight: 600;")
+        val_items = QLabel(str(self.shift_totals['items']))
+        val_items.setStyleSheet("color: #f8fafc; font-size: 16px; font-weight: 700;")
+        
+        grid.addWidget(lbl_tickets, 4, 0)
+        grid.addWidget(val_tickets, 4, 1)
+        grid.addWidget(lbl_items, 4, 2)
+        grid.addWidget(val_items, 4, 3)
+        
+        # Fila 5: Totales
+        lbl_total = QLabel("Total Ventas:")
+        lbl_total.setStyleSheet("color: #94a3b8; font-weight: 600;")
+        val_total = QLabel(f"$ {cents_to_money(self.shift_totals['total'])}")
+        val_total.setStyleSheet("color: #10b981; font-size: 18px; font-weight: 700;")
+        
+        grid.addWidget(lbl_total, 5, 0)
+        grid.addWidget(val_total, 5, 1, 1, 3)
+        
+        return panel
+
+    def _load_data(self):
+        """Carga lista de tickets del turno."""
+        from core.db import connect
+        from services.sales import cents_to_money
+        
+        conn = connect()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT id, ts, total 
+            FROM ticket 
+            WHERE shift_id=? 
+            ORDER BY id
+        """, (int(self.shift_id),))
+        tickets = cur.fetchall()
+        
+        self.lst_tickets.clear()
+        
+        for t in tickets:
+            ticket_id = t[0]
+            timestamp = t[1]
+            total = t[2]
+            
+            # Formatear hora
+            try:
+                if " " in timestamp:
+                    hora = timestamp.split(" ")[1][:5]
+                elif "T" in timestamp:
+                    hora = timestamp.split("T")[1][:5]
+                else:
+                    hora = timestamp[-8:-3]
+            except:
+                hora = "??:??"
+            
+            # Formato: "#123  |  14:30  |  $ 150.00"
+            text = f"#{ticket_id:<6} | {hora} | $ {cents_to_money(total):>10}"
+            
+            item = QListWidgetItem(text)
+            item.setData(Qt.UserRole, ticket_id)  # Guardar ID para recuperar después
+            self.lst_tickets.addItem(item)
+
+    def _open_ticket_details(self, item):
+        """Abre TicketDetailDialog para el ticket seleccionado."""
+        ticket_id = item.data(Qt.UserRole)
+        if ticket_id:
+            dlg = TicketDetailDialog(self, ticket_id=ticket_id)
+            dlg.exec()
+
+
+
 
 class AdminWindow(QMainWindow):
     """Premium Administration Interface"""
@@ -1678,34 +1934,20 @@ class AdminWindow(QMainWindow):
         self._toast("Turno abierto.", level="success")
 
     def _do_preview(self):
-        txt, _ = report_x()
-        dlg = QDialog(self)
-        dlg.setWindowTitle(i18n.t("tab_shifts") or "Turnos")
-        dlg.setMinimumSize(560, 420)
-        dlg.setModal(True)
-        dlg.setSizeGripEnabled(True)
-
-        layout = QVBoxLayout(dlg)
-        title = QLabel(i18n.t("preview_shift") or "Vista previa")
-        title.setStyleSheet("font-weight: 600;")
-        layout.addWidget(title)
-
-        preview = QTextEdit()
-        preview.setReadOnly(True)
-        preview.setLineWrapMode(QTextEdit.WidgetWidth)
-        preview.setPlainText(txt)
-        layout.addWidget(preview, 1)
-
-        buttons = QDialogButtonBox(QDialogButtonBox.Close)
-        buttons.rejected.connect(dlg.reject)
-        layout.addWidget(buttons)
-
+        """Muestra vista previa del turno actual con lista de tickets clickeable."""
+        sh = current_shift()
+        if not sh:
+            self._toast("No hay turno abierto.", level="error")
+            return
+        
+        # Abrir diálogo premium
+        dlg = ShiftPreviewDialog(self, shift_id=sh["id"])
         dlg.exec()
 
     def _do_close(self):
         """
         Cierra el turno actual con diálogo de conteo de efectivo,
-        genera reporte Z detallado e imprime.
+        genera reporte resumido e imprime.
         """
         # Comprobamos que haya turno abierto antes de intentar cerrar
         sh = current_shift()
@@ -1722,9 +1964,9 @@ class AdminWindow(QMainWindow):
         closing_cash = close_data.get("closing_cash", 0)
         closed_by = close_data.get("closed_by", "")
 
-        # Genera reporte Z (incluye close_shift() por dentro)
+        # Cerrar turno en BD
         try:
-            txt = report_z(closed_by=closed_by, closing_cash=closing_cash)
+            close_shift(closed_by=closed_by, closing_cash=closing_cash)
         except Exception as e:
             QMessageBox.critical(
                 self,
@@ -1733,7 +1975,10 @@ class AdminWindow(QMainWindow):
             )
             return
 
-        # Intentar imprimir el reporte completo del turno
+        # Generar reporte resumido (sin detalles de ítems, solo lista de tickets)
+        txt = render_shift_text(sh["id"], detailed=False)
+
+        # Intentar imprimir el reporte del turno
         try:
             EscposPrinter().print_text(txt)
             self._toast(
