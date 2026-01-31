@@ -438,6 +438,12 @@ QListWidget::item:selected {
     color: #ffffff;
 }
 
+QListWidget#ShiftList {
+    background: transparent;
+    border: none;
+    outline: none;
+}
+
 QListWidget#ShiftList::item {
     padding: 20px 24px;
     margin: 8px 0;
@@ -445,9 +451,17 @@ QListWidget#ShiftList::item {
     background: #16161e;
 }
 
+QListWidget#ShiftList::item:hover {
+    background: #1e1e2a;
+}
+
 QListWidget#ShiftList::item:selected {
     background: rgba(99, 102, 241, 0.2);
     border-left: 4px solid #6366f1;
+}
+
+QListWidget#ShiftList::item:alternate {
+    background: #16161e;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

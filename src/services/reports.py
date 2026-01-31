@@ -339,6 +339,111 @@ def csv_items_bytes(date_from: str, date_to: str) -> bytes:
     return buf.getvalue().encode("utf-8")
 
 
+def csv_sales_detailed_bytes(date_from: str, date_to: str) -> bytes:
+    """
+    Genera CSV detallado de ventas con información completa para análisis de demanda.
+    
+    Columnas:
+    - ticket_id: ID del ticket
+    - fecha: Fecha de la venta (YYYY-MM-DD)
+    - hora: Hora de la venta (HH:MM:SS)
+    - turno_id: ID del turno
+    - producto_id: ID del producto
+    - producto_nombre: Nombre del producto
+    - categoria: Categoría del producto
+    - precio_unitario: Precio por unidad en formato decimal
+    - cantidad: Cantidad vendida
+    - unidad: Unidad de medida
+    - subtotal: Precio total de la línea
+    - total_ticket: Total del ticket
+    """
+    conn = connect()
+    cur = conn.cursor()
+    
+    # Query con JOIN para obtener toda la información necesaria
+    cur.execute(
+        """
+        SELECT 
+            t.id as ticket_id,
+            DATE(t.ts) as fecha,
+            TIME(t.ts) as hora,
+            t.shift_id,
+            ti.product_id,
+            ti.name as producto_nombre,
+            COALESCE(p.category, 'General') as categoria,
+            ti.price as precio_cents,
+            ti.quantity,
+            COALESCE(ti.unit, 'pz') as unidad,
+            t.total as total_ticket_cents
+        FROM ticket t
+        JOIN ticket_item ti ON ti.ticket_id = t.id
+        LEFT JOIN product p ON p.id = ti.product_id
+        WHERE DATE(t.ts) BETWEEN DATE(?) AND DATE(?)
+        ORDER BY t.ts, t.id, ti.id;
+        """,
+        (date_from, date_to),
+    )
+    rows = cur.fetchall()
+    
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    
+    # Encabezados del CSV
+    w.writerow([
+        "ticket_id",
+        "fecha",
+        "hora",
+        "turno_id",
+        "producto_id",
+        "producto_nombre",
+        "categoria",
+        "precio_unitario",
+        "cantidad",
+        "unidad",
+        "subtotal",
+        "total_ticket"
+    ])
+    
+    # Escribir datos convertidos a formato decimal
+    for r in rows:
+        ticket_id = r[0]
+        fecha = r[1]
+        hora = r[2]
+        shift_id = r[3] or ""
+        product_id = r[4] or ""
+        producto_nombre = r[5]
+        categoria = r[6]
+        precio_cents = int(r[7])
+        cantidad = float(r[8])
+        unidad = r[9]
+        total_ticket_cents = int(r[10])
+        
+        # Calcular subtotal
+        subtotal_cents = int(precio_cents * cantidad)
+        
+        # Convertir centavos a formato decimal
+        precio_unitario = f"{precio_cents / 100:.2f}"
+        subtotal = f"{subtotal_cents / 100:.2f}"
+        total_ticket = f"{total_ticket_cents / 100:.2f}"
+        
+        w.writerow([
+            ticket_id,
+            fecha,
+            hora,
+            shift_id,
+            product_id,
+            producto_nombre,
+            categoria,
+            precio_unitario,
+            cantidad,
+            unidad,
+            subtotal,
+            total_ticket
+        ])
+    
+    return buf.getvalue().encode("utf-8")
+
+
 def report_x() -> Tuple[str, Optional[int]]:
     """Preview current shift (not closing)."""
     sh = current_shift()

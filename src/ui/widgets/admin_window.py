@@ -3,9 +3,9 @@ from PySide6.QtWidgets import (
     QLineEdit, QPushButton, QLabel, QHBoxLayout, QComboBox,
     QMessageBox, QSpinBox, QGridLayout, QTableWidget, QTableWidgetItem,
     QAbstractItemView, QCheckBox, QDialog, QListWidget, QListWidgetItem, QApplication,
-    QFrame, QStackedLayout, QTextEdit, QDialogButtonBox
+    QFrame, QStackedLayout, QTextEdit, QDialogButtonBox, QDateEdit
 )
-from PySide6.QtCore import Qt, QObject, QEvent, QTimer
+from PySide6.QtCore import Qt, QObject, QEvent, QTimer, QDate
 from pathlib import Path
 
 import sys
@@ -39,7 +39,7 @@ from services.shifts import (
 )
 from services.reports import (
     report_x, report_z, render_shift_text, render_range_text,
-    csv_tickets_bytes, csv_items_bytes
+    csv_tickets_bytes, csv_items_bytes, csv_sales_detailed_bytes
 )
 from services.receipts import render_ticket
 from services.emailer import send_mail, recent_emails
@@ -1817,12 +1817,20 @@ class AdminWindow(QMainWindow):
 
         mail_row1 = QHBoxLayout()
         mail_row1.setSpacing(12)
-        self.date_from = QLineEdit()
+        self.date_from = QDateEdit()
         self.date_from.setMinimumWidth(170)
-        self.date_from.setPlaceholderText("YYYY-MM-DD")
-        self.date_to = QLineEdit()
+        self.date_from.setMinimumHeight(56)
+        self.date_from.setCalendarPopup(True)
+        self.date_from.setDisplayFormat("yyyy-MM-dd")
+        self.date_from.setDate(QDate.currentDate().addDays(-7))
+        
+        self.date_to = QDateEdit()
         self.date_to.setMinimumWidth(170)
-        self.date_to.setPlaceholderText("YYYY-MM-DD")
+        self.date_to.setMinimumHeight(56)
+        self.date_to.setCalendarPopup(True)
+        self.date_to.setDisplayFormat("yyyy-MM-dd")
+        self.date_to.setDate(QDate.currentDate())
+        
         mail_row1.addWidget(QLabel(i18n.t("dates_from") or "Desde"))
         mail_row1.addWidget(self.date_from)
         mail_row1.addWidget(QLabel(i18n.t("dates_to") or "Hasta"))
@@ -1854,8 +1862,8 @@ class AdminWindow(QMainWindow):
         mail_row2.addWidget(btn_send)
         v.addLayout(mail_row2)
 
-        for wle in (self.date_from, self.date_to, self.ed_emails):
-            wle.installEventFilter(self._osk_filter)
+        # Solo el campo de emails usa OSK, no los date pickers
+        self.ed_emails.installEventFilter(self._osk_filter)
 
         # --- Turnos de la semana + impresión de reporte de turno ---
         v.addWidget(
@@ -1864,7 +1872,6 @@ class AdminWindow(QMainWindow):
 
         self.list_shifts = QListWidget()
         self.list_shifts.setObjectName("ShiftList")
-        self.list_shifts.setAlternatingRowColors(True)
         self.list_shifts.setSpacing(6)
         self.list_shifts.setUniformItemSizes(True)
         v.addWidget(QLabel(i18n.t("week_shifts") or "Turnos de la semana"))
@@ -2011,37 +2018,37 @@ class AdminWindow(QMainWindow):
             self.ed_emails.setText(", ".join(exists))
 
     def _send_mail(self):
-        df = (self.date_from.text() or "").strip()
-        dt = (self.date_to.text() or "").strip()
+        df = self.date_from.date().toString("yyyy-MM-dd")
+        dt = self.date_to.date().toString("yyyy-MM-dd")
         rec_raw = (self.ed_emails.text() or "").strip()
         recipients = [x.strip() for x in rec_raw.split(",") if x.strip()]
-        if not df or not dt or not recipients:
-            for field, empty in (
-                (self.date_from, not df),
-                (self.date_to, not dt),
-                (self.ed_emails, not recipients),
-            ):
-                self._mark_field_state(field, "error" if empty else None)
+        
+        if not recipients:
+            self._mark_field_state(self.ed_emails, "error")
             self._toast(
-                "Fechas y correos requeridos.", level="error", duration_ms=4200
+                "Correos requeridos.", level="error", duration_ms=4200
             )
             return
-        for field in (self.date_from, self.date_to, self.ed_emails):
-            self._mark_field_state(field, None)
+        
+        # Validar que date_from <= date_to
+        if self.date_from.date() > self.date_to.date():
+            self._toast(
+                "La fecha inicial debe ser anterior a la fecha final.", level="error", duration_ms=4200
+            )
+            return
+        self._mark_field_state(self.ed_emails, None)
         body = render_range_text(df, dt)
         att = [
-            (f"tickets_{df}_a_{dt}.csv", csv_tickets_bytes(df, dt)),
-            (f"items_{df}_a_{dt}.csv", csv_items_bytes(df, dt)),
+            (f"reporte_ventas_{df}_a_{dt}.csv", csv_sales_detailed_bytes(df, dt)),
         ]
         ok, msg = send_mail(
-            subject=f"Reporte POS {df} a {dt}",
+            subject=f"Reporte de Ventas {df} a {dt}",
             body=body,
             recipients=recipients,
             attachments=att,
         )
         if ok:
-            for field in (self.date_from, self.date_to, self.ed_emails):
-                self._mark_field_state(field, "success")
+            self._mark_field_state(self.ed_emails, "success")
             self._toast(
                 i18n.t("report_sent_ok") or "Reporte enviado.", level="success"
             )
@@ -2300,6 +2307,8 @@ class AdminWindow(QMainWindow):
     def _tab_system(self) -> QWidget:
         w = QWidget()
         f = QFormLayout(w)
+        
+        # --- Sección WiFi ---
         row = QHBoxLayout()
         self.ssid_combo = QComboBox()
         btn_scan = QPushButton(
@@ -2330,7 +2339,103 @@ class AdminWindow(QMainWindow):
         f.addRow(btn_reboot, btn_power)
 
         self.wifi_pass.installEventFilter(self._osk_filter)
+        
+        # --- Separador ---
+        separator = QLabel("─" * 80)
+        separator.setStyleSheet("color: #2a2a3a;")
+        f.addRow(separator)
+        
+        # --- Sección Email (Gmail) ---
+        email_title = QLabel("Configuración de Email (Gmail)")
+        email_title.setStyleSheet("font-size: 16px; font-weight: 700; color: #818cf8; margin-top: 20px;")
+        f.addRow(email_title)
+        
+        self.gmail_user = QLineEdit()
+        self.gmail_user.setPlaceholderText("tucuenta@gmail.com")
+        self.gmail_user.setMinimumHeight(56)
+        
+        self.gmail_pass = QLineEdit()
+        self.gmail_pass.setEchoMode(QLineEdit.Password)
+        self.gmail_pass.setPlaceholderText("Contraseña de aplicación de Gmail")
+        self.gmail_pass.setMinimumHeight(56)
+        
+        btn_save_email = QPushButton("Guardar Configuración de Email")
+        btn_save_email.setMinimumHeight(48)
+        btn_save_email.clicked.connect(self._save_gmail_config)
+        
+        f.addRow("Cuenta Gmail:", self.gmail_user)
+        f.addRow("Contraseña de App:", self.gmail_pass)
+        f.addRow(btn_save_email)
+        
+        # Agregar nota informativa
+        note = QLabel("Nota: Usa una contraseña de aplicación de Gmail, no tu contraseña normal.\nGenera una en: https://myaccount.google.com/apppasswords")
+        note.setStyleSheet("color: #94a3b8; font-size: 12px; margin-top: 8px;")
+        note.setWordWrap(True)
+        f.addRow(note)
+        
+        self.gmail_user.installEventFilter(self._osk_filter)
+        self.gmail_pass.installEventFilter(self._osk_filter)
+        
+        # Cargar configuración actual
+        self._load_gmail_config()
+        
         return w
+    
+    def _load_gmail_config(self):
+        """Carga la configuración de Gmail desde config.yaml"""
+        cfg = _load_settings()
+        email_cfg = cfg.get("notifications", {}).get("email", {})
+        
+        gmail_user = email_cfg.get("gmail_user", "")
+        if gmail_user:
+            self.gmail_user.setText(gmail_user)
+        
+        # No cargamos la contraseña por seguridad
+    
+    def _save_gmail_config(self):
+        """Guarda la configuración de Gmail en config.yaml"""
+        gmail_user = self.gmail_user.text().strip()
+        gmail_pass = self.gmail_pass.text().strip()
+        
+        # Validar que sea una cuenta de Gmail
+        if gmail_user and not gmail_user.endswith("@gmail.com"):
+            QMessageBox.warning(
+                self,
+                "Configuración de Email",
+                "Por favor ingresa una cuenta de Gmail válida (debe terminar en @gmail.com)"
+            )
+            return
+        
+        if not gmail_user and gmail_pass:
+            QMessageBox.warning(
+                self,
+                "Configuración de Email",
+                "Por favor ingresa una cuenta de Gmail"
+            )
+            return
+        
+        # Guardar en config.yaml
+        cfg = _load_settings()
+        if "notifications" not in cfg:
+            cfg["notifications"] = {}
+        if "email" not in cfg["notifications"]:
+            cfg["notifications"]["email"] = {}
+        
+        cfg["notifications"]["email"]["gmail_user"] = gmail_user
+        if gmail_pass:
+            cfg["notifications"]["email"]["gmail_pass"] = gmail_pass
+        
+        _save_settings(cfg)
+        
+        QMessageBox.information(
+            self,
+            "Configuración de Email",
+            "Configuración de Gmail guardada correctamente."
+        )
+        
+        # Limpiar el campo de contraseña por seguridad
+        self.gmail_pass.clear()
+
 
     def _scan_wifi(self):
         nets = wifi_list()
