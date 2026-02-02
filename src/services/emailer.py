@@ -16,8 +16,106 @@ def _load_cfg() -> dict:
         return {}
 
 
-def _save_cfg(data: dict) -> None:
-    CONFIG_PATH.write_text(yaml.safe_dump(data, allow_unicode=True, sort_keys=False), encoding="utf-8")
+def _save_cfg(cfg):
+    """Save config.yaml dict back to disk."""
+    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+        yaml.safe_dump(cfg, f, allow_unicode=True, sort_keys=False)
+
+
+def _create_html_email_report(date_from: str, date_to: str, stats: dict) -> str:
+    """
+    Crea un email HTML con diseño similar a Vista Previa del Turno.
+    
+    Args:
+        date_from: Fecha inicio en formato YYYY-MM-DD
+        date_to: Fecha fin en formato YYYY-MM-DD
+        stats: Dict con estadísticas {total_cents, tickets, items}
+    
+    Returns:
+        HTML string del reporte
+    """
+    # Formatear total
+    total_formatted = f"{stats['total_cents'] / 100:,.2f}"
+    
+    # Formatear fechas para mostrar (DD/MM/YYYY)
+    from datetime import datetime
+    dt_from = datetime.strptime(date_from, "%Y-%m-%d")
+    dt_to = datetime.strptime(date_to, "%Y-%m-%d")
+    fecha_from = dt_from.strftime("%d/%m/%Y")
+    fecha_to = dt_to.strftime("%d/%m/%Y")
+    
+    html = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {{
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        }}
+    </style>
+</head>
+<body style="margin: 0; padding: 0; background: #0a0a0f;">
+    <div style="background: #0a0a0f; padding: 40px 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+        <div style="max-width: 600px; margin: 0 auto; background: #12121a; border-radius: 20px; padding: 40px; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
+            
+            <!-- Encabezado -->
+            <h1 style="text-align: center; font-size: 12px; letter-spacing: 3px; color: #64748b; font-weight: 700; margin: 0 0 30px 0; text-transform: uppercase;">
+                REPORTE DE VENTAS
+            </h1>
+            
+            <!-- Panel de información -->
+            <div style="background: #16161e; padding: 24px; border-radius: 12px; margin: 20px 0;">
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr>
+                        <td style="color: #94a3b8; padding: 10px 16px; font-weight: 600; font-size: 14px; border-bottom: 1px solid #1a1a26;">
+                            Período:
+                        </td>
+                        <td style="color: #f8fafc; padding: 10px 16px; font-size: 14px; border-bottom: 1px solid #1a1a26;">
+                            {fecha_from} - {fecha_to}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="color: #94a3b8; padding: 10px 16px; font-weight: 600; font-size: 14px; border-bottom: 1px solid #1a1a26;">
+                            Tickets:
+                        </td>
+                        <td style="color: #f8fafc; padding: 10px 16px; font-size: 16px; font-weight: 700; border-bottom: 1px solid #1a1a26;">
+                            {stats['tickets']}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="color: #94a3b8; padding: 10px 16px; font-weight: 600; font-size: 14px; border-bottom: 1px solid #1a1a26;">
+                            Artículos:
+                        </td>
+                        <td style="color: #f8fafc; padding: 10px 16px; font-size: 16px; font-weight: 700; border-bottom: 1px solid #1a1a26;">
+                            {stats['items']}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="color: #94a3b8; padding: 10px 16px; font-weight: 600; font-size: 14px;">
+                            Total Ventas:
+                        </td>
+                        <td style="color: #10b981; padding: 10px 16px; font-size: 20px; font-weight: 700;">
+                            $ {total_formatted}
+                        </td>
+                    </tr>
+                </table>
+            </div>
+            
+            <!-- Mensaje -->
+            <p style="color: #94a3b8; text-align: center; font-size: 14px; margin: 30px 0 0 0; line-height: 1.6;">
+                📊 Detalles completos en el archivo CSV adjunto
+            </p>
+            
+        </div>
+    </div>
+</body>
+</html>
+    """
+    return html.strip()
 
 
 def recent_emails() -> List[str]:
@@ -37,8 +135,22 @@ def add_recent_emails(emails: List[str], max_keep: int = 10) -> None:
     _save_cfg(cfg)
 
 
+def remove_recent_email(email: str) -> None:
+    """Elimina un email de la lista de recientes."""
+    cfg = _load_cfg()
+    notif = cfg.get("notifications", {})
+    cur = list(notif.get("recent_emails", []) or [])
+    
+    if email in cur:
+        cur.remove(email)
+        notif["recent_emails"] = cur
+        cfg["notifications"] = notif
+        _save_cfg(cfg)
+
+
 def send_mail(subject: str, body: str, recipients: List[str],
-              attachments: Optional[List[Tuple[str, bytes]]] = None) -> Tuple[bool, str]:
+              attachments: Optional[List[Tuple[str, bytes]]] = None,
+              html_body: Optional[str] = None) -> Tuple[bool, str]:
     """
     Send simple email using Gmail (yagmail) or SMTP settings stored in config.yaml:
       notifications:
@@ -54,6 +166,7 @@ def send_mail(subject: str, body: str, recipients: List[str],
           password: "pass"
           from_addr: "pos@example.com"
     attachments: list of (filename, bytes)
+    html_body: optional HTML version of the email body
     """
     cfg = _load_cfg()
     email_cfg = (cfg.get("notifications", {}) or {}).get("email", {}) or {}
@@ -72,6 +185,9 @@ def send_mail(subject: str, body: str, recipients: List[str],
         try:
             yag = yagmail.SMTP(gmail_user, gmail_pass)
             
+            # yagmail usa HTML automáticamente si detecta tags HTML
+            email_contents = html_body if html_body else body
+            
             # Preparar adjuntos para yagmail
             attachments_yagmail = []
             if attachments:
@@ -88,7 +204,7 @@ def send_mail(subject: str, body: str, recipients: List[str],
                     attachments_yagmail.append(path)
                 
                 # Enviar email
-                yag.send(to=recipients, subject=subject, contents=body, attachments=attachments_yagmail)
+                yag.send(to=recipients, subject=subject, contents=email_contents, attachments=attachments_yagmail)
                 
                 # Limpiar archivos temporales
                 for path in temp_files:
@@ -97,7 +213,7 @@ def send_mail(subject: str, body: str, recipients: List[str],
                     except:
                         pass
             else:
-                yag.send(to=recipients, subject=subject, contents=body)
+                yag.send(to=recipients, subject=subject, contents=email_contents)
             
             add_recent_emails(recipients)
             return True, "OK"
@@ -119,7 +235,13 @@ def send_mail(subject: str, body: str, recipients: List[str],
     msg["Subject"] = subject
     msg["From"] = from_addr
     msg["To"] = ", ".join(recipients)
-    msg.set_content(body)
+    
+    # Si hay HTML, configurar contenido multipart
+    if html_body:
+        msg.set_content(body)  # Texto plano como fallback
+        msg.add_alternative(html_body, subtype='html')  # HTML como alternativa
+    else:
+        msg.set_content(body)
 
     if attachments:
         for fname, data in attachments:

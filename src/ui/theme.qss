@@ -465,6 +465,125 @@ QListWidget#ShiftList::item:alternate {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
+   DATE PICKERS - Modern Calendar Style
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Date Edit Widget */
+QDateEdit {
+    font-size: 16px;
+    font-weight: 600;
+    min-height: 56px;
+    padding: 14px 20px;
+    padding-right: 50px;
+    border: 2px solid #2a2a3a;
+    border-radius: 16px;
+    background: #12121a;
+    color: #f8fafc;
+}
+
+QDateEdit:hover {
+    border-color: #6366f1;
+    background: #16161e;
+}
+
+QDateEdit:focus {
+    border-color: #6366f1;
+    background: #16161e;
+}
+
+QDateEdit::drop-down {
+    subcontrol-origin: padding;
+    subcontrol-position: center right;
+    width: 50px;
+    border: none;
+    background: transparent;
+}
+
+/* Calendario Emergente - Estilo Tottem */
+QCalendarWidget {
+    background: #1a1a26;
+    border: 2px solid #6366f1;
+    border-radius: 20px;
+    padding: 10px;
+}
+
+/* Barra de navegación del calendario */
+QCalendarWidget QWidget#qt_calendar_navigationbar {
+    background: #22222e;
+    border-radius: 12px;
+    padding: 6px;
+}
+
+/* Botones de navegación (prev/next month) */
+QCalendarWidget QToolButton {
+    background: #2a2a3a;
+    color: #f8fafc;
+    border-radius: 10px;
+    padding: 10px;
+    font-weight: 600;
+    min-width: 40px;
+    min-height: 40px;
+}
+
+QCalendarWidget QToolButton:hover {
+    background: #6366f1;
+    color: #ffffff;
+}
+
+QCalendarWidget QToolButton:pressed {
+    background: #4f46e5;
+}
+
+/* Selector de mes/año */
+QCalendarWidget QSpinBox {
+    background: #2a2a3a;
+    color: #f8fafc;
+    border: none;
+    border-radius: 8px;
+    padding: 8px;
+    font-weight: 600;
+    selection-background-color: #6366f1;
+}
+
+/* Encabezados de días de la semana */
+QCalendarWidget QWidget {
+    color: #94a3b8;
+}
+
+/* Grid de días */
+QCalendarWidget QAbstractItemView {
+    background: #16161e;
+    selection-background-color: #6366f1;
+    selection-color: #ffffff;
+    border-radius: 10px;
+    outline: none;
+}
+
+QCalendarWidget QAbstractItemView:enabled {
+    color: #f8fafc;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+/* Días del mes actual */
+QCalendarWidget QAbstractItemView:enabled:hover {
+    background: #2a2a3a;
+    border-radius: 6px;
+}
+
+/* Día seleccionado */
+QCalendarWidget QAbstractItemView:enabled:selected {
+    background: #6366f1;
+    color: #ffffff;
+    border-radius: 6px;
+}
+
+/* Día actual */
+QCalendarWidget QAbstractItemView::item:focus {
+    background: #22222e;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
    TABLES - Data Grid Excellence
    ═══════════════════════════════════════════════════════════════════════════ */
 

@@ -1844,23 +1844,41 @@ class AdminWindow(QMainWindow):
             i18n.t("emails_placeholder")
             or "correo1@ejemplo.com, correo2@ejemplo.com"
         )
-        self.cb_recent = QComboBox()
-        self.cb_recent.setMinimumHeight(52)
-        self.cb_recent.addItem("")
-        for e in recent_emails():
-            self.cb_recent.addItem(e)
-        btn_add_recent = QPushButton(i18n.t("add") or "Agregar")
-        btn_add_recent.clicked.connect(self._add_recent_email)
         btn_send = QPushButton(i18n.t("send_mail") or "Enviar reporte")
         btn_send.clicked.connect(self._send_mail)
-        for b in (btn_add_recent, btn_send):
-            b.setMinimumHeight(38)
+        btn_send.setMinimumHeight(48)
         mail_row2.addWidget(self.ed_emails, 1)
-        mail_row2.addWidget(QLabel(i18n.t("recent_emails") or "Correos recientes"))
-        mail_row2.addWidget(self.cb_recent)
-        mail_row2.addWidget(btn_add_recent)
         mail_row2.addWidget(btn_send)
         v.addLayout(mail_row2)
+
+        # Correos recientes con botones integrados
+        lbl_recent = QLabel("Correos recientes:")
+        lbl_recent.setStyleSheet("font-weight: 600; color: #94a3b8; margin-top: 12px;")
+        v.addWidget(lbl_recent)
+        
+        self.recent_emails_list = QListWidget()
+        self.recent_emails_list.setMaximumHeight(150)
+        self.recent_emails_list.setStyleSheet("""
+            QListWidget {
+                background: #16161e;
+                border-radius: 12px;
+                padding: 6px;
+                border: 2px solid #2a2a3a;
+            }
+            QListWidget::item {
+                background: #1a1a26;
+                border-radius: 8px;
+                padding: 0px;
+                margin: 3px 0;
+            }
+            QListWidget::item:hover {
+                background: #22222e;
+            }
+        """)
+        v.addWidget(self.recent_emails_list)
+        
+        # Poblar lista inicial
+        self._refresh_recent_emails_list()
 
         # Solo el campo de emails usa OSK, no los date pickers
         self.ed_emails.installEventFilter(self._osk_filter)
@@ -2004,20 +2022,98 @@ class AdminWindow(QMainWindow):
         if hasattr(self, "list_shifts"):
             self._reload_week_shifts()
 
-    def _add_recent_email(self):
-        e = self.cb_recent.currentText().strip()
-        if not e:
-            return
-        exists = [
-            x.strip()
-            for x in (self.ed_emails.text() or "").split(",")
-            if x.strip()
-        ]
-        if e not in exists:
-            exists.append(e)
-            self.ed_emails.setText(", ".join(exists))
+    def _refresh_recent_emails_list(self):
+        """Actualiza la lista de correos recientes con botones."""
+        self.recent_emails_list.clear()
+        
+        for email in recent_emails():
+            # Widget personalizado para cada item
+            item_widget = QWidget()
+            item_layout = QHBoxLayout(item_widget)
+            item_layout.setContentsMargins(12, 8, 12, 8)
+            item_layout.setSpacing(8)
+            
+            # Email
+            lbl_email = QLabel(f"📧 {email}")
+            lbl_email.setStyleSheet("color: #f8fafc; font-size: 13px;")
+            item_layout.addWidget(lbl_email, 1)
+            
+            # Botón agregar
+            btn_add = QPushButton("+")
+            btn_add.setFixedSize(32, 32)
+            btn_add.setStyleSheet("""
+                QPushButton {
+                    background: #6366f1;
+                    color: white;
+                    font-weight: 700;
+                    font-size: 18px;
+                    border-radius: 16px;
+                    padding: 0;
+                    border: none;
+                }
+                QPushButton:hover {
+                    background: #818cf8;
+                }
+                QPushButton:pressed {
+                    background: #4f46e5;
+                }
+            """)
+            btn_add.clicked.connect(lambda checked, e=email: self._add_email_to_field(e))
+            item_layout.addWidget(btn_add)
+            
+            # Botón eliminar
+            btn_remove = QPushButton("✕")
+            btn_remove.setFixedSize(32, 32)
+            btn_remove.setStyleSheet("""
+                QPushButton {
+                    background: rgba(239, 68, 68, 0.2);
+                    color: #ef4444;
+                    font-weight: 700;
+                    font-size: 16px;
+                    border-radius: 16px;
+                    padding: 0;
+                    border: 1px solid rgba(239, 68, 68, 0.3);
+                }
+                QPushButton:hover {
+                    background: rgba(239, 68, 68, 0.3);
+                }
+                QPushButton:pressed {
+                    background: rgba(239, 68, 68, 0.4);
+                }
+            """)
+            btn_remove.clicked.connect(lambda checked, e=email: self._remove_recent_email(e))
+            item_layout.addWidget(btn_remove)
+            
+            # Agregar a la lista
+            item = QListWidgetItem()
+            item.setSizeHint(item_widget.sizeHint())
+            self.recent_emails_list.addItem(item)
+            self.recent_emails_list.setItemWidget(item, item_widget)
+
+    def _add_email_to_field(self, email):
+        """Agrega un email al campo de destinatarios."""
+        current = self.ed_emails.text().strip()
+        if current:
+            emails = [e.strip() for e in current.split(",") if e.strip()]
+            if email not in emails:
+                emails.append(email)
+            self.ed_emails.setText(", ".join(emails))
+        else:
+            self.ed_emails.setText(email)
+        self._toast(f"Email {email} agregado", level="success", duration_ms=2000)
+
+    def _remove_recent_email(self, email):
+        """Elimina un email de la lista de recientes."""
+        from services.emailer import remove_recent_email
+        remove_recent_email(email)
+        self._refresh_recent_emails_list()
+        self._toast(f"Email eliminado de recientes", level="success", duration_ms=2000)
 
     def _send_mail(self):
+        from datetime import datetime
+        from core.db import connect
+        from services.emailer import _create_html_email_report
+        
         df = self.date_from.date().toString("yyyy-MM-dd")
         dt = self.date_to.date().toString("yyyy-MM-dd")
         rec_raw = (self.ed_emails.text() or "").strip()
@@ -2037,25 +2133,56 @@ class AdminWindow(QMainWindow):
             )
             return
         self._mark_field_state(self.ed_emails, None)
-        body = render_range_text(df, dt)
+        
+        # Calcular estadísticas para el HTML
+        conn = connect()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT 
+                COUNT(DISTINCT t.id) as tickets,
+                SUM(ti.quantity) as items,
+                SUM(t.total) as total_cents
+            FROM ticket t
+            LEFT JOIN ticket_item ti ON ti.ticket_id = t.id
+            WHERE DATE(t.ts) BETWEEN DATE(?) AND DATE(?)
+        """, (df, dt))
+        row = cur.fetchone()
+        stats = {
+            'tickets': row[0] or 0,
+            'items': int(row[1] or 0),
+            'total_cents': row[2] or 0
+        }
+        
+        # Crear cuerpo HTML
+        html_body = _create_html_email_report(df, dt, stats)
+        plain_body = render_range_text(df, dt)
+        
+        # Nombre de archivo mejorado
+        date_from_obj = datetime.strptime(df, "%Y-%m-%d")
+        date_to_obj = datetime.strptime(dt, "%Y-%m-%d")
+        from_str = date_from_obj.strftime("%d-%b-%Y")  # 01-Feb-2026
+        to_str = date_to_obj.strftime("%d-%b-%Y")  # 07-Feb-2026
+        filename = f"Tottem_Ventas_{from_str}_al_{to_str}.csv"
+        
         att = [
-            (f"reporte_ventas_{df}_a_{dt}.csv", csv_sales_detailed_bytes(df, dt)),
+            (filename, csv_sales_detailed_bytes(df, dt)),
         ]
+        
         ok, msg = send_mail(
-            subject=f"Reporte de Ventas {df} a {dt}",
-            body=body,
+            subject=f"Reporte de Ventas {date_from_obj.strftime('%d/%m/%Y')} - {date_to_obj.strftime('%d/%m/%Y')}",
+            body=plain_body,
             recipients=recipients,
             attachments=att,
+            html_body=html_body
         )
+        
         if ok:
             self._mark_field_state(self.ed_emails, "success")
             self._toast(
                 i18n.t("report_sent_ok") or "Reporte enviado.", level="success"
             )
-            self.cb_recent.clear()
-            self.cb_recent.addItem("")
-            for e in recent_emails():
-                self.cb_recent.addItem(e)
+            # Refrescar lista de correos recientes
+            self._refresh_recent_emails_list()
         else:
             self._toast(
                 i18n.t("report_sent_err", err=msg)
