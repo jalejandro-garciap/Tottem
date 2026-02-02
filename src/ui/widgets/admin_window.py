@@ -1836,7 +1836,7 @@ class AdminWindow(QMainWindow):
         self.date_from.setDisplayFormat("yyyy-MM-dd")
         self.date_from.setDate(QDate.currentDate().addDays(-7))
         # Asegurar que no tenga filtro de eventos que bloquee el calendario
-        self.date_from.removeEventFilter(self._osk_filter) if self.date_from.eventFilter(self._osk_filter) else None
+        self.date_from.removeEventFilter(self._osk_filter)
 
         self.date_to = QDateEdit()
         self.date_to.setMinimumWidth(150)
@@ -1844,7 +1844,7 @@ class AdminWindow(QMainWindow):
         self.date_to.setCalendarPopup(True)
         self.date_to.setDisplayFormat("yyyy-MM-dd")
         self.date_to.setDate(QDate.currentDate())
-        self.date_to.removeEventFilter(self._osk_filter) if self.date_to.eventFilter(self._osk_filter) else None
+        self.date_to.removeEventFilter(self._osk_filter)
 
         dates_row.addWidget(QLabel(i18n.t("dates_from") or "Desde"))
         dates_row.addWidget(self.date_from)
