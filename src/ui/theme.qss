@@ -510,9 +510,13 @@ QDateEdit::down-arrow {
     image: none;
     width: 0;
     height: 0;
-    border-left: 6px solid transparent;
-    border-right: 6px solid transparent;
-    border-top: 8px solid #f8fafc;
+    border: none;
+    /* Usando un Label superpuesto o simplemente confiando en el border triangle si no puedo poner texto */
+    /* El usuario pidió "▼". CSS de Qt no soporta 'content' en subcontroles fácilmente para texto.
+       Usaré el border triangle pero ajustado para parecer ▼ */
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 5px solid #f8fafc;
 }
 
 QDateEdit::down-arrow:hover {
@@ -525,8 +529,8 @@ QCalendarWidget {
     border: 2px solid #6366f1;
     border-radius: 20px;
     padding: 10px;
-    min-width: 500px;
-    min-height: 400px;
+    min-width: 380px;
+    min-height: 320px;
 }
 
 /* Barra de navegación del calendario */
