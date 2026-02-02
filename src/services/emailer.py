@@ -24,34 +24,6 @@ def _save_cfg(cfg):
 
 def _create_html_email_report(date_from: str, date_to: str, stats: dict) -> str:
     """
-    Crea un email HTML con diseño similar a Vista Previa del Turno.
-    
-    Args:
-        date_from: Fecha inicio en formato YYYY-MM-DD
-        date_to: Fecha fin en formato YYYY-MM-DD
-        stats: Dict con estadísticas {total_cents, tickets, items}
-    
-    Returns:
-        HTML string del reporte
-    """
-    # Formatear total
-    total_formatted = f"{stats['total_cents'] / 100:,.2f}"
-    
-    # Formatear fechas para mostrar (DD/MM/YYYY)
-    from datetime import datetime
-    dt_from = datetime.strptime(date_from, "%Y-%m-%d")
-    dt_to = datetime.strptime(date_to, "%Y-%m-%d")
-    fecha_from = dt_from.strftime("%d/%m/%Y")
-    fecha_to = dt_to.strftime("%d/%m/%Y")
-    
-    html = f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-def _create_html_email_report(date_from: str, date_to: str, stats: dict) -> str:
-    """
     Crea un email HTML compacto y adaptable.
     """
     # Formatear total
@@ -106,8 +78,6 @@ def _create_html_email_report(date_from: str, date_to: str, stats: dict) -> str:
     </div>
 </body>
 </html>
-    """
-    return html.strip()
     """
     return html.strip()
 
