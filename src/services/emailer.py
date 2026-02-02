@@ -53,64 +53,62 @@ def _create_html_email_report(date_from: str, date_to: str, stats: dict) -> str:
     <style>
         body {{
             margin: 0;
-            padding: 0;
+            padding: 20px;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
         }}
     </style>
 </head>
-<body style="margin: 0; padding: 0; background: #0a0a0f;">
-    <div style="background: #0a0a0f; padding: 40px 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
-        <div style="max-width: 600px; margin: 0 auto; background: #12121a; border-radius: 20px; padding: 40px; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
-            
-            <!-- Encabezado -->
-            <h1 style="text-align: center; font-size: 12px; letter-spacing: 3px; color: #64748b; font-weight: 700; margin: 0 0 30px 0; text-transform: uppercase;">
-                REPORTE DE VENTAS
-            </h1>
-            
-            <!-- Panel de información -->
-            <div style="background: #16161e; padding: 24px; border-radius: 12px; margin: 20px 0;">
-                <table style="width: 100%; border-collapse: collapse;">
-                    <tr>
-                        <td style="color: #94a3b8; padding: 10px 16px; font-weight: 600; font-size: 14px; border-bottom: 1px solid #1a1a26;">
-                            Período:
-                        </td>
-                        <td style="color: #f8fafc; padding: 10px 16px; font-size: 14px; border-bottom: 1px solid #1a1a26;">
-                            {fecha_from} - {fecha_to}
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="color: #94a3b8; padding: 10px 16px; font-weight: 600; font-size: 14px; border-bottom: 1px solid #1a1a26;">
-                            Tickets:
-                        </td>
-                        <td style="color: #f8fafc; padding: 10px 16px; font-size: 16px; font-weight: 700; border-bottom: 1px solid #1a1a26;">
-                            {stats['tickets']}
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="color: #94a3b8; padding: 10px 16px; font-weight: 600; font-size: 14px; border-bottom: 1px solid #1a1a26;">
-                            Artículos:
-                        </td>
-                        <td style="color: #f8fafc; padding: 10px 16px; font-size: 16px; font-weight: 700; border-bottom: 1px solid #1a1a26;">
-                            {stats['items']}
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="color: #94a3b8; padding: 10px 16px; font-weight: 600; font-size: 14px;">
-                            Total Ventas:
-                        </td>
-                        <td style="color: #10b981; padding: 10px 16px; font-size: 20px; font-weight: 700;">
-                            $ {total_formatted}
-                        </td>
-                    </tr>
-                </table>
-            </div>
-            
-            <!-- Mensaje -->
-            <p style="color: #94a3b8; text-align: center; font-size: 14px; margin: 30px 0 0 0; line-height: 1.6;">
-                📊 Detalles completos en el archivo CSV adjunto
-            </p>
-            
+<body>
+    <div style="max-width: 600px; margin: 0 auto; background: #12121a; border-radius: 16px; padding: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+        
+        <!-- Encabezado -->
+        <h1 style="text-align: center; font-size: 11px; letter-spacing: 2.5px; color: #64748b; font-weight: 700; margin: 0 0 16px 0; text-transform: uppercase; line-height: 1.2;">
+            REPORTE DE VENTAS
+        </h1>
+        
+        <!-- Panel de información -->
+        <div style="background: #16161e; padding: 16px; border-radius: 10px; margin: 12px 0;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                    <td style="color: #94a3b8; padding: 6px 12px; font-weight: 600; font-size: 13px; border-bottom: 1px solid #1a1a26; line-height: 1.3;">
+                        Período:
+                    </td>
+                    <td style="color: #f8fafc; padding: 6px 12px; font-size: 13px; border-bottom: 1px solid #1a1a26; line-height: 1.3;">
+                        {fecha_from} - {fecha_to}
+                    </td>
+                </tr>
+                <tr>
+                    <td style="color: #94a3b8; padding: 6px 12px; font-weight: 600; font-size: 13px; border-bottom: 1px solid #1a1a26; line-height: 1.3;">
+                        Tickets:
+                    </td>
+                    <td style="color: #f8fafc; padding: 6px 12px; font-size: 15px; font-weight: 700; border-bottom: 1px solid #1a1a26; line-height: 1.3;">
+                        {stats['tickets']}
+                    </td>
+                </tr>
+                <tr>
+                    <td style="color: #94a3b8; padding: 6px 12px; font-weight: 600; font-size: 13px; border-bottom: 1px solid #1a1a26; line-height: 1.3;">
+                        Artículos:
+                    </td>
+                    <td style="color: #f8fafc; padding: 6px 12px; font-size: 15px; font-weight: 700; border-bottom: 1px solid #1a1a26; line-height: 1.3;">
+                        {stats['items']}
+                    </td>
+                </tr>
+                <tr>
+                    <td style="color: #94a3b8; padding: 6px 12px; font-weight: 600; font-size: 13px; line-height: 1.3;">
+                        Total Ventas:
+                    </td>
+                    <td style="color: #10b981; padding: 6px 12px; font-size: 17px; font-weight: 700; line-height: 1.3;">
+                        $ {total_formatted}
+                    </td>
+                </tr>
+            </table>
         </div>
+        
+        <!-- Mensaje -->
+        <p style="color: #94a3b8; text-align: center; font-size: 12px; margin: 16px 0 0 0; line-height: 1.4;">
+            📊 Detalles completos en el archivo CSV adjunto
+        </p>
+        
     </div>
 </body>
 </html>

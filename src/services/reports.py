@@ -344,11 +344,10 @@ def csv_sales_detailed_bytes(date_from: str, date_to: str) -> bytes:
     Genera CSV detallado de ventas con información completa para análisis de demanda.
     
     Columnas:
-    - ticket_id: ID del ticket
+    - ticket: ID del ticket
     - fecha: Fecha de la venta (YYYY-MM-DD)
     - hora: Hora de la venta (HH:MM:SS)
-    - turno_id: ID del turno
-    - producto_id: ID del producto
+    - turno: ID del turno
     - producto_nombre: Nombre del producto
     - categoria: Categoría del producto
     - precio_unitario: Precio por unidad en formato decimal
@@ -368,7 +367,6 @@ def csv_sales_detailed_bytes(date_from: str, date_to: str) -> bytes:
             DATE(t.ts) as fecha,
             TIME(t.ts) as hora,
             t.shift_id,
-            ti.product_id,
             ti.name as producto_nombre,
             COALESCE(p.category, 'General') as categoria,
             ti.price as precio_cents,
@@ -390,11 +388,10 @@ def csv_sales_detailed_bytes(date_from: str, date_to: str) -> bytes:
     
     # Encabezados del CSV
     w.writerow([
-        "ticket_id",
+        "ticket",
         "fecha",
         "hora",
-        "turno_id",
-        "producto_id",
+        "turno",
         "producto_nombre",
         "categoria",
         "precio_unitario",
@@ -410,13 +407,12 @@ def csv_sales_detailed_bytes(date_from: str, date_to: str) -> bytes:
         fecha = r[1]
         hora = r[2]
         shift_id = r[3] or ""
-        product_id = r[4] or ""
-        producto_nombre = r[5]
-        categoria = r[6]
-        precio_cents = int(r[7])
-        cantidad = float(r[8])
-        unidad = r[9]
-        total_ticket_cents = int(r[10])
+        producto_nombre = r[4]
+        categoria = r[5]
+        precio_cents = int(r[6])
+        cantidad = float(r[7])
+        unidad = r[8]
+        total_ticket_cents = int(r[9])
         
         # Calcular subtotal
         subtotal_cents = int(precio_cents * cantidad)
@@ -431,7 +427,6 @@ def csv_sales_detailed_bytes(date_from: str, date_to: str) -> bytes:
             fecha,
             hora,
             shift_id,
-            product_id,
             producto_nombre,
             categoria,
             precio_unitario,
