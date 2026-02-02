@@ -50,68 +50,64 @@ def _create_html_email_report(date_from: str, date_to: str, stats: dict) -> str:
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-        body {{
-            margin: 0;
-            padding: 20px;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-        }}
-    </style>
+def _create_html_email_report(date_from: str, date_to: str, stats: dict) -> str:
+    """
+    Crea un email HTML compacto y adaptable.
+    """
+    # Formatear total
+    total_formatted = f"{stats['total_cents'] / 100:,.2f}"
+    
+    # Formatear fechas
+    from datetime import datetime
+    dt_from = datetime.strptime(date_from, "%Y-%m-%d")
+    dt_to = datetime.strptime(date_to, "%Y-%m-%d")
+    fecha_from = dt_from.strftime("%d/%m/%Y")
+    fecha_to = dt_to.strftime("%d/%m/%Y")
+    
+    html = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
-<body>
-    <div style="max-width: 600px; margin: 0 auto; background: #12121a; border-radius: 16px; padding: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+<body style="margin: 0; padding: 0; font-family: sans-serif; color: #333333;">
+    <div style="padding: 10px; max-width: 600px;">
         
-        <!-- Encabezado -->
-        <h1 style="text-align: center; font-size: 11px; letter-spacing: 2.5px; color: #64748b; font-weight: 700; margin: 0 0 16px 0; text-transform: uppercase; line-height: 1.2;">
-            REPORTE DE VENTAS
-        </h1>
+        <h2 style="margin: 0 0 10px 0; font-size: 16px; color: #1a1a1a; border-bottom: 2px solid #6366f1; padding-bottom: 5px;">
+            Reporte de Ventas
+        </h2>
         
-        <!-- Panel de información -->
-        <div style="background: #16161e; padding: 16px; border-radius: 10px; margin: 12px 0;">
-            <table style="width: 100%; border-collapse: collapse;">
-                <tr>
-                    <td style="color: #94a3b8; padding: 6px 12px; font-weight: 600; font-size: 13px; border-bottom: 1px solid #1a1a26; line-height: 1.3;">
-                        Período:
-                    </td>
-                    <td style="color: #f8fafc; padding: 6px 12px; font-size: 13px; border-bottom: 1px solid #1a1a26; line-height: 1.3;">
-                        {fecha_from} - {fecha_to}
-                    </td>
-                </tr>
-                <tr>
-                    <td style="color: #94a3b8; padding: 6px 12px; font-weight: 600; font-size: 13px; border-bottom: 1px solid #1a1a26; line-height: 1.3;">
-                        Tickets:
-                    </td>
-                    <td style="color: #f8fafc; padding: 6px 12px; font-size: 15px; font-weight: 700; border-bottom: 1px solid #1a1a26; line-height: 1.3;">
-                        {stats['tickets']}
-                    </td>
-                </tr>
-                <tr>
-                    <td style="color: #94a3b8; padding: 6px 12px; font-weight: 600; font-size: 13px; border-bottom: 1px solid #1a1a26; line-height: 1.3;">
-                        Artículos:
-                    </td>
-                    <td style="color: #f8fafc; padding: 6px 12px; font-size: 15px; font-weight: 700; border-bottom: 1px solid #1a1a26; line-height: 1.3;">
-                        {stats['items']}
-                    </td>
-                </tr>
-                <tr>
-                    <td style="color: #94a3b8; padding: 6px 12px; font-weight: 600; font-size: 13px; line-height: 1.3;">
-                        Total Ventas:
-                    </td>
-                    <td style="color: #10b981; padding: 6px 12px; font-size: 17px; font-weight: 700; line-height: 1.3;">
-                        $ {total_formatted}
-                    </td>
-                </tr>
-            </table>
+        <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+            <tr style="border-bottom: 1px solid #eeeeee;">
+                <td style="padding: 6px 0; color: #666666;">Período:</td>
+                <td style="padding: 6px 0; font-weight: bold; text-align: right;">{fecha_from} - {fecha_to}</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #eeeeee;">
+                <td style="padding: 6px 0; color: #666666;">Tickets:</td>
+                <td style="padding: 6px 0; font-weight: bold; text-align: right;">{stats['tickets']}</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #eeeeee;">
+                <td style="padding: 6px 0; color: #666666;">Artículos:</td>
+                <td style="padding: 6px 0; font-weight: bold; text-align: right;">{stats['items']}</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; color: #666666; font-size: 15px;">Total:</td>
+                <td style="padding: 8px 0; font-weight: bold; text-align: right; font-size: 18px; color: #10b981;">
+                    $ {total_formatted}
+                </td>
+            </tr>
+        </table>
+        
+        <div style="margin-top: 10px; font-size: 11px; color: #888888; text-align: center;">
+            CSV adjunto con detalles completos
         </div>
-        
-        <!-- Mensaje -->
-        <p style="color: #94a3b8; text-align: center; font-size: 12px; margin: 16px 0 0 0; line-height: 1.4;">
-            📊 Detalles completos en el archivo CSV adjunto
-        </p>
         
     </div>
 </body>
 </html>
+    """
+    return html.strip()
     """
     return html.strip()
 

@@ -3,7 +3,8 @@ from PySide6.QtWidgets import (
     QLineEdit, QPushButton, QLabel, QHBoxLayout, QComboBox,
     QMessageBox, QSpinBox, QGridLayout, QTableWidget, QTableWidgetItem,
     QAbstractItemView, QCheckBox, QDialog, QListWidget, QListWidgetItem, QApplication,
-    QFrame, QStackedLayout, QTextEdit, QDialogButtonBox, QDateEdit
+    QFrame, QStackedLayout, QTextEdit, QDialogButtonBox, QDateEdit,
+    QToolButton, QMenu, QWidgetAction, QSizePolicy
 )
 from PySide6.QtCore import Qt, QObject, QEvent, QTimer, QDate
 from pathlib import Path
@@ -1816,71 +1817,120 @@ class AdminWindow(QMainWindow):
         v.addWidget(QLabel(i18n.t("send_mail") or "Enviar reporte por correo"))
 
         mail_row1 = QHBoxLayout()
-        mail_row1.setSpacing(12)
+        # Layout Principal Horizontal
+        main_layout = QHBoxLayout()
+        main_layout.setSpacing(20)
+        
+        # Columna Izquierda (Inputs)
+        left_col = QVBoxLayout()
+        left_col.setSpacing(16)
+        
+        # Fila 1: Fechas
+        dates_row = QHBoxLayout()
+        dates_row.setSpacing(12)
+        
         self.date_from = QDateEdit()
-        self.date_from.setMinimumWidth(170)
-        self.date_from.setMinimumHeight(56)
+        self.date_from.setMinimumWidth(150)
+        self.date_from.setMinimumHeight(60)
         self.date_from.setCalendarPopup(True)
         self.date_from.setDisplayFormat("yyyy-MM-dd")
         self.date_from.setDate(QDate.currentDate().addDays(-7))
-        
+        # Asegurar que no tenga filtro de eventos que bloquee el calendario
+        self.date_from.removeEventFilter(self._osk_filter) if self.date_from.eventFilter(self._osk_filter) else None
+
         self.date_to = QDateEdit()
-        self.date_to.setMinimumWidth(170)
-        self.date_to.setMinimumHeight(56)
+        self.date_to.setMinimumWidth(150)
+        self.date_to.setMinimumHeight(60)
         self.date_to.setCalendarPopup(True)
         self.date_to.setDisplayFormat("yyyy-MM-dd")
         self.date_to.setDate(QDate.currentDate())
-        
-        mail_row1.addWidget(QLabel(i18n.t("dates_from") or "Desde"))
-        mail_row1.addWidget(self.date_from)
-        mail_row1.addWidget(QLabel(i18n.t("dates_to") or "Hasta"))
-        mail_row1.addWidget(self.date_to)
-        v.addLayout(mail_row1)
+        self.date_to.removeEventFilter(self._osk_filter) if self.date_to.eventFilter(self._osk_filter) else None
 
-        mail_row2 = QHBoxLayout()
-        mail_row2.setSpacing(12)
+        dates_row.addWidget(QLabel(i18n.t("dates_from") or "Desde"))
+        dates_row.addWidget(self.date_from)
+        dates_row.addWidget(QLabel(i18n.t("dates_to") or "Hasta"))
+        dates_row.addWidget(self.date_to)
+        
+        left_col.addLayout(dates_row)
+        
+        # Fila 2: Emails + Botón Recientes
+        email_row = QHBoxLayout()
         self.ed_emails = QLineEdit()
-        self.ed_emails.setPlaceholderText(
-            i18n.t("emails_placeholder")
-            or "correo1@ejemplo.com, correo2@ejemplo.com"
-        )
-        btn_send = QPushButton(i18n.t("send_mail") or "Enviar reporte")
-        btn_send.clicked.connect(self._send_mail)
-        btn_send.setMinimumHeight(48)
-        mail_row2.addWidget(self.ed_emails, 1)
-        mail_row2.addWidget(btn_send)
-        v.addLayout(mail_row2)
-
-        # Correos recientes con botones integrados
-        lbl_recent = QLabel("Correos recientes:")
-        lbl_recent.setStyleSheet("font-weight: 600; color: #94a3b8; margin-top: 12px;")
-        v.addWidget(lbl_recent)
+        self.ed_emails.setMinimumHeight(50)
+        self.ed_emails.setPlaceholderText(i18n.t("emails_placeholder") or "correo1@ejemplo.com")
         
-        self.recent_emails_list = QListWidget()
-        self.recent_emails_list.setMaximumHeight(150)
-        self.recent_emails_list.setStyleSheet("""
-            QListWidget {
-                background: #16161e;
-                border-radius: 12px;
-                padding: 6px;
-                border: 2px solid #2a2a3a;
-            }
-            QListWidget::item {
-                background: #1a1a26;
+        # Botón Menú Recientes
+        self.btn_recent_menu = QToolButton()
+        self.btn_recent_menu.setText("Recientes ▼")
+        self.btn_recent_menu.setMinimumHeight(50)
+        self.btn_recent_menu.setPopupMode(QToolButton.InstantPopup)
+        self.btn_recent_menu.setStyleSheet("""
+            QToolButton {
+                background: #2a2a3a;
+                color: #94a3b8;
+                border: 1px solid #3f3f46;
                 border-radius: 8px;
-                padding: 0px;
-                margin: 3px 0;
+                padding: 0 12px;
+                font-weight: 600;
             }
-            QListWidget::item:hover {
-                background: #22222e;
+            QToolButton:hover {
+                background: #3f3f46;
+                color: #f8fafc;
+            }
+            QToolButton::menu-indicator { image: none; }
+        """)
+        
+        # Crear menú (se poblará dinámicamente)
+        self.recent_menu = QMenu(self.btn_recent_menu)
+        self.recent_menu.setStyleSheet("""
+            QMenu {
+                background-color: #1a1a26;
+                border: 1px solid #3f3f46;
+                border-radius: 8px;
+                padding: 4px;
+            }
+            QMenu::item {
+                padding: 4px 8px;
             }
         """)
-        v.addWidget(self.recent_emails_list)
+        self.btn_recent_menu.setMenu(self.recent_menu)
+        # Conectar señal aboutToShow para refrescar el menú
+        self.recent_menu.aboutToShow.connect(self._populate_recent_menu)
         
-        # Poblar lista inicial
-        self._refresh_recent_emails_list()
-
-        # Solo el campo de emails usa OSK, no los date pickers
+        email_row.addWidget(self.ed_emails)
+        email_row.addWidget(self.btn_recent_menu)
+        
+        left_col.addLayout(email_row)
+        
+        # Agregar columna izquierda al main
+        main_layout.addLayout(left_col, 2) # Stretch factor 2
+        
+        # Columna Derecha: Botón Enviar Gigante
+        btn_send = QPushButton(f"  {i18n.t('send_mail') or 'Enviar Reporte'}")
+        # Intentar poner icono (usando texto/emoji si no hay sistema de iconos)
+        btn_send.setText(f"📧  {i18n.t('send_mail') or 'Enviar Reporte'}")
+        btn_send.clicked.connect(self._send_mail)
+        btn_send.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        btn_send.setStyleSheet("""
+            QPushButton {
+                background-color: #6366f1;
+                font-size: 18px;
+                font-weight: 700;
+                border-radius: 12px;
+            }
+            QPushButton:hover {
+                background-color: #818cf8;
+            }
+            QPushButton:pressed {
+                background-color: #4f46e5;
+            }
+        """)
+        
+        main_layout.addWidget(btn_send, 1) # Stretch factor 1
+        
+        v.addLayout(main_layout)
+        
+        # Solo el campo de emails usa OSK
         self.ed_emails.installEventFilter(self._osk_filter)
 
         # --- Turnos de la semana + impresión de reporte de turno ---
@@ -2022,92 +2072,106 @@ class AdminWindow(QMainWindow):
         if hasattr(self, "list_shifts"):
             self._reload_week_shifts()
 
-    def _refresh_recent_emails_list(self):
-        """Actualiza la lista de correos recientes con botones."""
-        self.recent_emails_list.clear()
+    def _populate_recent_menu(self):
+        """Pobla el menú de recientes dinámicamente."""
+        from services.emailer import recent_emails
+        self.recent_menu.clear()
         
-        for email in recent_emails():
-            # Widget personalizado para cada item
-            item_widget = QWidget()
-            item_layout = QHBoxLayout(item_widget)
-            item_layout.setContentsMargins(12, 8, 12, 8)
-            item_layout.setSpacing(8)
+        emails = recent_emails()
+        if not emails:
+            action = self.recent_menu.addAction("Sin correos recientes")
+            action.setEnabled(False)
+            return
+
+        for email in emails:
+            # Crear widget personalizado para el menú
+            widget_action = QWidgetAction(self.recent_menu)
+            custom_widget = QWidget()
+            layout = QHBoxLayout(custom_widget)
+            layout.setContentsMargins(4, 2, 4, 2)
+            layout.setSpacing(8)
             
-            # Email
-            lbl_email = QLabel(f"📧 {email}")
-            lbl_email.setStyleSheet("color: #f8fafc; font-size: 13px;")
-            item_layout.addWidget(lbl_email, 1)
+            # Texto del email (clickable para agregar)
+            btn_text = QPushButton(f"📧 {email}")
+            btn_text.setStyleSheet("""
+                QPushButton {
+                    text-align: left;
+                    background: transparent;
+                    color: #e2e8f0;
+                    border: none;
+                    text-decoration: underline;
+                }
+                QPushButton:hover { color: #ffffff; }
+            """)
+            btn_text.setCursor(Qt.PointingHandCursor)
+            btn_text.clicked.connect(lambda checked, e=email: self._add_email_to_field_and_close(e))
             
-            # Botón agregar
+            # Botón "+" (Agregar explícito)
             btn_add = QPushButton("+")
-            btn_add.setFixedSize(32, 32)
+            btn_add.setFixedSize(24, 24)
+            btn_add.setCursor(Qt.PointingHandCursor)
+            btn_add.setToolTip("Agregar a destinatarios")
             btn_add.setStyleSheet("""
                 QPushButton {
                     background: #6366f1;
                     color: white;
-                    font-weight: 700;
-                    font-size: 18px;
-                    border-radius: 16px;
-                    padding: 0;
-                    border: none;
+                    border-radius: 12px;
+                    font-weight: bold;
                 }
-                QPushButton:hover {
-                    background: #818cf8;
-                }
-                QPushButton:pressed {
-                    background: #4f46e5;
-                }
+                QPushButton:hover { background: #818cf8; }
             """)
-            btn_add.clicked.connect(lambda checked, e=email: self._add_email_to_field(e))
-            item_layout.addWidget(btn_add)
-            
-            # Botón eliminar
-            btn_remove = QPushButton("✕")
-            btn_remove.setFixedSize(32, 32)
-            btn_remove.setStyleSheet("""
+            btn_add.clicked.connect(lambda checked, e=email: self._add_email_to_field_and_close(e))
+
+            # Botón "x" (Eliminar)
+            btn_del = QPushButton("✕")
+            btn_del.setFixedSize(24, 24)
+            btn_del.setCursor(Qt.PointingHandCursor)
+            btn_del.setToolTip("Eliminar de recientes")
+            btn_del.setStyleSheet("""
                 QPushButton {
-                    background: rgba(239, 68, 68, 0.2);
+                    background: transparent;
                     color: #ef4444;
-                    font-weight: 700;
-                    font-size: 16px;
-                    border-radius: 16px;
-                    padding: 0;
-                    border: 1px solid rgba(239, 68, 68, 0.3);
+                    border: 1px solid #ef4444;
+                    border-radius: 12px;
+                    font-weight: bold;
+                    font-size: 10px;
                 }
-                QPushButton:hover {
-                    background: rgba(239, 68, 68, 0.3);
-                }
-                QPushButton:pressed {
-                    background: rgba(239, 68, 68, 0.4);
-                }
+                QPushButton:hover { background: rgba(239, 68, 68, 0.1); }
             """)
-            btn_remove.clicked.connect(lambda checked, e=email: self._remove_recent_email(e))
-            item_layout.addWidget(btn_remove)
+            btn_del.clicked.connect(lambda checked, e=email: self._remove_recent_email_action(e))
             
-            # Agregar a la lista
-            item = QListWidgetItem()
-            item.setSizeHint(item_widget.sizeHint())
-            self.recent_emails_list.addItem(item)
-            self.recent_emails_list.setItemWidget(item, item_widget)
+            layout.addWidget(btn_text, 1)
+            layout.addWidget(btn_add)
+            layout.addWidget(btn_del)
+            
+            widget_action.setDefaultWidget(custom_widget)
+            self.recent_menu.addAction(widget_action)
+
+    def _add_email_to_field_and_close(self, email):
+        self.recent_menu.close()
+        self._add_email_to_field(email)
 
     def _add_email_to_field(self, email):
         """Agrega un email al campo de destinatarios."""
         current = self.ed_emails.text().strip()
         if current:
-            emails = [e.strip() for e in current.split(",") if e.strip()]
-            if email not in emails:
-                emails.append(email)
-            self.ed_emails.setText(", ".join(emails))
+            emails_list = [e.strip() for e in current.split(",") if e.strip()]
+            if email not in emails_list:
+                emails_list.append(email)
+            self.ed_emails.setText(", ".join(emails_list))
         else:
             self.ed_emails.setText(email)
-        self._toast(f"Email {email} agregado", level="success", duration_ms=2000)
+        # Feedback visual sutil en el input
+        self.ed_emails.setStyleSheet("border: 1px solid #10b981;")
+        QTimer.singleShot(1000, lambda: self.ed_emails.setStyleSheet(""))
 
-    def _remove_recent_email(self, email):
-        """Elimina un email de la lista de recientes."""
+    def _remove_recent_email_action(self, email):
+        """Elimina email y refresca el menú (manteniéndolo abierto si es posible o cerrándolo)."""
         from services.emailer import remove_recent_email
         remove_recent_email(email)
-        self._refresh_recent_emails_list()
-        self._toast(f"Email eliminado de recientes", level="success", duration_ms=2000)
+        # Refrescar menú inmediato
+        self.recent_menu.close()
+
 
     def _send_mail(self):
         from datetime import datetime
@@ -2181,8 +2245,8 @@ class AdminWindow(QMainWindow):
             self._toast(
                 i18n.t("report_sent_ok") or "Reporte enviado.", level="success"
             )
-            # Refrescar lista de correos recientes
-            self._refresh_recent_emails_list()
+            # Refrescar lista de correos recientes (no es necesario si el menu lo hace on-demand)
+            # Pero podemos limpiar el campo si se desea. Mantengamos el texto.
         else:
             self._toast(
                 i18n.t("report_sent_err", err=msg)

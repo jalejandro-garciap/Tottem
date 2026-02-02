@@ -525,13 +525,16 @@ QCalendarWidget {
     border: 2px solid #6366f1;
     border-radius: 20px;
     padding: 10px;
+    min-width: 500px;
+    min-height: 400px;
 }
 
 /* Barra de navegación del calendario */
 QCalendarWidget QWidget#qt_calendar_navigationbar {
     background: #22222e;
     border-radius: 12px;
-    padding: 6px;
+    padding: 8px;
+    min-height: 50px;
 }
 
 /* Botones de navegación (prev/next month) */
@@ -541,8 +544,7 @@ QCalendarWidget QToolButton {
     border-radius: 10px;
     padding: 10px;
     font-weight: 600;
-    min-width: 40px;
-    min-height: 40px;
+    icon-size: 24px;
 }
 
 QCalendarWidget QToolButton:hover {
@@ -560,14 +562,19 @@ QCalendarWidget QSpinBox {
     color: #f8fafc;
     border: none;
     border-radius: 8px;
-    padding: 8px;
+    padding: 8px 12px;
     font-weight: 600;
+    font-size: 16px;
     selection-background-color: #6366f1;
+    min-height: 40px;
 }
 
 /* Encabezados de días de la semana */
 QCalendarWidget QWidget {
+    alternate-background-color: #1a1a26;
     color: #94a3b8;
+    font-size: 14px;
+    font-weight: 700;
 }
 
 /* Grid de días */
@@ -577,11 +584,12 @@ QCalendarWidget QAbstractItemView {
     selection-color: #ffffff;
     border-radius: 10px;
     outline: none;
+    font-size: 16px;
 }
 
 QCalendarWidget QAbstractItemView:enabled {
     color: #f8fafc;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 500;
 }
 
