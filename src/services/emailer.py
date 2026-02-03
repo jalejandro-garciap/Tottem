@@ -37,6 +37,7 @@ def _create_html_email_report(date_from: str, date_to: str, stats: dict) -> str:
     fecha_to = dt_to.strftime("%d/%m/%Y")
     
     html = f"""
+
 <!DOCTYPE html>
 <html>
 <head>
@@ -44,10 +45,9 @@ def _create_html_email_report(date_from: str, date_to: str, stats: dict) -> str:
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body style="margin: 0; padding: 0; font-family: sans-serif; color: #333333; background-color: #ffffff;">
-
     <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
         <tr>
-            <td style="padding: 10px;" align="center">
+            <td style="padding: 10px;" align="center" valign="top">
                 <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width: 600px;">
                     <tr>
                         <td style="padding: 0;">

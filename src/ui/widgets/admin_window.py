@@ -1864,7 +1864,7 @@ class AdminWindow(QMainWindow):
         
         # Botones + y x
         btn_add_recent = QPushButton("+")
-        btn_add_recent.setFixedSize(60, 42)
+        btn_add_recent.setFixedSize(60, 40)
         btn_add_recent.setToolTip("Agregar seleccionado")
         btn_add_recent.setStyleSheet("""
             QPushButton { background: #6366f1; color: white; font-weight: bold; border-radius: 6px; }
@@ -1873,7 +1873,7 @@ class AdminWindow(QMainWindow):
         btn_add_recent.clicked.connect(self._add_recent_email_from_combo)
         
         btn_del_recent = QPushButton("x")
-        btn_del_recent.setFixedSize(60, 42)
+        btn_del_recent.setFixedSize(60, 40)
         btn_del_recent.setToolTip("Eliminar seleccionado")
         btn_del_recent.setStyleSheet("""
             QPushButton { background: rgba(239, 68, 68, 0.2); color: #ef4444; font-weight: bold; border-radius: 6px; border: 1px solid rgba(239, 68, 68, 0.3); }
