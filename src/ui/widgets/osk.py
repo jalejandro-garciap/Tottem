@@ -17,9 +17,8 @@ KEY_ROWS_LOWER = [
 KEY_ROWS_UPPER = [[c.upper() for c in row] for row in KEY_ROWS_LOWER]
 
 KEY_NUMBERS = list("1234567890")
-KEY_EMAIL_SHORTCUTS = ["@", ".", "_", "-", "+", "/", ":"]
 KEY_SYMBOLS = [
-    "@", ".", "_", "-", "+", "#", "$", "%", "&", "=",
+    "@", ".", "_", "-", "+", "#", "$", "%", "=",
     "(", ")", "[", "]", "{", "}", "!", "?",
     ":", ";", ",", "/", "\\", "<", ">", "\"", "'",
 ]
@@ -114,6 +113,7 @@ class OnScreenKeyboard(QDialog):
             b.setMinimumHeight(56)
             b.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
+        self.btn_shift.setMinimumWidth(90)
         self.btn_space.setMinimumWidth(200)
 
         controls.addWidget(self.btn_shift)
@@ -160,14 +160,9 @@ class OnScreenKeyboard(QDialog):
 
         # Decide layout
         if self._symbols:
-            rows = [
-                KEY_NUMBERS,
-                KEY_SYMBOLS[:10],
-                KEY_SYMBOLS[10:20],
-                KEY_SYMBOLS[20:],
-            ]
+            rows = [KEY_NUMBERS, KEY_SYMBOLS[:6], KEY_SYMBOLS[6:]]
         else:
-            rows = (KEY_ROWS_UPPER if self._shift else KEY_ROWS_LOWER) + [KEY_EMAIL_SHORTCUTS]
+            rows = KEY_ROWS_UPPER if self._shift else KEY_ROWS_LOWER
 
         # Build buttons
         for r, row in enumerate(rows):

@@ -242,19 +242,6 @@ class _OskFocusFilter(QObject):
         return False
 
 
-class _DatePopupFilter(QObject):
-    """Asegura que los calendarios se puedan abrir/cerrar repetidamente."""
-
-    def eventFilter(self, obj, event):
-        if isinstance(obj, QDateEdit) and event.type() == QEvent.MouseButtonPress:
-            if obj.calendarWidget() and obj.calendarWidget().isVisible():
-                obj.hidePopup()
-            else:
-                obj.showPopup()
-            return True
-        return False
-
-
 class _PinKeypadFocusFilter(QObject):
     """Abre el keypad numérico cuando un QLineEdit de PIN recibe foco (sin OSK)."""
 
@@ -1855,11 +1842,6 @@ class AdminWindow(QMainWindow):
         self.date_to.setReadOnly(True)
         self.date_to.removeEventFilter(self._osk_filter)
 
-        if not hasattr(self, "_date_popup_filter"):
-            self._date_popup_filter = _DatePopupFilter(self)
-        self.date_from.installEventFilter(self._date_popup_filter)
-        self.date_to.installEventFilter(self._date_popup_filter)
-
         dates_row.addWidget(QLabel(i18n.t("dates_from") or "Desde"))
         dates_row.addWidget(self.date_from, 1)
         dates_row.addWidget(QLabel(i18n.t("dates_to") or "Hasta"))
@@ -2440,36 +2422,38 @@ class AdminWindow(QMainWindow):
     def _tab_system(self) -> QWidget:
         w = QWidget()
         f = QFormLayout(w)
-        f.setVerticalSpacing(12)
-        f.setHorizontalSpacing(12)
+        f.setVerticalSpacing(8)
+        f.setHorizontalSpacing(10)
         
         # --- Sección WiFi ---
         row = QHBoxLayout()
         self.ssid_combo = QComboBox()
+        self.ssid_combo.setMinimumHeight(44)
         btn_scan = QPushButton(
             i18n.t("scan_usb_printers").replace("impresoras USB", "redes")
         )
-        btn_scan.setMinimumHeight(40)
+        btn_scan.setMinimumHeight(36)
         btn_scan.clicked.connect(self._scan_wifi)
         row.addWidget(self.ssid_combo)
         row.addWidget(btn_scan)
         self.wifi_pass = QLineEdit()
         self.wifi_pass.setEchoMode(QLineEdit.Password)
+        self.wifi_pass.setMinimumHeight(44)
         self.wifi_pass.setPlaceholderText(
             i18n.t("password").replace(":", "")
         )
         btn_conn = QPushButton(i18n.t("connect_wifi"))
-        btn_conn.setMinimumHeight(40)
+        btn_conn.setMinimumHeight(36)
         btn_conn.clicked.connect(self._connect_wifi)
         self.wifi_state = QLabel("(—)")
         btn_state = QPushButton(i18n.t("update_status"))
-        btn_state.setMinimumHeight(40)
+        btn_state.setMinimumHeight(36)
         btn_state.clicked.connect(self._refresh_wifi)
         btn_reboot = QPushButton(i18n.t("reboot"))
-        btn_reboot.setMinimumHeight(40)
+        btn_reboot.setMinimumHeight(36)
         btn_reboot.clicked.connect(self._confirm_reboot)
         btn_power = QPushButton(i18n.t("poweroff"))
-        btn_power.setMinimumHeight(40)
+        btn_power.setMinimumHeight(36)
         btn_power.clicked.connect(self._confirm_poweroff)
         f.addRow(i18n.t("wifi_ssid"), row)
         f.addRow(i18n.t("password"), self.wifi_pass)
@@ -2492,15 +2476,15 @@ class AdminWindow(QMainWindow):
         
         self.gmail_user = QLineEdit()
         self.gmail_user.setPlaceholderText("tucuenta@gmail.com")
-        self.gmail_user.setMinimumHeight(56)
+        self.gmail_user.setMinimumHeight(48)
         
         self.gmail_pass = QLineEdit()
         self.gmail_pass.setEchoMode(QLineEdit.Password)
         self.gmail_pass.setPlaceholderText("Contraseña de aplicación de Gmail")
-        self.gmail_pass.setMinimumHeight(56)
+        self.gmail_pass.setMinimumHeight(48)
         
         btn_save_email = QPushButton("Guardar Configuración de Email")
-        btn_save_email.setMinimumHeight(40)
+        btn_save_email.setMinimumHeight(36)
         btn_save_email.clicked.connect(self._save_gmail_config)
         btn_save_email.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Fixed)
 
