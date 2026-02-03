@@ -1814,7 +1814,7 @@ class AdminWindow(QMainWindow):
         v.setContentsMargins(10, 10, 10, 10)
         v.setSpacing(14)
 
-        v.addWidget(QLabel(i18n.t("send_mail") or "Enviar reporte por correo"))
+        v.addWidget(QLabel(i18n.t("send_mail") or "Enviar reporte"))
 
         # Main Layout: Left (Inputs) | Right (Action)
         main_layout = QHBoxLayout()
@@ -1852,7 +1852,7 @@ class AdminWindow(QMainWindow):
         mail_row2.setSpacing(8)
         
         self.ed_emails = QLineEdit()
-        self.ed_emails.setPlaceholderText(i18n.t("emails_placeholder") or "correo1@ejemplo.com")
+        self.ed_emails.setPlaceholderText(i18n.t("emails_placeholder") or "usuario@gmail.com, usuario2@gmail.com, usuario3@gmail.com, ...")
         self.ed_emails.setMinimumHeight(42)
         
         lbl_recent = QLabel(i18n.t("recent_emails") or "Recientes")
@@ -1872,7 +1872,7 @@ class AdminWindow(QMainWindow):
         """)
         btn_add_recent.clicked.connect(self._add_recent_email_from_combo)
         
-        btn_del_recent = QPushButton("✕")
+        btn_del_recent = QPushButton("x")
         btn_del_recent.setFixedSize(42, 42)
         btn_del_recent.setToolTip("Eliminar seleccionado")
         btn_del_recent.setStyleSheet("""
@@ -1894,7 +1894,7 @@ class AdminWindow(QMainWindow):
         icon_char = get_icon_char("envelope") or "📧"
         btn_send = QPushButton(f" {icon_char} \n{i18n.t('send_mail') or 'Enviar'}")
         btn_send.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
-        btn_send.setMaximumWidth(160) # "menos ancho"
+        btn_send.setMaximumWidth(180)
         btn_send.setStyleSheet("""
             QPushButton {
                 background-color: #6366f1;
@@ -1907,6 +1907,7 @@ class AdminWindow(QMainWindow):
             QPushButton:hover { background-color: #818cf8; }
             QPushButton:pressed { background-color: #4f46e5; }
         """)
+        btn_send.setFont(fa_font)
         btn_send.clicked.connect(self._send_mail)
         
         main_layout.addWidget(btn_send, 1) # Take 1/4 space

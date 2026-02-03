@@ -43,39 +43,50 @@ def _create_html_email_report(date_from: str, date_to: str, stats: dict) -> str:
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
-<body style="margin: 0; padding: 0; font-family: sans-serif; color: #333333;">
-    <div style="padding: 10px; max-width: 600px;">
-        
-        <h2 style="margin: 0 0 10px 0; font-size: 16px; color: #1a1a1a; border-bottom: 2px solid #6366f1; padding-bottom: 5px;">
-            Reporte de Ventas
-        </h2>
-        
-        <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
-            <tr style="border-bottom: 1px solid #eeeeee;">
-                <td style="padding: 6px 0; color: #666666;">Período:</td>
-                <td style="padding: 6px 0; font-weight: bold; text-align: right;">{fecha_from} - {fecha_to}</td>
-            </tr>
-            <tr style="border-bottom: 1px solid #eeeeee;">
-                <td style="padding: 6px 0; color: #666666;">Tickets:</td>
-                <td style="padding: 6px 0; font-weight: bold; text-align: right;">{stats['tickets']}</td>
-            </tr>
-            <tr style="border-bottom: 1px solid #eeeeee;">
-                <td style="padding: 6px 0; color: #666666;">Artículos:</td>
-                <td style="padding: 6px 0; font-weight: bold; text-align: right;">{stats['items']}</td>
-            </tr>
-            <tr>
-                <td style="padding: 8px 0; color: #666666; font-size: 15px;">Total:</td>
-                <td style="padding: 8px 0; font-weight: bold; text-align: right; font-size: 18px; color: #10b981;">
-                    $ {total_formatted}
-                </td>
-            </tr>
-        </table>
-        
-        <div style="margin-top: 10px; font-size: 11px; color: #888888; text-align: center;">
-            CSV adjunto con detalles completos
-        </div>
-        
-    </div>
+<body style="margin: 0; padding: 0; font-family: sans-serif; color: #333333; background-color: #ffffff;">
+
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+        <tr>
+            <td style="padding: 10px;" align="center">
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width: 600px;">
+                    <tr>
+                        <td style="padding: 0;">
+                            
+                            <h2 style="margin: 0 0 10px 0; font-size: 30px; color: #1a1a1a; border-bottom: 2px solid #6366f1; padding-bottom: 5px;">
+                                REPORTE DE VENTAS
+                            </h2>
+                            
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="font-size: 14px;">
+                                <tr style="border-bottom: 1px solid #eeeeee;">
+                                    <td style="padding: 6px 0; color: #666666;">Período:</td>
+                                    <td style="padding: 6px 0; font-weight: bold; text-align: right;">{fecha_from} - {fecha_to}</td>
+                                </tr>
+                                <tr style="border-bottom: 1px solid #eeeeee;">
+                                    <td style="padding: 6px 0; color: #666666;">Tickets:</td>
+                                    <td style="padding: 6px 0; font-weight: bold; text-align: right;">{stats['tickets']}</td>
+                                </tr>
+                                <tr style="border-bottom: 1px solid #eeeeee;">
+                                    <td style="padding: 6px 0; color: #666666;">Artículos:</td>
+                                    <td style="padding: 6px 0; font-weight: bold; text-align: right;">{stats['items']}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 8px 0; color: #666666; font-size: 15px;">Total:</td>
+                                    <td style="padding: 8px 0; font-weight: bold; text-align: right; font-size: 18px; color: #10b981;">
+                                        $ {total_formatted}
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                            <div style="margin-top: 10px; font-size: 11px; color: #888888; text-align: center;">
+                                CSV adjunto con detalles completos
+                            </div>
+
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
 </body>
 </html>
     """
