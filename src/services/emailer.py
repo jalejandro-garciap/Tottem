@@ -36,19 +36,21 @@ def _create_html_email_report(date_from: str, date_to: str, stats: dict) -> str:
     fecha_from = dt_from.strftime("%d/%m/%Y")
     fecha_to = dt_to.strftime("%d/%m/%Y")
     
-    html = f"""<!DOCTYPE html>
+    html = f"""
+
+<!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
-<body style="margin: 0; padding: 0; font-family: sans-serif; color: #333333; background-color: #ffffff; line-height: 1.4;">
-    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 0; padding: 0; border-collapse: collapse; mso-table-lspace: 0; mso-table-rspace: 0;">
+<body style="margin: 0; padding: 0; font-family: sans-serif; color: #333333; background-color: #ffffff;">
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
         <tr>
-            <td style="padding: 0;" valign="top">
-                <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" align="left" style="max-width: 600px; margin: 0; border-collapse: collapse;">
+            <td style="padding: 5px;" valign="top">
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width: 600px;">
                     <tr>
-                        <td style="padding: 12px 8px 8px 8px;">
+                        <td style="padding: 0;">
                             
                             <h2 style="margin: 0 0 10px 0; font-size: 30px; color: #1a1a1a; border-bottom: 2px solid #6366f1; padding-bottom: 5px;">
                                 REPORTE DE VENTAS
@@ -239,3 +241,4 @@ def send_mail(subject: str, body: str, recipients: List[str],
         return True, "OK"
     except Exception as e:
         return False, str(e)
+
