@@ -37,7 +37,6 @@ def _create_html_email_report(date_from: str, date_to: str, stats: dict) -> str:
     fecha_to = dt_to.strftime("%d/%m/%Y")
     
     html = f"""
-
 <!DOCTYPE html>
 <html>
 <head>
@@ -45,39 +44,39 @@ def _create_html_email_report(date_from: str, date_to: str, stats: dict) -> str:
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body style="margin: 0; padding: 0; font-family: sans-serif; color: #333333; background-color: #ffffff;">
-    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="50%">
         <tr>
-            <td style="padding: 5px;" valign="top">
-                <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width: 600px;">
+            <td style="padding: 1px;" valign="top">
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="300" style="max-width: 600px;">
                     <tr>
                         <td style="padding: 0;">
                             
-                            <h2 style="margin: 0 0 10px 0; font-size: 30px; color: #1a1a1a; border-bottom: 2px solid #6366f1; padding-bottom: 5px;">
+                            <h2 style="margin: 0 0 10px 0; font-size: 16px; color: #1a1a1a; border-bottom: 2px solid #6366f1; padding-bottom: 1px;">
                                 REPORTE DE VENTAS
                             </h2>
                             
                             <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="font-size: 14px;">
                                 <tr style="border-bottom: 1px solid #eeeeee;">
-                                    <td style="padding: 6px 0; color: #666666;">Período:</td>
-                                    <td style="padding: 6px 0; font-weight: bold; text-align: right;">{fecha_from} - {fecha_to}</td>
+                                    <td style="padding: 1px 0; color: #666666;">Período:</td>
+                                    <td style="padding: 1px 0; font-weight: bold; text-align: right;">{fecha_from} - {fecha_to}</td>
                                 </tr>
                                 <tr style="border-bottom: 1px solid #eeeeee;">
-                                    <td style="padding: 6px 0; color: #666666;">Tickets:</td>
-                                    <td style="padding: 6px 0; font-weight: bold; text-align: right;">{stats['tickets']}</td>
+                                    <td style="padding: 1px 0; color: #666666;">Tickets:</td>
+                                    <td style="padding: 1px 0; font-weight: bold; text-align: right;">{stats['tickets']}</td>
                                 </tr>
                                 <tr style="border-bottom: 1px solid #eeeeee;">
-                                    <td style="padding: 6px 0; color: #666666;">Artículos:</td>
-                                    <td style="padding: 6px 0; font-weight: bold; text-align: right;">{stats['items']}</td>
+                                    <td style="padding: 1px 0; color: #666666;">Artículos:</td>
+                                    <td style="padding: 1px 0; font-weight: bold; text-align: right;">{stats['items']}</td>
                                 </tr>
                                 <tr>
-                                    <td style="padding: 8px 0; color: #666666; font-size: 15px;">Total:</td>
-                                    <td style="padding: 8px 0; font-weight: bold; text-align: right; font-size: 18px; color: #10b981;">
+                                    <td style="padding: 2px 0; color: #666666; font-size: 15px;">Total:</td>
+                                    <td style="padding: 2px 0; font-weight: bold; text-align: right; font-size: 18px; color: #10b981;">
                                         $ {total_formatted}
                                     </td>
                                 </tr>
                             </table>
                             
-                            <div style="margin-top: 10px; font-size: 11px; color: #888888; text-align: center;">
+                            <div style="margin-top: 5px; font-size: 11px; color: #888888; text-align: center;">
                                 CSV adjunto con detalles completos
                             </div>
 
@@ -241,4 +240,3 @@ def send_mail(subject: str, body: str, recipients: List[str],
         return True, "OK"
     except Exception as e:
         return False, str(e)
-
