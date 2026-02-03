@@ -4,7 +4,7 @@ from PySide6.QtWidgets import (
     QMessageBox, QSpinBox, QGridLayout, QTableWidget, QTableWidgetItem,
     QAbstractItemView, QCheckBox, QDialog, QListWidget, QListWidgetItem, QApplication,
     QFrame, QStackedLayout, QTextEdit, QDialogButtonBox, QDateEdit,
-    QToolButton, QMenu, QWidgetAction, QSizePolicy
+    QToolButton, QMenu, QWidgetAction, QSizePolicy, QAbstractSpinBox, QGroupBox
 )
 from PySide6.QtCore import Qt, QObject, QEvent, QTimer, QDate
 from pathlib import Path
@@ -1826,11 +1826,13 @@ class AdminWindow(QMainWindow):
 
         # Row 1: Dates
         dates_row = QHBoxLayout()
+        dates_row.setSpacing(10)
         self.date_from = QDateEdit()
         self.date_from.setMinimumHeight(56)
         self.date_from.setCalendarPopup(True)
         self.date_from.setDisplayFormat("yyyy-MM-dd")
         self.date_from.setDate(QDate.currentDate().addDays(-7))
+        self.date_from.setButtonSymbols(QAbstractSpinBox.NoButtons)
         self.date_from.removeEventFilter(self._osk_filter)
 
         self.date_to = QDateEdit()
@@ -1838,12 +1840,13 @@ class AdminWindow(QMainWindow):
         self.date_to.setCalendarPopup(True)
         self.date_to.setDisplayFormat("yyyy-MM-dd")
         self.date_to.setDate(QDate.currentDate())
+        self.date_to.setButtonSymbols(QAbstractSpinBox.NoButtons)
         self.date_to.removeEventFilter(self._osk_filter)
 
         dates_row.addWidget(QLabel(i18n.t("dates_from") or "Desde"))
-        dates_row.addWidget(self.date_from, 1)
+        dates_row.addWidget(self._wrap_date_picker(self.date_from), 1)
         dates_row.addWidget(QLabel(i18n.t("dates_to") or "Hasta"))
-        dates_row.addWidget(self.date_to, 1)
+        dates_row.addWidget(self._wrap_date_picker(self.date_to), 1)
         
         left_col.addLayout(dates_row)
 
@@ -1857,6 +1860,8 @@ class AdminWindow(QMainWindow):
         
         lbl_recent = QLabel(i18n.t("recent_emails") or "Recientes")
         lbl_recent.setStyleSheet("color: #94a3b8; font-weight: 600;")
+        lbl_recent.setMinimumHeight(42)
+        lbl_recent.setAlignment(Qt.AlignVCenter | Qt.AlignRight)
         
         self.cb_recent = QComboBox()
         self.cb_recent.setMinimumHeight(42)
@@ -1864,7 +1869,7 @@ class AdminWindow(QMainWindow):
         
         # Botones + y x
         btn_add_recent = QPushButton("+")
-        btn_add_recent.setFixedSize(60, 40)
+        btn_add_recent.setFixedSize(44, 42)
         btn_add_recent.setToolTip("Agregar seleccionado")
         btn_add_recent.setStyleSheet("""
             QPushButton { background: #6366f1; color: white; font-weight: bold; border-radius: 6px; }
@@ -1873,7 +1878,7 @@ class AdminWindow(QMainWindow):
         btn_add_recent.clicked.connect(self._add_recent_email_from_combo)
         
         btn_del_recent = QPushButton("x")
-        btn_del_recent.setFixedSize(60, 40)
+        btn_del_recent.setFixedSize(44, 42)
         btn_del_recent.setToolTip("Eliminar seleccionado")
         btn_del_recent.setStyleSheet("""
             QPushButton { background: rgba(239, 68, 68, 0.2); color: #ef4444; font-weight: bold; border-radius: 6px; border: 1px solid rgba(239, 68, 68, 0.3); }
@@ -1949,6 +1954,30 @@ class AdminWindow(QMainWindow):
         self._reload_week_shifts()
 
         return w
+
+    def _wrap_date_picker(self, date_edit: QDateEdit) -> QWidget:
+        wrapper = QWidget()
+        row = QHBoxLayout(wrapper)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(6)
+
+        btn = QToolButton()
+        btn.setObjectName("CalendarToggle")
+        btn.setText(get_icon_char("calendar") or "📅")
+        btn.setToolTip("Abrir calendario")
+        btn.setFixedSize(42, 42)
+        btn.clicked.connect(lambda: self._toggle_date_popup(date_edit))
+
+        row.addWidget(date_edit, 1)
+        row.addWidget(btn)
+        return wrapper
+
+    def _toggle_date_popup(self, date_edit: QDateEdit) -> None:
+        calendar = date_edit.calendarWidget()
+        if calendar and calendar.isVisible():
+            date_edit.hidePopup()
+        else:
+            date_edit.showPopup()
 
     def _shift_label_text(self) -> str:
         sh = current_shift()
@@ -2419,79 +2448,109 @@ class AdminWindow(QMainWindow):
     # ---------- System
     def _tab_system(self) -> QWidget:
         w = QWidget()
-        f = QFormLayout(w)
-        
-        # --- Sección WiFi ---
+        v = QVBoxLayout(w)
+        v.setContentsMargins(12, 12, 12, 12)
+        v.setSpacing(16)
+
+        wifi_group = QGroupBox(i18n.t("wifi_ssid") or "WiFi")
+        wifi_group.setObjectName("SystemGroup")
+        wifi_layout = QFormLayout(wifi_group)
+        wifi_layout.setLabelAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        wifi_layout.setFormAlignment(Qt.AlignLeft | Qt.AlignTop)
+        wifi_layout.setVerticalSpacing(10)
+        wifi_layout.setHorizontalSpacing(12)
+
         row = QHBoxLayout()
         self.ssid_combo = QComboBox()
+        self.ssid_combo.setMinimumHeight(42)
         btn_scan = QPushButton(
             i18n.t("scan_usb_printers").replace("impresoras USB", "redes")
         )
+        btn_scan.setMinimumHeight(42)
         btn_scan.clicked.connect(self._scan_wifi)
-        row.addWidget(self.ssid_combo)
+        row.addWidget(self.ssid_combo, 1)
         row.addWidget(btn_scan)
+
         self.wifi_pass = QLineEdit()
         self.wifi_pass.setEchoMode(QLineEdit.Password)
+        self.wifi_pass.setMinimumHeight(42)
         self.wifi_pass.setPlaceholderText(
             i18n.t("password").replace(":", "")
         )
+
+        actions_row = QHBoxLayout()
         btn_conn = QPushButton(i18n.t("connect_wifi"))
+        btn_conn.setMinimumHeight(42)
         btn_conn.clicked.connect(self._connect_wifi)
         self.wifi_state = QLabel("(—)")
+        self.wifi_state.setMinimumHeight(32)
+        self.wifi_state.setStyleSheet("color: #cbd5f5; font-weight: 600;")
         btn_state = QPushButton(i18n.t("update_status"))
+        btn_state.setMinimumHeight(42)
         btn_state.clicked.connect(self._refresh_wifi)
+        actions_row.addWidget(btn_conn)
+        actions_row.addWidget(self.wifi_state)
+        actions_row.addStretch(1)
+        actions_row.addWidget(btn_state)
+
+        power_row = QHBoxLayout()
         btn_reboot = QPushButton(i18n.t("reboot"))
+        btn_reboot.setMinimumHeight(42)
         btn_reboot.clicked.connect(self._confirm_reboot)
         btn_power = QPushButton(i18n.t("poweroff"))
+        btn_power.setMinimumHeight(42)
         btn_power.clicked.connect(self._confirm_poweroff)
-        f.addRow(i18n.t("wifi_ssid"), row)
-        f.addRow(i18n.t("password"), self.wifi_pass)
-        f.addRow(btn_conn)
-        f.addRow(i18n.t("status"), self.wifi_state)
-        f.addRow(btn_state)
-        f.addRow(btn_reboot, btn_power)
+        power_row.addWidget(btn_reboot)
+        power_row.addWidget(btn_power)
+        power_row.addStretch(1)
+
+        wifi_layout.addRow(i18n.t("wifi_ssid"), row)
+        wifi_layout.addRow(i18n.t("password"), self.wifi_pass)
+        wifi_layout.addRow(actions_row)
+        wifi_layout.addRow(power_row)
 
         self.wifi_pass.installEventFilter(self._osk_filter)
-        
-        # --- Separador ---
-        separator = QLabel("─" * 80)
-        separator.setStyleSheet("color: #2a2a3a;")
-        f.addRow(separator)
-        
-        # --- Sección Email (Gmail) ---
-        email_title = QLabel("Configuración de Email (Gmail)")
-        email_title.setStyleSheet("font-size: 16px; font-weight: 700; color: #818cf8; margin-top: 20px;")
-        f.addRow(email_title)
-        
+        v.addWidget(wifi_group)
+
+        email_group = QGroupBox("Configuración de Email (Gmail)")
+        email_group.setObjectName("SystemGroup")
+        email_layout = QFormLayout(email_group)
+        email_layout.setLabelAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        email_layout.setFormAlignment(Qt.AlignLeft | Qt.AlignTop)
+        email_layout.setVerticalSpacing(10)
+        email_layout.setHorizontalSpacing(12)
+
         self.gmail_user = QLineEdit()
         self.gmail_user.setPlaceholderText("tucuenta@gmail.com")
-        self.gmail_user.setMinimumHeight(56)
-        
+        self.gmail_user.setMinimumHeight(48)
+
         self.gmail_pass = QLineEdit()
         self.gmail_pass.setEchoMode(QLineEdit.Password)
         self.gmail_pass.setPlaceholderText("Contraseña de aplicación de Gmail")
-        self.gmail_pass.setMinimumHeight(56)
-        
+        self.gmail_pass.setMinimumHeight(48)
+
         btn_save_email = QPushButton("Guardar Configuración de Email")
-        btn_save_email.setMinimumHeight(48)
+        btn_save_email.setMinimumHeight(46)
         btn_save_email.clicked.connect(self._save_gmail_config)
-        
-        f.addRow("Cuenta Gmail:", self.gmail_user)
-        f.addRow("Contraseña de App:", self.gmail_pass)
-        f.addRow(btn_save_email)
-        
-        # Agregar nota informativa
-        note = QLabel("Nota: Usa una contraseña de aplicación de Gmail, no tu contraseña normal.\nGenera una en: https://myaccount.google.com/apppasswords")
-        note.setStyleSheet("color: #94a3b8; font-size: 12px; margin-top: 8px;")
+
+        email_layout.addRow("Cuenta Gmail:", self.gmail_user)
+        email_layout.addRow("Contraseña de App:", self.gmail_pass)
+        email_layout.addRow(btn_save_email)
+
+        note = QLabel(
+            "Nota: Usa una contraseña de aplicación de Gmail, no tu contraseña normal.\n"
+            "Genera una en: https://myaccount.google.com/apppasswords"
+        )
+        note.setStyleSheet("color: #94a3b8; font-size: 12px; margin-top: 6px;")
         note.setWordWrap(True)
-        f.addRow(note)
-        
+        email_layout.addRow(note)
+
         self.gmail_user.installEventFilter(self._osk_filter)
         self.gmail_pass.installEventFilter(self._osk_filter)
-        
-        # Cargar configuración actual
         self._load_gmail_config()
-        
+
+        v.addWidget(email_group)
+        v.addStretch(1)
         return w
     
     def _load_gmail_config(self):
