@@ -111,7 +111,7 @@ _STRINGS: Dict[str, Dict[str, str]] = {
         "open_shift": "Abrir turno",
         "preview_shift": "Vista previa del turno",
         "close_shift": "Cerrar turno",
-        "send_mail": "Enviar reporte por correo",
+        "send_mail": "Enviar reporte",
         "print_shift_report": "Imprimir reporte del turno",
         "emails_placeholder": "correo1@dominio.com, correo2@dominio.com",
         "dates_from": "Desde:",

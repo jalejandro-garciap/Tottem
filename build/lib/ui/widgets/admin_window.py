@@ -937,7 +937,7 @@ class AdminWindow(QMainWindow):
         v.setSpacing(14)
 
         # --- Enviar reporte por correo (rango de fechas) ---
-        v.addWidget(QLabel(i18n.t("send_mail") or "Enviar reporte por correo"))
+        v.addWidget(QLabel(i18n.t("send_mail") or "Enviar reporte"))
 
         mail_row1 = QHBoxLayout()
         mail_row1.setSpacing(12)
