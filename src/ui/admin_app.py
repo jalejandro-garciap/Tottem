@@ -6,6 +6,7 @@ from PySide6.QtGui import QCursor
 from PySide6.QtCore import Qt
 
 from ui.widgets.admin_window import AdminWindow
+from services.settings import load_config
 
 
 def run():
@@ -16,7 +17,10 @@ def run():
 
     app = QApplication(sys.argv)
 
-    qss_path = Path(__file__).resolve().parent / "theme.qss"
+    cfg = load_config()
+    theme = str(cfg.get("ui", {}).get("theme", "dark")).lower()
+    qss_name = "theme_light.qss" if theme == "light" else "theme.qss"
+    qss_path = Path(__file__).resolve().parent / qss_name
     if qss_path.exists():
         app.setStyleSheet(qss_path.read_text(encoding="utf-8"))
 
@@ -25,4 +29,3 @@ def run():
     w = AdminWindow()
     w.showFullScreen()
     sys.exit(app.exec())
-

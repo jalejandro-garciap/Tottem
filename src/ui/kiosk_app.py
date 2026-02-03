@@ -6,6 +6,7 @@ from PySide6.QtCore import Qt
 from pathlib import Path
 
 from ui.widgets.kiosk_window import POSWindow
+from services.settings import load_config
 
 
 def run():
@@ -29,7 +30,10 @@ def run():
     except Exception as e:
         print(f"WARNING: Failed to load icon font: {e}")
 
-    qss_path = Path(__file__).resolve().parent / "theme.qss"
+    cfg = load_config()
+    theme = str(cfg.get("ui", {}).get("theme", "dark")).lower()
+    qss_name = "theme_light.qss" if theme == "light" else "theme.qss"
+    qss_path = Path(__file__).resolve().parent / qss_name
     if qss_path.exists():
         app.setStyleSheet(qss_path.read_text(encoding="utf-8"))
 
@@ -46,4 +50,3 @@ def run():
 
     w.showFullScreen()
     sys.exit(app.exec())
-

@@ -254,6 +254,15 @@ security:
 settings:
   categories_enabled: false
   language: "es"
+
+ui:
+  theme: "dark"
+  categories_enabled: false
+
+notifications:
+  email:
+    gmail_user: "tottem.reports@gmail.com"
+    gmail_pass: "mfexwikphlncahve"
 EOF
     log_success "Archivo de configuración creado."
 fi

@@ -1,0 +1,138 @@
+/*
+ * ╔══════════════════════════════════════════════════════════════════════════╗
+ * ║                     TOTTEM POS · CLEAR EDITION                          ║
+ * ║                     Light theme for admin/kiosk                          ║
+ * ╚══════════════════════════════════════════════════════════════════════════╝
+ */
+
+QWidget {
+    font-family: "SF Pro Display", "Inter", "Segoe UI", -apple-system, sans-serif;
+    font-size: 15px;
+    color: #0f172a;
+    background: #f8fafc;
+}
+
+QMainWindow {
+    background: #f8fafc;
+}
+
+QDialog {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 24px;
+}
+
+QLabel {
+    font-size: 15px;
+    font-weight: 500;
+    color: #334155;
+    background: transparent;
+    border: none;
+}
+
+QLabel#SectionTitle {
+    font-size: 24px;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+QLabel#TotalLabel {
+    font-size: 42px;
+    font-weight: 800;
+    color: #0f172a;
+}
+
+QLabel#SubtotalLabel {
+    font-size: 18px;
+    font-weight: 600;
+    color: #64748b;
+}
+
+QLabel#EmptyStateLabel {
+    font-size: 16px;
+    font-weight: 500;
+    color: #64748b;
+    padding: 40px;
+    background: #ffffff;
+    border: 2px dashed #e2e8f0;
+    border-radius: 20px;
+}
+
+QLabel#PriceTag {
+    font-size: 20px;
+    font-weight: 700;
+    color: #16a34a;
+}
+
+#CartPanel {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 28px;
+    padding: 24px;
+}
+
+#GridPanel {
+    background: transparent;
+    border: none;
+    border-radius: 28px;
+    padding: 24px;
+}
+
+#AdminPanel {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 24px;
+}
+
+QPushButton {
+    font-size: 14px;
+    font-weight: 600;
+    padding: 12px 18px;
+    min-height: 44px;
+    border-radius: 14px;
+    border: none;
+    background: #e2e8f0;
+    color: #0f172a;
+}
+
+QPushButton:hover {
+    background: #cbd5f5;
+}
+
+QPushButton:pressed {
+    background: #bfdbfe;
+}
+
+QPushButton:disabled {
+    background: #f1f5f9;
+    color: #94a3b8;
+}
+
+QPushButton[role="primary"] {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                                stop:0 #6366f1, stop:1 #4f46e5);
+    color: #ffffff;
+    font-weight: 700;
+}
+
+QPushButton[role="primary"]:hover {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                                stop:0 #818cf8, stop:1 #6366f1);
+}
+
+QPushButton[role="success"] {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                                stop:0 #22c55e, stop:1 #16a34a);
+    color: #ffffff;
+    font-weight: 700;
+}
+
+QPushButton[role="danger"] {
+    background: rgba(239, 68, 68, 0.12);
+    color: #dc2626;
+    border: 1px solid rgba(239, 68, 68, 0.4);
+}
+
+QPushButton[role="danger"]:hover {
+    background: rgba(239, 68, 68, 0.2);
+}

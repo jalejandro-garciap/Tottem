@@ -34,3 +34,15 @@ def set_categories_enabled(enabled: bool) -> None:
     ui["categories_enabled"] = bool(enabled)
     save_config(cfg)
 
+
+def get_theme() -> str:
+    cfg = load_config()
+    theme = str(cfg.get("ui", {}).get("theme", "dark")).lower()
+    return "light" if theme == "light" else "dark"
+
+
+def set_theme(theme: str) -> None:
+    cfg = load_config()
+    ui = cfg.setdefault("ui", {})
+    ui["theme"] = "light" if str(theme).lower() == "light" else "dark"
+    save_config(cfg)
