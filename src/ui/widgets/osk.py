@@ -17,7 +17,12 @@ KEY_ROWS_LOWER = [
 KEY_ROWS_UPPER = [[c.upper() for c in row] for row in KEY_ROWS_LOWER]
 
 KEY_NUMBERS = list("1234567890")
-KEY_SYMBOLS = ["@", ".", "_", "-", "+", "/", "\\", ":", ";", ",", "!", "?"]
+KEY_EMAIL_SHORTCUTS = ["@", ".", "_", "-", "+", "/", ":"]
+KEY_SYMBOLS = [
+    "@", ".", "_", "-", "+", "#", "$", "%", "&", "=",
+    "(", ")", "[", "]", "{", "}", "!", "?",
+    ":", ";", ",", "/", "\\", "<", ">", "\"", "'",
+]
 
 
 class OnScreenKeyboard(QDialog):
@@ -155,9 +160,14 @@ class OnScreenKeyboard(QDialog):
 
         # Decide layout
         if self._symbols:
-            rows = [KEY_NUMBERS, KEY_SYMBOLS[:6], KEY_SYMBOLS[6:]]
+            rows = [
+                KEY_NUMBERS,
+                KEY_SYMBOLS[:10],
+                KEY_SYMBOLS[10:20],
+                KEY_SYMBOLS[20:],
+            ]
         else:
-            rows = KEY_ROWS_UPPER if self._shift else KEY_ROWS_LOWER
+            rows = (KEY_ROWS_UPPER if self._shift else KEY_ROWS_LOWER) + [KEY_EMAIL_SHORTCUTS]
 
         # Build buttons
         for r, row in enumerate(rows):

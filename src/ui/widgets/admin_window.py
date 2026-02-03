@@ -242,6 +242,19 @@ class _OskFocusFilter(QObject):
         return False
 
 
+class _DatePopupFilter(QObject):
+    """Asegura que los calendarios se puedan abrir/cerrar repetidamente."""
+
+    def eventFilter(self, obj, event):
+        if isinstance(obj, QDateEdit) and event.type() == QEvent.MouseButtonPress:
+            if obj.calendarWidget() and obj.calendarWidget().isVisible():
+                obj.hidePopup()
+            else:
+                obj.showPopup()
+            return True
+        return False
+
+
 class _PinKeypadFocusFilter(QObject):
     """Abre el keypad numérico cuando un QLineEdit de PIN recibe foco (sin OSK)."""
 
@@ -1831,6 +1844,7 @@ class AdminWindow(QMainWindow):
         self.date_from.setCalendarPopup(True)
         self.date_from.setDisplayFormat("yyyy-MM-dd")
         self.date_from.setDate(QDate.currentDate().addDays(-7))
+        self.date_from.setReadOnly(True)
         self.date_from.removeEventFilter(self._osk_filter)
 
         self.date_to = QDateEdit()
@@ -1838,7 +1852,13 @@ class AdminWindow(QMainWindow):
         self.date_to.setCalendarPopup(True)
         self.date_to.setDisplayFormat("yyyy-MM-dd")
         self.date_to.setDate(QDate.currentDate())
+        self.date_to.setReadOnly(True)
         self.date_to.removeEventFilter(self._osk_filter)
+
+        if not hasattr(self, "_date_popup_filter"):
+            self._date_popup_filter = _DatePopupFilter(self)
+        self.date_from.installEventFilter(self._date_popup_filter)
+        self.date_to.installEventFilter(self._date_popup_filter)
 
         dates_row.addWidget(QLabel(i18n.t("dates_from") or "Desde"))
         dates_row.addWidget(self.date_from, 1)
@@ -2420,6 +2440,8 @@ class AdminWindow(QMainWindow):
     def _tab_system(self) -> QWidget:
         w = QWidget()
         f = QFormLayout(w)
+        f.setVerticalSpacing(12)
+        f.setHorizontalSpacing(12)
         
         # --- Sección WiFi ---
         row = QHBoxLayout()
@@ -2427,6 +2449,7 @@ class AdminWindow(QMainWindow):
         btn_scan = QPushButton(
             i18n.t("scan_usb_printers").replace("impresoras USB", "redes")
         )
+        btn_scan.setMinimumHeight(40)
         btn_scan.clicked.connect(self._scan_wifi)
         row.addWidget(self.ssid_combo)
         row.addWidget(btn_scan)
@@ -2436,13 +2459,17 @@ class AdminWindow(QMainWindow):
             i18n.t("password").replace(":", "")
         )
         btn_conn = QPushButton(i18n.t("connect_wifi"))
+        btn_conn.setMinimumHeight(40)
         btn_conn.clicked.connect(self._connect_wifi)
         self.wifi_state = QLabel("(—)")
         btn_state = QPushButton(i18n.t("update_status"))
+        btn_state.setMinimumHeight(40)
         btn_state.clicked.connect(self._refresh_wifi)
         btn_reboot = QPushButton(i18n.t("reboot"))
+        btn_reboot.setMinimumHeight(40)
         btn_reboot.clicked.connect(self._confirm_reboot)
         btn_power = QPushButton(i18n.t("poweroff"))
+        btn_power.setMinimumHeight(40)
         btn_power.clicked.connect(self._confirm_poweroff)
         f.addRow(i18n.t("wifi_ssid"), row)
         f.addRow(i18n.t("password"), self.wifi_pass)
@@ -2473,18 +2500,33 @@ class AdminWindow(QMainWindow):
         self.gmail_pass.setMinimumHeight(56)
         
         btn_save_email = QPushButton("Guardar Configuración de Email")
-        btn_save_email.setMinimumHeight(48)
+        btn_save_email.setMinimumHeight(40)
         btn_save_email.clicked.connect(self._save_gmail_config)
-        
-        f.addRow("Cuenta Gmail:", self.gmail_user)
-        f.addRow("Contraseña de App:", self.gmail_pass)
-        f.addRow(btn_save_email)
-        
+        btn_save_email.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Fixed)
+
+        email_section = QWidget()
+        email_layout = QFormLayout(email_section)
+        email_layout.setContentsMargins(0, 0, 0, 0)
+        email_layout.setSpacing(10)
+        email_layout.addRow("Cuenta Gmail:", self.gmail_user)
+        email_layout.addRow("Contraseña de App:", self.gmail_pass)
+        email_layout.addRow(btn_save_email)
+
         # Agregar nota informativa
-        note = QLabel("Nota: Usa una contraseña de aplicación de Gmail, no tu contraseña normal.\nGenera una en: https://myaccount.google.com/apppasswords")
+        note = QLabel(
+            "Nota: Usa una contraseña de aplicación de Gmail, no tu contraseña normal.\n"
+            "Genera una en: https://myaccount.google.com/apppasswords"
+        )
         note.setStyleSheet("color: #94a3b8; font-size: 12px; margin-top: 8px;")
         note.setWordWrap(True)
-        f.addRow(note)
+        email_layout.addRow(note)
+
+        email_container = QWidget()
+        email_row = QHBoxLayout(email_container)
+        email_row.setContentsMargins(0, 0, 0, 0)
+        email_row.addWidget(email_section, 1)
+        email_row.addStretch(1)
+        f.addRow(email_container)
         
         self.gmail_user.installEventFilter(self._osk_filter)
         self.gmail_pass.installEventFilter(self._osk_filter)
