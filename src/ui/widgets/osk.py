@@ -18,7 +18,6 @@ KEY_ROWS_UPPER = [[c.upper() for c in row] for row in KEY_ROWS_LOWER]
 
 KEY_NUMBERS = list("1234567890")
 KEY_SYMBOLS = ["@", ".", "_", "-", "+", "/", "\\", ":", ";", ",", "!", "?"]
-KEY_QUICK_SYMBOLS = ["@", ".", "_", "-", "+", ":", "/"]
 
 
 class OnScreenKeyboard(QDialog):
@@ -89,18 +88,6 @@ class OnScreenKeyboard(QDialog):
         self.grid = QGridLayout()
         self.grid.setSpacing(8)
         root.addLayout(self.grid)
-
-        # ─── Quick Symbols ───────────────────────────────────────────────
-        quick_row = QHBoxLayout()
-        quick_row.setSpacing(8)
-        for symbol in KEY_QUICK_SYMBOLS:
-            btn = QPushButton(symbol)
-            btn.setMinimumSize(QSize(48, 48))
-            btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-            btn.clicked.connect(lambda _=None, s=symbol: self._append(s))
-            btn.setObjectName("KeypadButton")
-            quick_row.addWidget(btn)
-        root.addLayout(quick_row)
 
         # ─── Control Row ──────────────────────────────────────────────────
         controls = QHBoxLayout()
