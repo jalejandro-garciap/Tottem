@@ -1907,7 +1907,6 @@ class AdminWindow(QMainWindow):
             QPushButton:hover { background-color: #818cf8; }
             QPushButton:pressed { background-color: #4f46e5; }
         """)
-        btn_send.setFont(fa_font)
         btn_send.clicked.connect(self._send_mail)
         
         main_layout.addWidget(btn_send, 1) # Take 1/4 space

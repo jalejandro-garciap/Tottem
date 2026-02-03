@@ -77,6 +77,7 @@ ICON_MAP = {
     "chart-line": "\uf201",
     "chart-bar": "\uf080",
     "chart-pie": "\uf200",
+    "envelope": "\uf0e0",
     
     # System & Technology
     "computer": "\uf108",
