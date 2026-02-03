@@ -42,6 +42,7 @@ def _create_html_email_report(date_from: str, date_to: str, stats: dict) -> str:
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>body, table, td, p, h1, h2, h3 { margin: 0; padding: 0; }</style>
 </head>
 <body style="margin: 0; padding: 0; font-family: sans-serif; color: #333333; background-color: #ffffff;">
 
