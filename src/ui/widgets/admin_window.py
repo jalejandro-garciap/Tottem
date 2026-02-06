@@ -2439,7 +2439,8 @@ class AdminWindow(QMainWindow):
         wifi_layout.setSpacing(8)
         wifi_layout.setContentsMargins(12, 12, 12, 12)
         
-        wifi_title = QLabel("🌐  Configuración WiFi")
+        wifi_icon = get_icon_char("network-wired") or "🌐"
+        wifi_title = QLabel(f"{wifi_icon}  Configuración WiFi")
         wifi_title.setStyleSheet("font-size: 13px; font-weight: 700; color: #818cf8;")
         wifi_layout.addWidget(wifi_title)
         
@@ -2448,7 +2449,8 @@ class AdminWindow(QMainWindow):
         ssid_row.setSpacing(6)
         self.ssid_combo = QComboBox()
         self.ssid_combo.setMinimumHeight(32)
-        btn_scan = QPushButton("⟳")
+        scan_icon = get_icon_char("network-wired") or "↻"
+        btn_scan = QPushButton(scan_icon)
         btn_scan.setFixedSize(36, 32)
         btn_scan.setToolTip("Escanear redes WiFi")
         btn_scan.clicked.connect(self._scan_wifi)
@@ -2515,7 +2517,8 @@ class AdminWindow(QMainWindow):
         email_layout.setSpacing(8)
         email_layout.setContentsMargins(12, 12, 12, 12)
         
-        email_title = QLabel("📧  Configuración Gmail")
+        email_icon = get_icon_char("envelope") or "📧"
+        email_title = QLabel(f"{email_icon}  Configuración Gmail")
         email_title.setStyleSheet("font-size: 13px; font-weight: 700; color: #818cf8;")
         email_layout.addWidget(email_title)
         
@@ -2541,7 +2544,8 @@ class AdminWindow(QMainWindow):
         email_layout.addWidget(self.gmail_pass)
         
         # Save button
-        btn_save_email = QPushButton("Guardar")
+        save_icon = get_icon_char("floppy-disk") or "💾"
+        btn_save_email = QPushButton(f"{save_icon} Guardar")
         btn_save_email.setMinimumHeight(32)
         btn_save_email.setProperty("role", "primary")
         btn_save_email.clicked.connect(self._save_gmail_config)
@@ -2584,7 +2588,8 @@ class AdminWindow(QMainWindow):
         ip_layout.setSpacing(8)
         ip_layout.setContentsMargins(12, 12, 12, 12)
         
-        ip_title = QLabel("🖥️  Conectividad & Soporte")
+        server_icon = get_icon_char("server") or "🖥"
+        ip_title = QLabel(f"{server_icon}  Conectividad & Soporte")
         ip_title.setStyleSheet("font-size: 13px; font-weight: 700; color: #818cf8;")
         ip_layout.addWidget(ip_title)
         
@@ -2594,7 +2599,7 @@ class AdminWindow(QMainWindow):
         ip_lbl = QLabel("IP Pública:")
         ip_lbl.setStyleSheet("color: #94a3b8; font-size: 11px;")
         self.lbl_public_ip = QLabel("Obteniendo...")
-        self.lbl_public_ip.setStyleSheet("color: #10b981; font-weight: 700; font-size: 16px;")
+        self.lbl_public_ip.setStyleSheet("color: #10b981; font-weight: 600; font-size: 12px;")
         self.lbl_public_ip.setTextInteractionFlags(Qt.TextSelectableByMouse)
         btn_refresh_ip = QPushButton("↻")
         btn_refresh_ip.setFixedSize(28, 28)
@@ -2627,7 +2632,8 @@ class AdminWindow(QMainWindow):
         reset_layout.setSpacing(8)
         reset_layout.setContentsMargins(12, 12, 12, 12)
         
-        reset_title = QLabel("⚙️  Sistema")
+        gear_icon = get_icon_char("gears") or "⚙️"
+        reset_title = QLabel(f"{gear_icon}  Sistema")
         reset_title.setStyleSheet("font-size: 13px; font-weight: 700; color: #818cf8;")
         reset_layout.addWidget(reset_title)
         
@@ -2693,12 +2699,12 @@ class AdminWindow(QMainWindow):
             except Exception:
                 if hasattr(self, "lbl_public_ip"):
                     self.lbl_public_ip.setText("No disponible")
-                    self.lbl_public_ip.setStyleSheet("color: #f87171; font-weight: 700; font-size: 16px;")
+                    self.lbl_public_ip.setStyleSheet("color: #f87171; font-weight: 600; font-size: 12px;")
         
         # Ejecutar en un thread separado para no bloquear la UI
         if hasattr(self, "lbl_public_ip"):
             self.lbl_public_ip.setText("Obteniendo...")
-            self.lbl_public_ip.setStyleSheet("color: #10b981; font-weight: 700; font-size: 16px;")
+            self.lbl_public_ip.setStyleSheet("color: #10b981; font-weight: 600; font-size: 12px;")
         thread = threading.Thread(target=fetch_ip, daemon=True)
         thread.start()
     
