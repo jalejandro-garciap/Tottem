@@ -2420,36 +2420,39 @@ class AdminWindow(QMainWindow):
     def _tab_system(self) -> QWidget:
         w = QWidget()
         main_layout = QVBoxLayout(w)
-        main_layout.setSpacing(20)
-        main_layout.setContentsMargins(16, 16, 16, 16)
+        main_layout.setSpacing(12)
+        main_layout.setContentsMargins(12, 12, 12, 12)
         
         # --- Contenedor horizontal para WiFi y Gmail lado a lado ---
         top_container = QHBoxLayout()
-        top_container.setSpacing(24)
+        top_container.setSpacing(16)
         
         # === Sección WiFi (lado izquierdo) ===
         wifi_frame = QFrame()
         wifi_frame.setStyleSheet("""
             QFrame {
                 background: #16161e;
-                border-radius: 12px;
-                padding: 16px;
+                border-radius: 10px;
             }
         """)
         wifi_layout = QVBoxLayout(wifi_frame)
-        wifi_layout.setSpacing(12)
+        wifi_layout.setSpacing(8)
+        wifi_layout.setContentsMargins(12, 12, 12, 12)
         
-        wifi_title = QLabel("🌐  Configuración WiFi")
-        wifi_title.setStyleSheet("font-size: 14px; font-weight: 700; color: #818cf8;")
+        wifi_icon = get_icon_char("network-wired") or "🌐"
+        wifi_title = QLabel(f"{wifi_icon}  Configuración WiFi")
+        wifi_title.setStyleSheet("font-size: 13px; font-weight: 700; color: #818cf8;")
         wifi_layout.addWidget(wifi_title)
         
         # SSID row
         ssid_row = QHBoxLayout()
-        ssid_row.setSpacing(8)
+        ssid_row.setSpacing(6)
         self.ssid_combo = QComboBox()
-        self.ssid_combo.setMinimumHeight(40)
-        btn_scan = QPushButton("Escanear")
-        btn_scan.setFixedSize(90, 40)
+        self.ssid_combo.setMinimumHeight(32)
+        scan_icon = get_icon_char("network-wired") or "↻"
+        btn_scan = QPushButton(scan_icon)
+        btn_scan.setFixedSize(36, 32)
+        btn_scan.setToolTip("Escanear redes WiFi")
         btn_scan.clicked.connect(self._scan_wifi)
         ssid_row.addWidget(self.ssid_combo, 1)
         ssid_row.addWidget(btn_scan)
@@ -2459,24 +2462,24 @@ class AdminWindow(QMainWindow):
         self.wifi_pass = QLineEdit()
         self.wifi_pass.setEchoMode(QLineEdit.Password)
         self.wifi_pass.setPlaceholderText("Contraseña de red")
-        self.wifi_pass.setMinimumHeight(40)
+        self.wifi_pass.setMinimumHeight(32)
         wifi_layout.addWidget(self.wifi_pass)
         
         # Connect button
         btn_conn = QPushButton(i18n.t("connect_wifi"))
-        btn_conn.setMinimumHeight(36)
+        btn_conn.setMinimumHeight(32)
         btn_conn.clicked.connect(self._connect_wifi)
         wifi_layout.addWidget(btn_conn)
         
         # Status row
         status_row = QHBoxLayout()
-        status_row.setSpacing(8)
+        status_row.setSpacing(6)
         status_lbl = QLabel("Estado:")
-        status_lbl.setStyleSheet("color: #94a3b8;")
+        status_lbl.setStyleSheet("color: #94a3b8; font-size: 11px;")
         self.wifi_state = QLabel("(—)")
-        self.wifi_state.setStyleSheet("color: #10b981; font-weight: 600;")
+        self.wifi_state.setStyleSheet("color: #10b981; font-weight: 600; font-size: 11px;")
         btn_state = QPushButton("↻")
-        btn_state.setFixedSize(36, 36)
+        btn_state.setFixedSize(28, 28)
         btn_state.setToolTip("Actualizar estado")
         btn_state.clicked.connect(self._refresh_wifi)
         status_row.addWidget(status_lbl)
@@ -2486,12 +2489,12 @@ class AdminWindow(QMainWindow):
         
         # Power buttons row
         power_row = QHBoxLayout()
-        power_row.setSpacing(8)
-        btn_reboot = QPushButton("🔄 Reiniciar")
-        btn_reboot.setMinimumHeight(36)
+        power_row.setSpacing(6)
+        btn_reboot = QPushButton("Reiniciar")
+        btn_reboot.setMinimumHeight(28)
         btn_reboot.clicked.connect(self._confirm_reboot)
-        btn_power = QPushButton("⏻ Apagar")
-        btn_power.setMinimumHeight(36)
+        btn_power = QPushButton("Apagar")
+        btn_power.setMinimumHeight(28)
         btn_power.clicked.connect(self._confirm_poweroff)
         power_row.addWidget(btn_reboot)
         power_row.addWidget(btn_power)
@@ -2507,48 +2510,50 @@ class AdminWindow(QMainWindow):
         email_frame.setStyleSheet("""
             QFrame {
                 background: #16161e;
-                border-radius: 12px;
-                padding: 16px;
+                border-radius: 10px;
             }
         """)
         email_layout = QVBoxLayout(email_frame)
-        email_layout.setSpacing(12)
+        email_layout.setSpacing(8)
+        email_layout.setContentsMargins(12, 12, 12, 12)
         
-        email_title = QLabel("📧  Configuración Gmail")
-        email_title.setStyleSheet("font-size: 14px; font-weight: 700; color: #818cf8;")
+        email_icon = get_icon_char("envelope") or "📧"
+        email_title = QLabel(f"{email_icon}  Configuración Gmail")
+        email_title.setStyleSheet("font-size: 13px; font-weight: 700; color: #818cf8;")
         email_layout.addWidget(email_title)
         
         # Gmail user
         user_lbl = QLabel("Cuenta Gmail:")
-        user_lbl.setStyleSheet("color: #94a3b8; font-size: 12px;")
+        user_lbl.setStyleSheet("color: #94a3b8; font-size: 11px;")
         email_layout.addWidget(user_lbl)
         
         self.gmail_user = QLineEdit()
         self.gmail_user.setPlaceholderText("tucuenta@gmail.com")
-        self.gmail_user.setMinimumHeight(40)
+        self.gmail_user.setMinimumHeight(32)
         email_layout.addWidget(self.gmail_user)
         
         # Gmail password
         pass_lbl = QLabel("Contraseña de App:")
-        pass_lbl.setStyleSheet("color: #94a3b8; font-size: 12px;")
+        pass_lbl.setStyleSheet("color: #94a3b8; font-size: 11px;")
         email_layout.addWidget(pass_lbl)
         
         self.gmail_pass = QLineEdit()
         self.gmail_pass.setEchoMode(QLineEdit.Password)
         self.gmail_pass.setPlaceholderText("Contraseña de aplicación")
-        self.gmail_pass.setMinimumHeight(40)
+        self.gmail_pass.setMinimumHeight(32)
         email_layout.addWidget(self.gmail_pass)
         
         # Save button
-        btn_save_email = QPushButton("💾 Guardar Email")
-        btn_save_email.setMinimumHeight(36)
+        save_icon = get_icon_char("floppy-disk") or "💾"
+        btn_save_email = QPushButton(f"{save_icon} Guardar")
+        btn_save_email.setMinimumHeight(32)
         btn_save_email.setProperty("role", "primary")
         btn_save_email.clicked.connect(self._save_gmail_config)
         email_layout.addWidget(btn_save_email)
         
         # Note
-        note = QLabel("Usa contraseña de aplicación de Gmail.\nmyaccount.google.com/apppasswords")
-        note.setStyleSheet("color: #64748b; font-size: 11px;")
+        note = QLabel("Usa contraseña de aplicación.\nmyaccount.google.com/apppasswords")
+        note.setStyleSheet("color: #64748b; font-size: 10px;")
         note.setWordWrap(True)
         email_layout.addWidget(note)
         
@@ -2567,34 +2572,84 @@ class AdminWindow(QMainWindow):
         separator.setStyleSheet("background-color: #2a2a3a; max-height: 1px;")
         main_layout.addWidget(separator)
         
-        # --- Sección Acciones del Sistema (parte inferior) ---
-        actions_frame = QFrame()
-        actions_frame.setStyleSheet("""
+        # --- Sección Inferior: IP Pública (izq) + Restaurar de Fábrica (der) ---
+        bottom_container = QHBoxLayout()
+        bottom_container.setSpacing(16)
+        
+        # === IP Pública y Soporte Remoto (60-70% izquierda) ===
+        ip_frame = QFrame()
+        ip_frame.setStyleSheet("""
             QFrame {
                 background: #16161e;
-                border-radius: 12px;
-                padding: 16px;
+                border-radius: 10px;
             }
         """)
-        actions_layout = QVBoxLayout(actions_frame)
-        actions_layout.setSpacing(12)
+        ip_layout = QVBoxLayout(ip_frame)
+        ip_layout.setSpacing(8)
+        ip_layout.setContentsMargins(12, 12, 12, 12)
         
-        actions_title = QLabel("⚙️  Acciones del Sistema")
-        actions_title.setStyleSheet("font-size: 14px; font-weight: 700; color: #818cf8;")
-        actions_layout.addWidget(actions_title)
+        server_icon = get_icon_char("server") or "🖥"
+        ip_title = QLabel(f"{server_icon}  Conectividad & Soporte")
+        ip_title.setStyleSheet("font-size: 13px; font-weight: 700; color: #818cf8;")
+        ip_layout.addWidget(ip_title)
         
-        # Botón de restaurar de fábrica
-        btn_factory_reset = QPushButton("🔥 Restaurar de Fábrica")
-        btn_factory_reset.setMinimumHeight(48)
+        # IP Pública row
+        ip_row = QHBoxLayout()
+        ip_row.setSpacing(8)
+        ip_lbl = QLabel("IP Pública:")
+        ip_lbl.setStyleSheet("color: #94a3b8; font-size: 11px;")
+        self.lbl_public_ip = QLabel("Obteniendo...")
+        self.lbl_public_ip.setStyleSheet("color: #10b981; font-weight: 600; font-size: 12px;")
+        self.lbl_public_ip.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        btn_refresh_ip = QPushButton("↻")
+        btn_refresh_ip.setFixedSize(28, 28)
+        btn_refresh_ip.setToolTip("Actualizar IP")
+        btn_refresh_ip.clicked.connect(self._refresh_public_ip)
+        ip_row.addWidget(ip_lbl)
+        ip_row.addWidget(self.lbl_public_ip, 1)
+        ip_row.addWidget(btn_refresh_ip)
+        ip_layout.addLayout(ip_row)
+        
+        # Nota sobre SSH
+        ssh_note = QLabel("Para soporte remoto, usa SSH con esta IP.")
+        ssh_note.setStyleSheet("color: #64748b; font-size: 10px;")
+        ssh_note.setWordWrap(True)
+        ip_layout.addWidget(ssh_note)
+        
+        ip_layout.addStretch()
+        
+        bottom_container.addWidget(ip_frame, 2)  # 60-70% del espacio
+        
+        # === Restaurar de Fábrica (30-40% derecha) ===
+        reset_frame = QFrame()
+        reset_frame.setStyleSheet("""
+            QFrame {
+                background: #16161e;
+                border-radius: 10px;
+            }
+        """)
+        reset_layout = QVBoxLayout(reset_frame)
+        reset_layout.setSpacing(8)
+        reset_layout.setContentsMargins(12, 12, 12, 12)
+        
+        gear_icon = get_icon_char("gears") or "⚙️"
+        reset_title = QLabel(f"{gear_icon}  Sistema")
+        reset_title.setStyleSheet("font-size: 13px; font-weight: 700; color: #818cf8;")
+        reset_layout.addWidget(reset_title)
+        
+        reset_layout.addStretch()
+        
+        # Botón de restaurar de fábrica (más pequeño, alineado abajo derecha)
+        btn_factory_reset = QPushButton("Restaurar de Fábrica")
+        btn_factory_reset.setMinimumHeight(36)
         btn_factory_reset.setStyleSheet("""
             QPushButton {
-                background: linear-gradient(135deg, #dc2626, #b91c1c);
                 background-color: #dc2626;
                 color: white;
-                font-weight: 700;
-                font-size: 14px;
+                font-weight: 600;
+                font-size: 11px;
                 border: none;
-                border-radius: 8px;
+                border-radius: 6px;
             }
             QPushButton:hover {
                 background-color: #b91c1c;
@@ -2604,17 +2659,20 @@ class AdminWindow(QMainWindow):
             }
         """)
         btn_factory_reset.clicked.connect(self._confirm_factory_reset)
-        actions_layout.addWidget(btn_factory_reset)
+        reset_layout.addWidget(btn_factory_reset)
         
-        factory_note = QLabel("⚠️ Esta acción eliminará toda la configuración y datos del sistema.")
-        factory_note.setStyleSheet("color: #f87171; font-size: 11px;")
-        factory_note.setWordWrap(True)
-        actions_layout.addWidget(factory_note)
+        factory_note = QLabel("⚠ Elimina todos los datos")
+        factory_note.setStyleSheet("color: #f87171; font-size: 9px;")
+        factory_note.setAlignment(Qt.AlignCenter)
+        reset_layout.addWidget(factory_note)
         
-        main_layout.addWidget(actions_frame)
+        bottom_container.addWidget(reset_frame, 1)  # 30-40% del espacio
+        
+        main_layout.addLayout(bottom_container)
         
         # Cargar configuración actual
         self._load_gmail_config()
+        self._refresh_public_ip()
         
         return w
     
@@ -2625,6 +2683,30 @@ class AdminWindow(QMainWindow):
             "Restaurar de Fábrica",
             "Esta función aún no está implementada.\n\nEn el futuro, esta acción eliminará toda la configuración y datos del sistema."
         )
+    
+    def _refresh_public_ip(self):
+        """Obtiene y muestra la IP pública del equipo."""
+        import urllib.request
+        import threading
+        
+        def fetch_ip():
+            try:
+                with urllib.request.urlopen("https://api.ipify.org", timeout=5) as response:
+                    ip = response.read().decode("utf-8").strip()
+                    # Actualizar el label en el thread principal
+                    if hasattr(self, "lbl_public_ip"):
+                        self.lbl_public_ip.setText(ip)
+            except Exception:
+                if hasattr(self, "lbl_public_ip"):
+                    self.lbl_public_ip.setText("No disponible")
+                    self.lbl_public_ip.setStyleSheet("color: #f87171; font-weight: 600; font-size: 12px;")
+        
+        # Ejecutar en un thread separado para no bloquear la UI
+        if hasattr(self, "lbl_public_ip"):
+            self.lbl_public_ip.setText("Obteniendo...")
+            self.lbl_public_ip.setStyleSheet("color: #10b981; font-weight: 600; font-size: 12px;")
+        thread = threading.Thread(target=fetch_ip, daemon=True)
+        thread.start()
     
     def _load_gmail_config(self):
         """Carga la configuración de Gmail desde config.yaml"""
