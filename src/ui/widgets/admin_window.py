@@ -2419,91 +2419,236 @@ class AdminWindow(QMainWindow):
     # ---------- System
     def _tab_system(self) -> QWidget:
         w = QWidget()
-        f = QFormLayout(w)
+        main_layout = QVBoxLayout(w)
+        main_layout.setSpacing(20)
+        main_layout.setContentsMargins(16, 16, 16, 16)
         
-        # --- Sección WiFi ---
-        row = QHBoxLayout()
+        # --- Contenedor horizontal para WiFi y Gmail lado a lado ---
+        top_container = QHBoxLayout()
+        top_container.setSpacing(24)
+        
+        # === Sección WiFi (lado izquierdo) ===
+        wifi_frame = QFrame()
+        wifi_frame.setStyleSheet("""
+            QFrame {
+                background: #16161e;
+                border-radius: 12px;
+                padding: 16px;
+            }
+        """)
+        wifi_layout = QVBoxLayout(wifi_frame)
+        wifi_layout.setSpacing(12)
+        
+        wifi_title = QLabel("🌐  Configuración WiFi")
+        wifi_title.setStyleSheet("font-size: 14px; font-weight: 700; color: #818cf8;")
+        wifi_layout.addWidget(wifi_title)
+        
+        # SSID row
+        ssid_row = QHBoxLayout()
+        ssid_row.setSpacing(8)
         self.ssid_combo = QComboBox()
-        btn_scan = QPushButton(
-            i18n.t("scan_usb_printers").replace("impresoras USB", "redes")
-        )
+        self.ssid_combo.setMinimumHeight(40)
+        btn_scan = QPushButton("Escanear")
+        btn_scan.setFixedSize(90, 40)
         btn_scan.clicked.connect(self._scan_wifi)
-        row.addWidget(self.ssid_combo)
-        row.addWidget(btn_scan)
+        ssid_row.addWidget(self.ssid_combo, 1)
+        ssid_row.addWidget(btn_scan)
+        wifi_layout.addLayout(ssid_row)
+        
+        # Password
         self.wifi_pass = QLineEdit()
         self.wifi_pass.setEchoMode(QLineEdit.Password)
-        self.wifi_pass.setPlaceholderText(
-            i18n.t("password").replace(":", "")
-        )
+        self.wifi_pass.setPlaceholderText("Contraseña de red")
+        self.wifi_pass.setMinimumHeight(40)
+        wifi_layout.addWidget(self.wifi_pass)
+        
+        # Connect button
         btn_conn = QPushButton(i18n.t("connect_wifi"))
+        btn_conn.setMinimumHeight(36)
         btn_conn.clicked.connect(self._connect_wifi)
+        wifi_layout.addWidget(btn_conn)
+        
+        # Status row
+        status_row = QHBoxLayout()
+        status_row.setSpacing(8)
+        status_lbl = QLabel("Estado:")
+        status_lbl.setStyleSheet("color: #94a3b8;")
         self.wifi_state = QLabel("(—)")
-        btn_state = QPushButton(i18n.t("update_status"))
+        self.wifi_state.setStyleSheet("color: #10b981; font-weight: 600;")
+        btn_state = QPushButton("↻")
+        btn_state.setFixedSize(36, 36)
+        btn_state.setToolTip("Actualizar estado")
         btn_state.clicked.connect(self._refresh_wifi)
-        btn_reboot = QPushButton(i18n.t("reboot"))
+        status_row.addWidget(status_lbl)
+        status_row.addWidget(self.wifi_state, 1)
+        status_row.addWidget(btn_state)
+        wifi_layout.addLayout(status_row)
+        
+        # Power buttons row
+        power_row = QHBoxLayout()
+        power_row.setSpacing(8)
+        btn_reboot = QPushButton("🔄 Reiniciar")
+        btn_reboot.setMinimumHeight(36)
         btn_reboot.clicked.connect(self._confirm_reboot)
-        btn_power = QPushButton(i18n.t("poweroff"))
+        btn_power = QPushButton("⏻ Apagar")
+        btn_power.setMinimumHeight(36)
         btn_power.clicked.connect(self._confirm_poweroff)
-        f.addRow(i18n.t("wifi_ssid"), row)
-        f.addRow(i18n.t("password"), self.wifi_pass)
-        f.addRow(btn_conn)
-        f.addRow(i18n.t("status"), self.wifi_state)
-        f.addRow(btn_state)
-        f.addRow(btn_reboot, btn_power)
-
+        power_row.addWidget(btn_reboot)
+        power_row.addWidget(btn_power)
+        wifi_layout.addLayout(power_row)
+        
+        wifi_layout.addStretch()
         self.wifi_pass.installEventFilter(self._osk_filter)
         
-        # --- Separador ---
-        separator = QLabel("─" * 80)
-        separator.setStyleSheet("color: #2a2a3a;")
-        f.addRow(separator)
+        top_container.addWidget(wifi_frame, 1)
         
-        # --- Sección Email (Gmail) ---
-        email_title = QLabel("Configuración de Email (Gmail)")
-        email_title.setStyleSheet("font-size: 16px; font-weight: 700; color: #818cf8; margin-top: 20px;")
-        f.addRow(email_title)
+        # === Sección Email Gmail (lado derecho, 50% ancho) ===
+        email_frame = QFrame()
+        email_frame.setStyleSheet("""
+            QFrame {
+                background: #16161e;
+                border-radius: 12px;
+                padding: 16px;
+            }
+        """)
+        email_layout = QVBoxLayout(email_frame)
+        email_layout.setSpacing(12)
+        
+        email_title = QLabel("📧  Configuración Gmail")
+        email_title.setStyleSheet("font-size: 14px; font-weight: 700; color: #818cf8;")
+        email_layout.addWidget(email_title)
+        
+        # Gmail user
+        user_lbl = QLabel("Cuenta Gmail:")
+        user_lbl.setStyleSheet("color: #94a3b8; font-size: 12px;")
+        email_layout.addWidget(user_lbl)
         
         self.gmail_user = QLineEdit()
         self.gmail_user.setPlaceholderText("tucuenta@gmail.com")
-        self.gmail_user.setMinimumHeight(56)
+        self.gmail_user.setMinimumHeight(40)
+        email_layout.addWidget(self.gmail_user)
+        
+        # Gmail password
+        pass_lbl = QLabel("Contraseña de App:")
+        pass_lbl.setStyleSheet("color: #94a3b8; font-size: 12px;")
+        email_layout.addWidget(pass_lbl)
         
         self.gmail_pass = QLineEdit()
         self.gmail_pass.setEchoMode(QLineEdit.Password)
-        self.gmail_pass.setPlaceholderText("Contraseña de aplicación de Gmail")
-        self.gmail_pass.setMinimumHeight(56)
+        self.gmail_pass.setPlaceholderText("Contraseña de aplicación")
+        self.gmail_pass.setMinimumHeight(40)
+        email_layout.addWidget(self.gmail_pass)
         
-        btn_save_email = QPushButton("Guardar Configuración de Email")
-        btn_save_email.setMinimumHeight(48)
+        # Save button
+        btn_save_email = QPushButton("💾 Guardar Email")
+        btn_save_email.setMinimumHeight(36)
+        btn_save_email.setProperty("role", "primary")
         btn_save_email.clicked.connect(self._save_gmail_config)
+        email_layout.addWidget(btn_save_email)
         
-        f.addRow("Cuenta Gmail:", self.gmail_user)
-        f.addRow("Contraseña de App:", self.gmail_pass)
-        f.addRow(btn_save_email)
-        
-        # Agregar nota informativa
-        note = QLabel("Nota: Usa una contraseña de aplicación de Gmail, no tu contraseña normal.\nGenera una en: https://myaccount.google.com/apppasswords")
-        note.setStyleSheet("color: #94a3b8; font-size: 12px; margin-top: 8px;")
+        # Note
+        note = QLabel("Usa contraseña de aplicación de Gmail.\nmyaccount.google.com/apppasswords")
+        note.setStyleSheet("color: #64748b; font-size: 11px;")
         note.setWordWrap(True)
-        f.addRow(note)
+        email_layout.addWidget(note)
+        
+        email_layout.addStretch()
         
         self.gmail_user.installEventFilter(self._osk_filter)
         self.gmail_pass.installEventFilter(self._osk_filter)
+        
+        top_container.addWidget(email_frame, 1)
+        
+        main_layout.addLayout(top_container, 1)
+        
+        # --- Separador ---
+        separator = QFrame()
+        separator.setFrameShape(QFrame.HLine)
+        separator.setStyleSheet("background-color: #2a2a3a; max-height: 1px;")
+        main_layout.addWidget(separator)
+        
+        # --- Sección Acciones del Sistema (parte inferior) ---
+        actions_frame = QFrame()
+        actions_frame.setStyleSheet("""
+            QFrame {
+                background: #16161e;
+                border-radius: 12px;
+                padding: 16px;
+            }
+        """)
+        actions_layout = QVBoxLayout(actions_frame)
+        actions_layout.setSpacing(12)
+        
+        actions_title = QLabel("⚙️  Acciones del Sistema")
+        actions_title.setStyleSheet("font-size: 14px; font-weight: 700; color: #818cf8;")
+        actions_layout.addWidget(actions_title)
+        
+        # Botón de restaurar de fábrica
+        btn_factory_reset = QPushButton("🔥 Restaurar de Fábrica")
+        btn_factory_reset.setMinimumHeight(48)
+        btn_factory_reset.setStyleSheet("""
+            QPushButton {
+                background: linear-gradient(135deg, #dc2626, #b91c1c);
+                background-color: #dc2626;
+                color: white;
+                font-weight: 700;
+                font-size: 14px;
+                border: none;
+                border-radius: 8px;
+            }
+            QPushButton:hover {
+                background-color: #b91c1c;
+            }
+            QPushButton:pressed {
+                background-color: #991b1b;
+            }
+        """)
+        btn_factory_reset.clicked.connect(self._confirm_factory_reset)
+        actions_layout.addWidget(btn_factory_reset)
+        
+        factory_note = QLabel("⚠️ Esta acción eliminará toda la configuración y datos del sistema.")
+        factory_note.setStyleSheet("color: #f87171; font-size: 11px;")
+        factory_note.setWordWrap(True)
+        actions_layout.addWidget(factory_note)
+        
+        main_layout.addWidget(actions_frame)
         
         # Cargar configuración actual
         self._load_gmail_config()
         
         return w
     
+    def _confirm_factory_reset(self):
+        """Muestra diálogo de confirmación para restaurar de fábrica (sin funcionalidad aún)."""
+        QMessageBox.information(
+            self,
+            "Restaurar de Fábrica",
+            "Esta función aún no está implementada.\n\nEn el futuro, esta acción eliminará toda la configuración y datos del sistema."
+        )
+    
     def _load_gmail_config(self):
         """Carga la configuración de Gmail desde config.yaml"""
         cfg = _load_settings()
         email_cfg = cfg.get("notifications", {}).get("email", {})
         
-        gmail_user = email_cfg.get("gmail_user", "")
-        if gmail_user:
-            self.gmail_user.setText(gmail_user)
+        # Valores por defecto para Gmail
+        default_gmail_user = "tottem.reports@gmail.com"
+        default_gmail_pass = "mfexwikphlncahve"
         
-        # No cargamos la contraseña por seguridad
+        gmail_user = email_cfg.get("gmail_user", default_gmail_user)
+        gmail_pass = email_cfg.get("gmail_pass", default_gmail_pass)
+        
+        self.gmail_user.setText(gmail_user)
+        
+        # Si no hay configuración guardada, guardar los valores por defecto
+        if not email_cfg.get("gmail_user"):
+            if "notifications" not in cfg:
+                cfg["notifications"] = {}
+            if "email" not in cfg["notifications"]:
+                cfg["notifications"]["email"] = {}
+            cfg["notifications"]["email"]["gmail_user"] = default_gmail_user
+            cfg["notifications"]["email"]["gmail_pass"] = default_gmail_pass
+            _save_settings(cfg)
     
     def _save_gmail_config(self):
         """Guarda la configuración de Gmail en config.yaml"""
