@@ -2462,17 +2462,16 @@ class AdminWindow(QMainWindow):
         btn_row = QHBoxLayout()
         btn_row.setSpacing(12)
         
-        from ui.icon_helper import get_icon_char
-        btn_apply = QPushButton(f"{get_icon_char('check') or '✓'}  " + (i18n.t("ok") or "Aplicar"))
+        btn_apply = QPushButton(i18n.t("ok") or "Aplicar")
         btn_apply.setProperty("role", "primary")
         btn_apply.setMinimumHeight(56)
         btn_apply.clicked.connect(self._apply_theme)
         
-        btn_new = QPushButton(f"{get_icon_char('plus') or '+'}  " + (i18n.t("theme_new") or "Nuevo"))
+        btn_new = QPushButton(i18n.t("theme_new") or "Nuevo")
         btn_new.setMinimumHeight(56)
         btn_new.clicked.connect(self._new_theme)
         
-        btn_delete = QPushButton(f"{get_icon_char('trash') or '🗑'}  " + (i18n.t("delete") or "Eliminar"))
+        btn_delete = QPushButton(i18n.t("delete") or "Eliminar")
         btn_delete.setProperty("role", "danger")
         btn_delete.setMinimumHeight(56)
         btn_delete.clicked.connect(self._delete_theme)
@@ -2733,7 +2732,7 @@ class AdminWindow(QMainWindow):
         wifi_frame.setObjectName("SystemCard")
         wifi_frame.setStyleSheet("""
             QFrame#SystemCard {
-                background: rgba(0, 0, 0, 0.15);
+                background: rgba(0, 0, 0, 0.25);
                 border-radius: 10px;
             }
         """)
@@ -2813,7 +2812,7 @@ class AdminWindow(QMainWindow):
         email_frame.setObjectName("SystemCard")
         email_frame.setStyleSheet("""
             QFrame#SystemCard {
-                background: rgba(0, 0, 0, 0.15);
+                background: rgba(0, 0, 0, 0.25);
                 border-radius: 10px;
             }
         """)

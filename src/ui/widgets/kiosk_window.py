@@ -619,7 +619,6 @@ class POSWindow(QMainWindow):
         total_frame = QFrame()
         total_frame.setStyleSheet("""
             QFrame {
-                background: rgba(0, 0, 0, 0.2);
                 border-radius: 18px;
                 padding: 16px;
             }
