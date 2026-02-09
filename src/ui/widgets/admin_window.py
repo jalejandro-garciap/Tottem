@@ -1192,7 +1192,7 @@ class AdminWindow(QMainWindow):
             return
         ph = PasswordHasher()
         h = ph.hash(new1)
-        data = _load_settings()
+        data = load_config()
         data.setdefault("security", {})["admin_pin_hash"] = h
         save_config(data)
         QMessageBox.information(self, "PIN", i18n.t("pin_saved"))
@@ -1307,7 +1307,7 @@ class AdminWindow(QMainWindow):
         if not d:
             QMessageBox.warning(self, i18n.t("devices"), i18n.t("select_valid_printer"))
             return
-        data = _load_settings()
+        data = load_config()
         pr = data.setdefault("hardware", {}).setdefault("printer", {})
         pr["vendor_id"] = _intval(d.get("vid", "0"))
         pr["product_id"] = _intval(d.get("pid", "0"))
@@ -3011,7 +3011,7 @@ class AdminWindow(QMainWindow):
     
     def _load_gmail_config(self):
         """Carga la configuración de Gmail desde config.yaml"""
-        cfg = _load_settings()
+        cfg = load_config()
         email_cfg = cfg.get("notifications", {}).get("email", {})
         
         # Valores por defecto para Gmail
@@ -3031,7 +3031,7 @@ class AdminWindow(QMainWindow):
                 cfg["notifications"]["email"] = {}
             cfg["notifications"]["email"]["gmail_user"] = default_gmail_user
             cfg["notifications"]["email"]["gmail_pass"] = default_gmail_pass
-            _save_settings(cfg)
+            save_config(cfg)
     
     def _save_gmail_config(self):
         """Guarda la configuración de Gmail en config.yaml"""
@@ -3056,7 +3056,7 @@ class AdminWindow(QMainWindow):
             return
         
         # Guardar en config.yaml
-        cfg = _load_settings()
+        cfg = load_config()
         if "notifications" not in cfg:
             cfg["notifications"] = {}
         if "email" not in cfg["notifications"]:
@@ -3066,7 +3066,7 @@ class AdminWindow(QMainWindow):
         if gmail_pass:
             cfg["notifications"]["email"]["gmail_pass"] = gmail_pass
         
-        _save_settings(cfg)
+        save_config(cfg)
         
         QMessageBox.information(
             self,
