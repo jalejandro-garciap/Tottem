@@ -1134,8 +1134,8 @@ class AdminWindow(QMainWindow):
         wrap = QWidget()
         wrap.setObjectName("GridPanel")
         lay = QVBoxLayout(wrap)
-        lay.setContentsMargins(16, 16, 16, 16)
-        lay.setSpacing(16)
+        lay.setContentsMargins(24, 24, 24, 24)
+        lay.setSpacing(24)
         lay.addWidget(top_wrap)
         lay.addWidget(self.tabs)
         self.setCentralWidget(wrap)
@@ -3132,58 +3132,23 @@ class AdminWindow(QMainWindow):
         self.setWindowTitle(i18n.t("admin_title"))
         self.lang_btn.setText(i18n.t("lang"))
 
-        # --- Actualizar los textos de las pestañas ---
-        # Indices fijos según __init__
-        self.tabs.setTabText(0, i18n.t("tab_security") or "Seguridad")
-        self.tabs.setTabText(1, i18n.t("tab_devices") or "Dispositivos")
-        self.tabs.setTabText(2, i18n.t("tab_store") or "Tienda")
-        self.tabs.setTabText(3, i18n.t("tab_products") or "Productos")
-        self.tabs.setTabText(4, i18n.t("tab_shifts") or "Turnos")
-        self.tabs.setTabText(5, "Tickets")  # Nuevo tab de Tickets (sin i18n por ahora)
-        self.tabs.setTabText(6, i18n.t("tab_reports") or "Reportes")
-        self.tabs.setTabText(7, i18n.t("tab_system") or "Sistema")
-
-
-        # Productos – actualizar textos visibles
-        if hasattr(self, "tbl"):
-            self.tbl.setHorizontalHeaderLabels(
-                [
-                    i18n.t("prod_id"),
-                    i18n.t("prod_name"),
-                    i18n.t("prod_price"),
-                    i18n.t("prod_active"),
-                    i18n.t("prod_unit"),
-                    i18n.t("prod_allow_partial"),
-                    i18n.t("category") or "Categoría",
-                ]
-            )
-
-        if hasattr(self, "chk_enable_categories"):
-            self.chk_enable_categories.setText(
-                i18n.t("enable_categories") or "Habilitar Categorías"
-            )
-
-        # Empleados
-        if hasattr(self, "tbl_employees"):
-            self.tbl_employees.setHorizontalHeaderLabels(
-                [
-                    "ID",
-                    i18n.t("emp_no") or "No. empleado",
-                    i18n.t("emp_name") or "Nombre completo",
-                    i18n.t("emp_phone") or "Contacto",
-                    i18n.t("emp_active") or "Activo",
-                ]
-            )
-
-        # Reportes: placeholder correos
-        if hasattr(self, "ed_emails"):
-            self.ed_emails.setPlaceholderText(
-                i18n.t("emails_placeholder")
-                or "correo1@ejemplo.com, correo2@ejemplo.com"
-            )
-
-        # Turno actual / lista de turnos
-        if hasattr(self, "lbl_shift"):
-            self.lbl_shift.setText(self._shift_label_text())
-        if hasattr(self, "list_shifts"):
-            self._reload_week_shifts()
+        # --- Recrear todas las pestañas para refrescar traducciones ---
+        # Guardar índice actual
+        current_idx = self.tabs.currentIndex()
+        
+        # Guardar referencias de los widgets antiguos para que se limpien
+        self.tabs.clear()
+        
+        # Volver a agregar tabs (esto llama a las funciones que usan i18n.t)
+        self.tabs.addTab(self._tab_security(), f"{get_icon_char('lock') or '🔐'}  " + i18n.t("tab_security"))
+        self.tabs.addTab(self._tab_devices(), f"{get_icon_char('print') or '🖨'}  " + i18n.t("tab_devices"))
+        self.tabs.addTab(self._tab_store(), f"{get_icon_char('store') or '🏪'}  " + i18n.t("tab_store"))
+        self.tabs.addTab(self._tab_products(), f"{get_icon_char('box') or '📦'}  " + i18n.t("tab_products"))
+        self.tabs.addTab(self._tab_shifts(), f"{get_icon_char('chart-bar') or '📊'}  " + (i18n.t("tab_shifts") or "Turnos"))
+        self.tabs.addTab(self._tab_tickets(), f"{get_icon_char('receipt') or '🧾'}  Tickets")
+        self.tabs.addTab(self._tab_reports(), f"{get_icon_char('chart-line') or '📈'}  " + i18n.t("tab_reports"))
+        self.tabs.addTab(self._tab_themes(), f"{get_icon_char('palette') or '🎨'}  " + i18n.t("tab_themes"))
+        self.tabs.addTab(self._tab_system(), f"{get_icon_char('computer') or '💻'}  " + i18n.t("tab_system"))
+        
+        # Restaurar índice
+        self.tabs.setCurrentIndex(current_idx)

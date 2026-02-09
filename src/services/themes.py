@@ -229,14 +229,13 @@ QLabel#PriceTag {{
                                 stop:1 {colors["bg_mid"]});
     border: 1px solid {colors["border"]};
     border-radius: 28px;
-    padding: 24px;
+    padding: 12px;
 }}
 
 #GridPanel, #AdminPanel {{
     background: {colors["bg_deep"]};
     border: none;
     border-radius: 28px;
-    padding: 24px;
 }}
 
 #LoadingOverlay {{
