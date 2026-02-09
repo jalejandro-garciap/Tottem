@@ -1110,6 +1110,7 @@ class AdminWindow(QMainWindow):
         self.tabs.addTab(self._tab_shifts(), f"{get_icon_char('chart-bar') or '📊'}  " + (i18n.t("tab_shifts") or "Turnos"))
         self.tabs.addTab(self._tab_tickets(), f"{get_icon_char('receipt') or '🧾'}  Tickets")
         self.tabs.addTab(self._tab_reports(), f"{get_icon_char('chart-line') or '📈'}  " + i18n.t("tab_reports"))
+        self.tabs.addTab(self._tab_themes(), f"{get_icon_char('palette') or '🎨'}  " + i18n.t("tab_themes"))
         self.tabs.addTab(self._tab_system(), f"{get_icon_char('computer') or '💻'}  " + i18n.t("tab_system"))
 
         # ─── Main Container ───────────────────────────────────────────────
@@ -2419,6 +2420,277 @@ class AdminWindow(QMainWindow):
         delete_employee(eid)
         QMessageBox.information(self, i18n.t("employees_title") or "Empleados", i18n.t("emp_deleted") or "Eliminado.")
         self._emp_refresh()
+
+    # ---------- Themes
+    def _tab_themes(self) -> QWidget:
+        """Tab for theme selection and customization."""
+        from services import themes as theme_svc
+        from PySide6.QtWidgets import QColorDialog
+        
+        w = QWidget()
+        main_layout = QHBoxLayout(w)
+        main_layout.setSpacing(24)
+        main_layout.setContentsMargins(16, 16, 16, 16)
+        
+        # --- Left panel: Theme list ---
+        left_panel = QVBoxLayout()
+        left_panel.setSpacing(16)
+        
+        # Header
+        header = QLabel(i18n.t("tab_themes") or "Temas")
+        header.setStyleSheet("font-size: 18px; font-weight: 700;")
+        left_panel.addWidget(header)
+        
+        # Theme list
+        self.theme_list = QListWidget()
+        self.theme_list.setMinimumWidth(280)
+        self.theme_list.itemClicked.connect(self._on_theme_selected)
+        left_panel.addWidget(self.theme_list, 1)
+        
+        # Buttons
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(12)
+        
+        from ui.icon_helper import get_icon_char
+        btn_apply = QPushButton(f"{get_icon_char('check') or '✓'}  " + (i18n.t("ok") or "Aplicar"))
+        btn_apply.setProperty("role", "primary")
+        btn_apply.setMinimumHeight(56)
+        btn_apply.clicked.connect(self._apply_theme)
+        
+        btn_new = QPushButton(f"{get_icon_char('plus') or '+'}  " + (i18n.t("theme_new") or "Nuevo"))
+        btn_new.setMinimumHeight(56)
+        btn_new.clicked.connect(self._new_theme)
+        
+        btn_delete = QPushButton(f"{get_icon_char('trash') or '🗑'}  " + (i18n.t("delete") or "Eliminar"))
+        btn_delete.setProperty("role", "danger")
+        btn_delete.setMinimumHeight(56)
+        btn_delete.clicked.connect(self._delete_theme)
+        
+        btn_row.addWidget(btn_apply)
+        btn_row.addWidget(btn_new)
+        btn_row.addWidget(btn_delete)
+        left_panel.addLayout(btn_row)
+        
+        main_layout.addLayout(left_panel)
+        
+        # --- Right panel: Preview and color editing ---
+        right_panel = QVBoxLayout()
+        right_panel.setSpacing(16)
+        
+        preview_header = QLabel(i18n.t("preview") or "Vista previa")
+        preview_header.setStyleSheet("font-size: 16px; font-weight: 600;")
+        right_panel.addWidget(preview_header)
+        
+        # Color preview grid
+        preview_frame = QFrame()
+        preview_frame.setObjectName("ThemePreviewFrame")
+        preview_frame.setStyleSheet("""
+            QFrame#ThemePreviewFrame {
+                background: #16161e;
+                border-radius: 16px;
+                padding: 16px;
+            }
+        """)
+        preview_grid = QGridLayout(preview_frame)
+        preview_grid.setSpacing(12)
+        
+        # Color preview boxes
+        self.color_previews = {}
+        color_labels = [
+            ("bg_deep", i18n.t("color_background") or "Fondo"),
+            ("surface", i18n.t("color_surface") or "Superficie"),
+            ("text_primary", i18n.t("color_text") or "Texto"),
+            ("accent_primary", i18n.t("color_accent") or "Acento"),
+            ("success", "Success"),
+            ("warning", "Warning"),
+            ("danger", "Danger"),
+        ]
+        
+        for i, (key, label) in enumerate(color_labels):
+            row = i // 4
+            col = i % 4
+            
+            box = QFrame()
+            box.setFixedSize(60, 60)
+            box.setStyleSheet("border-radius: 12px; background: #333;")
+            box.setCursor(Qt.PointingHandCursor)
+            box.setProperty("color_key", key)
+            box.mousePressEvent = lambda e, k=key: self._pick_color(k)
+            
+            lbl = QLabel(label)
+            lbl.setStyleSheet("font-size: 11px; color: #94a3b8;")
+            lbl.setAlignment(Qt.AlignCenter)
+            
+            col_layout = QVBoxLayout()
+            col_layout.setSpacing(4)
+            col_layout.addWidget(box, alignment=Qt.AlignCenter)
+            col_layout.addWidget(lbl, alignment=Qt.AlignCenter)
+            
+            self.color_previews[key] = box
+            preview_grid.addLayout(col_layout, row, col)
+        
+        right_panel.addWidget(preview_frame)
+        
+        # Theme name for custom themes
+        name_row = QHBoxLayout()
+        name_row.setSpacing(12)
+        name_lbl = QLabel(i18n.t("theme_name") or "Nombre:")
+        self.theme_name_edit = QLineEdit()
+        self.theme_name_edit.setPlaceholderText(i18n.t("theme_custom") or "Mi tema")
+        self.theme_name_edit.setMinimumHeight(48)
+        name_row.addWidget(name_lbl)
+        name_row.addWidget(self.theme_name_edit, 1)
+        right_panel.addLayout(name_row)
+        
+        # Save custom button
+        btn_save_custom = QPushButton(f"{get_icon_char('save') or '💾'}  " + (i18n.t("save") or "Guardar tema"))
+        btn_save_custom.setProperty("role", "success")
+        btn_save_custom.setMinimumHeight(56)
+        btn_save_custom.clicked.connect(self._save_custom_theme)
+        right_panel.addWidget(btn_save_custom)
+        
+        right_panel.addStretch(1)
+        main_layout.addLayout(right_panel, 1)
+        
+        # Store current editing colors
+        self._editing_colors = {}
+        self._current_theme_id = None
+        
+        # Load themes
+        self._refresh_theme_list()
+        
+        return w
+    
+    def _refresh_theme_list(self):
+        """Reload the theme list."""
+        from services import themes as theme_svc
+        
+        self.theme_list.clear()
+        current = theme_svc.get_current_theme()
+        
+        for theme in theme_svc.list_themes():
+            name = theme["name"] if i18n.current_lang() == "es" else theme.get("name_en", theme["name"])
+            suffix = " ✨" if theme["is_custom"] else ""
+            item = QListWidgetItem(f"{name}{suffix}")
+            item.setData(Qt.UserRole, theme["id"])
+            item.setData(Qt.UserRole + 1, theme["colors"])
+            item.setData(Qt.UserRole + 2, theme["is_custom"])
+            self.theme_list.addItem(item)
+            
+            if theme["id"] == current:
+                item.setSelected(True)
+                self._on_theme_selected(item)
+    
+    def _on_theme_selected(self, item):
+        """Handle theme selection."""
+        theme_id = item.data(Qt.UserRole)
+        colors = item.data(Qt.UserRole + 1)
+        is_custom = item.data(Qt.UserRole + 2)
+        
+        self._current_theme_id = theme_id
+        self._editing_colors = colors.copy()
+        
+        # Update preview boxes
+        for key, box in self.color_previews.items():
+            color = colors.get(key, "#333333")
+            box.setStyleSheet(f"border-radius: 12px; background: {color};")
+        
+        # Update name field for custom themes
+        if is_custom:
+            self.theme_name_edit.setText(colors.get("name", theme_id))
+        else:
+            self.theme_name_edit.setText("")
+    
+    def _pick_color(self, key: str):
+        """Open color picker for a specific color key."""
+        from PySide6.QtWidgets import QColorDialog
+        from PySide6.QtGui import QColor
+        
+        current = self._editing_colors.get(key, "#333333")
+        color = QColorDialog.getColor(QColor(current), self, i18n.t("color_accent") or "Seleccionar color")
+        
+        if color.isValid():
+            hex_color = color.name()
+            self._editing_colors[key] = hex_color
+            if key in self.color_previews:
+                self.color_previews[key].setStyleSheet(f"border-radius: 12px; background: {hex_color};")
+    
+    def _apply_theme(self):
+        """Apply the selected theme."""
+        from services import themes as theme_svc
+        from PySide6.QtWidgets import QApplication
+        
+        if not self._current_theme_id:
+            self._toast(i18n.t("theme_select") or "Selecciona un tema.", level="warning")
+            return
+        
+        app = QApplication.instance()
+        if theme_svc.apply_theme(app, self._current_theme_id):
+            self._toast(i18n.t("theme_applied") or "Tema aplicado.", level="success")
+        else:
+            self._toast("Error applying theme.", level="error")
+    
+    def _new_theme(self):
+        """Start creating a new custom theme based on current."""
+        from services import themes as theme_svc
+        
+        # Start with dark theme as base
+        base = theme_svc.get_theme("dark")
+        if base:
+            self._editing_colors = base.copy()
+            for key, box in self.color_previews.items():
+                color = self._editing_colors.get(key, "#333333")
+                box.setStyleSheet(f"border-radius: 12px; background: {color};")
+        
+        self._current_theme_id = None
+        self.theme_name_edit.setText("")
+        self.theme_name_edit.setFocus()
+        self._toast(i18n.t("theme_new") or "Personaliza los colores y guarda.", level="info")
+    
+    def _save_custom_theme(self):
+        """Save the current colors as a custom theme."""
+        from services import themes as theme_svc
+        
+        name = self.theme_name_edit.text().strip()
+        if not name:
+            self._toast(i18n.t("theme_name_required") or "Ingresa un nombre.", level="warning")
+            return
+        
+        # Create theme ID from name
+        theme_id = name.lower().replace(" ", "_")[:20]
+        
+        # Save colors with name
+        colors = self._editing_colors.copy()
+        colors["name"] = name
+        colors["name_en"] = name
+        
+        theme_svc.save_custom_theme(theme_id, colors)
+        self._toast(i18n.t("theme_saved") or "Tema guardado.", level="success")
+        self._refresh_theme_list()
+    
+    def _delete_theme(self):
+        """Delete the selected custom theme."""
+        from services import themes as theme_svc
+        
+        item = self.theme_list.currentItem()
+        if not item:
+            self._toast(i18n.t("theme_select") or "Selecciona un tema.", level="warning")
+            return
+        
+        is_custom = item.data(Qt.UserRole + 2)
+        if not is_custom:
+            self._toast(i18n.t("theme_cannot_delete") or "No se puede eliminar.", level="warning")
+            return
+        
+        theme_id = item.data(Qt.UserRole)
+        if QMessageBox.question(
+            self,
+            i18n.t("tab_themes") or "Temas",
+            i18n.t("theme_confirm_delete") or "¿Eliminar tema?"
+        ) == QMessageBox.Yes:
+            theme_svc.delete_custom_theme(theme_id)
+            self._toast(i18n.t("theme_deleted") or "Tema eliminado.", level="success")
+            self._refresh_theme_list()
 
     # ---------- System
     def _tab_system(self) -> QWidget:
