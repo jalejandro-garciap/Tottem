@@ -2571,11 +2571,11 @@ class AdminWindow(QMainWindow):
         separator.setStyleSheet("background-color: #2a2a3a; max-height: 1px;")
         main_layout.addWidget(separator)
         
-        # --- Sección Inferior: IP Pública (izq) + Restaurar de Fábrica (der) ---
+        # --- Bottom Section: Public IP (left) + Factory Reset (right) ---
         bottom_container = QHBoxLayout()
         bottom_container.setSpacing(16)
         
-        # === IP Pública y Soporte Remoto (60-70% izquierda) ===
+        # === Public IP and Remote Support (60-70% left) ===
         ip_frame = QFrame()
         ip_frame.setStyleSheet("""
             QFrame {
@@ -2592,25 +2592,25 @@ class AdminWindow(QMainWindow):
         ip_title.setStyleSheet("font-size: 13px; font-weight: 700; color: #818cf8;")
         ip_layout.addWidget(ip_title)
         
-        # IP Pública row
+        # Public IP row
         ip_row = QHBoxLayout()
         ip_row.setSpacing(8)
-        ip_lbl = QLabel("IP Pública:")
+        ip_lbl = QLabel(i18n.t("public_ip") or "IP Pública:")
         ip_lbl.setStyleSheet("color: #94a3b8; font-size: 11px;")
-        self.lbl_public_ip = QLabel("Obteniendo...")
+        self.lbl_public_ip = QLabel(i18n.t("getting_ip") or "Obteniendo...")
         self.lbl_public_ip.setStyleSheet("color: #10b981; font-weight: 700; font-size: 14px;")
         self.lbl_public_ip.setTextInteractionFlags(Qt.TextSelectableByMouse)
-        btn_refresh_ip = QPushButton("Actualizar")
+        btn_refresh_ip = QPushButton(i18n.t("prod_refresh") or "Actualizar")
         btn_refresh_ip.setMinimumSize(90, 28)
-        btn_refresh_ip.setToolTip("Actualizar IP")
+        btn_refresh_ip.setToolTip(i18n.t("update_status") or "Actualizar IP")
         btn_refresh_ip.clicked.connect(self._refresh_public_ip)
         ip_row.addWidget(ip_lbl)
         ip_row.addWidget(self.lbl_public_ip, 1)
         ip_row.addWidget(btn_refresh_ip)
         ip_layout.addLayout(ip_row)
         
-        # Nota sobre SSH
-        ssh_note = QLabel("Para soporte remoto, usa SSH con esta IP.")
+        # SSH note
+        ssh_note = QLabel(i18n.t("ssh_support_note") or "Para soporte remoto, usa SSH con esta IP.")
         ssh_note.setStyleSheet("color: #64748b; font-size: 10px;")
         ssh_note.setWordWrap(True)
         ip_layout.addWidget(ssh_note)
@@ -2619,7 +2619,7 @@ class AdminWindow(QMainWindow):
         
         bottom_container.addWidget(ip_frame, 2)  # 60-70% del espacio
         
-        # === Restaurar de Fábrica (30-40% derecha) ===
+        # === Factory Reset (30-40% right) ===
         reset_frame = QFrame()
         reset_frame.setStyleSheet("""
             QFrame {
@@ -2638,8 +2638,8 @@ class AdminWindow(QMainWindow):
         
         reset_layout.addStretch()
         
-        # Botón de restaurar de fábrica (más pequeño, alineado abajo derecha)
-        btn_factory_reset = QPushButton("Restaurar de Fábrica")
+        # Factory Reset button (smaller, aligned bottom right)
+        btn_factory_reset = QPushButton(i18n.t("factory_reset") or "Restaurar de Fábrica")
         btn_factory_reset.setMinimumHeight(36)
         btn_factory_reset.setStyleSheet("""
             QPushButton {
@@ -2660,7 +2660,7 @@ class AdminWindow(QMainWindow):
         btn_factory_reset.clicked.connect(self._confirm_factory_reset)
         reset_layout.addWidget(btn_factory_reset)
         
-        factory_note = QLabel("⚠ Elimina todos los datos")
+        factory_note = QLabel(i18n.t("factory_reset_warning") or "⚠ Elimina todos los datos")
         factory_note.setStyleSheet("color: #f87171; font-size: 9px;")
         factory_note.setAlignment(Qt.AlignCenter)
         reset_layout.addWidget(factory_note)
@@ -2676,15 +2676,15 @@ class AdminWindow(QMainWindow):
         return w
     
     def _confirm_factory_reset(self):
-        """Muestra diálogo de confirmación para restaurar de fábrica (sin funcionalidad aún)."""
+        """Displays confirmation dialog for factory reset (not implemented yet)."""
         QMessageBox.information(
             self,
-            "Restaurar de Fábrica",
-            "Esta función aún no está implementada.\n\nEn el futuro, esta acción eliminará toda la configuración y datos del sistema."
+            i18n.t("factory_reset") or "Restaurar de Fábrica",
+            i18n.t("factory_reset_not_impl") or "Esta función aún no está implementada.\n\nEn el futuro, esta acción eliminará toda la configuración y datos del sistema."
         )
     
     def _refresh_public_ip(self):
-        """Obtiene y muestra la IP pública del equipo."""
+        """Gets and displays the system's public IP address."""
         import urllib.request
         import threading
         
@@ -2692,18 +2692,18 @@ class AdminWindow(QMainWindow):
             try:
                 with urllib.request.urlopen("https://api.ipify.org", timeout=5) as response:
                     ip = response.read().decode("utf-8").strip()
-                    # Actualizar el label en el thread principal
+                    # Update label on the main thread
                     if hasattr(self, "lbl_public_ip"):
                         self.lbl_public_ip.setText(ip)
             except Exception:
                 if hasattr(self, "lbl_public_ip"):
-                    self.lbl_public_ip.setText("No disponible")
-                    self.lbl_public_ip.setStyleSheet("color: #f87171; font-weight: 600; font-size: 12px;")
+                    self.lbl_public_ip.setText(i18n.t("ip_not_available") or "No disponible")
+                    self.lbl_public_ip.setStyleSheet("color: #f87171; font-weight: 700; font-size: 16px;")
         
-        # Ejecutar en un thread separado para no bloquear la UI
+        # Run in a separate thread to avoid UI blocking
         if hasattr(self, "lbl_public_ip"):
-            self.lbl_public_ip.setText("Obteniendo...")
-            self.lbl_public_ip.setStyleSheet("color: #10b981; font-weight: 600; font-size: 12px;")
+            self.lbl_public_ip.setText(i18n.t("getting_ip") or "Obteniendo...")
+            self.lbl_public_ip.setStyleSheet("color: #10b981; font-weight: 700; font-size: 16px;")
         thread = threading.Thread(target=fetch_ip, daemon=True)
         thread.start()
     

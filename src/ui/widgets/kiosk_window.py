@@ -403,7 +403,7 @@ class QtyModeDialog(QDialog):
         layout.setSpacing(20)
         
         # Title
-        title = QLabel("¿Cómo desea agregar?")
+        title = QLabel(i18n.t("qty_mode_title") or "¿Cómo desea agregar?")
         title.setAlignment(Qt.AlignCenter)
         title.setStyleSheet("font-size: 18px; font-weight: 700; color: #f8fafc;")
         layout.addWidget(title)
@@ -420,7 +420,7 @@ class QtyModeDialog(QDialog):
         btn_row.setSpacing(16)
         
         # Quantity button
-        btn_qty = QPushButton(f"#  Cantidad\n({unit})")
+        btn_qty = QPushButton(f"#  {i18n.t('qty_mode_quantity') or 'Cantidad'}\n({unit})")
         btn_qty.setMinimumHeight(90)
         btn_qty.setStyleSheet("""
             QPushButton {
@@ -443,7 +443,7 @@ class QtyModeDialog(QDialog):
         btn_row.addWidget(btn_qty)
         
         # Amount button
-        btn_amt = QPushButton("$  Monto\n(pesos)")
+        btn_amt = QPushButton(f"$  {i18n.t('qty_mode_amount') or 'Monto'}\n{i18n.t('qty_mode_amount_currency') or '(pesos)'}")
         btn_amt.setMinimumHeight(90)
         btn_amt.setStyleSheet("""
             QPushButton {
@@ -1029,11 +1029,12 @@ class POSWindow(QMainWindow):
     def _set_qty_by_amount(self, idx: int, item: CartItem):
         """Set quantity by entering a dollar amount."""
         if item.price <= 0:
-            QMessageBox.warning(self, "Error", "El producto tiene precio cero.")
+            QMessageBox.warning(self, i18n.t("error") or "Error", 
+                                i18n.t("error_zero_price") or "El producto tiene precio cero.")
             return
         
         # Get amount in dollars
-        dlg = NumKeypad(title="Monto ($)", allow_decimal=True)
+        dlg = NumKeypad(title=i18n.t("input_amount") or "Monto ($)", allow_decimal=True)
         if dlg.exec() == QDialog.Accepted:
             amount = dlg.value_float()
             if amount <= 0:
