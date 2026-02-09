@@ -51,7 +51,6 @@ class OnScreenKeyboard(QDialog):
             font-size: 12px;
             font-weight: 700;
             letter-spacing: 3px;
-            color: #64748b;
         """)
         header.addWidget(lbl)
         root.addLayout(header)
@@ -60,7 +59,7 @@ class OnScreenKeyboard(QDialog):
         display_frame = QFrame()
         display_frame.setStyleSheet("""
             QFrame {
-                background: #16161e;
+                background: rgba(0, 0, 0, 0.2);
                 border-radius: 16px;
             }
         """)
@@ -74,7 +73,6 @@ class OnScreenKeyboard(QDialog):
             QLineEdit {
                 font-size: 28px;
                 font-weight: 600;
-                color: #f8fafc;
                 background: transparent;
                 border: none;
                 padding: 8px 0;

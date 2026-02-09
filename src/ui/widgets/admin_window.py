@@ -2755,7 +2755,7 @@ class AdminWindow(QMainWindow):
         wifi_frame.setObjectName("SystemCard")
         wifi_frame.setStyleSheet("""
             QFrame#SystemCard {
-                background: palette(mid);
+                background: rgba(0, 0, 0, 0.15);
                 border-radius: 10px;
             }
         """)
@@ -2835,7 +2835,7 @@ class AdminWindow(QMainWindow):
         email_frame.setObjectName("SystemCard")
         email_frame.setStyleSheet("""
             QFrame#SystemCard {
-                background: palette(mid);
+                background: rgba(0, 0, 0, 0.15);
                 border-radius: 10px;
             }
         """)
@@ -2907,7 +2907,7 @@ class AdminWindow(QMainWindow):
         ip_frame.setObjectName("SystemCard")
         ip_frame.setStyleSheet("""
             QFrame#SystemCard {
-                background: palette(mid);
+                background: rgba(0, 0, 0, 0.15);
                 border-radius: 10px;
             }
         """)
@@ -2954,7 +2954,7 @@ class AdminWindow(QMainWindow):
         reset_frame.setObjectName("SystemCard")
         reset_frame.setStyleSheet("""
             QFrame#SystemCard {
-                background: palette(mid);
+                background: rgba(0, 0, 0, 0.15);
                 border-radius: 10px;
             }
         """)
@@ -2972,21 +2972,12 @@ class AdminWindow(QMainWindow):
         
         # Factory Reset button (smaller, aligned bottom right)
         btn_factory_reset = QPushButton(i18n.t("factory_reset") or "Restaurar de Fábrica")
-        btn_factory_reset.setMinimumHeight(36)
+        btn_factory_reset.setMinimumHeight(48)
+        btn_factory_reset.setProperty("role", "danger")
         btn_factory_reset.setStyleSheet("""
             QPushButton {
-                background-color: #dc2626;
-                color: white;
                 font-weight: 600;
                 font-size: 11px;
-                border: none;
-                border-radius: 6px;
-            }
-            QPushButton:hover {
-                background-color: #b91c1c;
-            }
-            QPushButton:pressed {
-                background-color: #991b1b;
             }
         """)
         btn_factory_reset.clicked.connect(self._confirm_factory_reset)

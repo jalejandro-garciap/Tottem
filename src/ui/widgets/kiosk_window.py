@@ -56,7 +56,6 @@ class PaymentDialog(QDialog):
             font-size: 12px;
             font-weight: 700;
             letter-spacing: 3px;
-            color: #64748b;
         """)
 
         total_display = QLabel(f"${self._fmt(self.total)}")
@@ -64,7 +63,6 @@ class PaymentDialog(QDialog):
         total_display.setStyleSheet("""
             font-size: 56px;
             font-weight: 800;
-            color: #f8fafc;
             letter-spacing: -2px;
         """)
 
@@ -76,7 +74,7 @@ class PaymentDialog(QDialog):
         stats_frame = QFrame()
         stats_frame.setStyleSheet("""
             QFrame {
-                background: #16161e;
+                background: rgba(0, 0, 0, 0.2);
                 border-radius: 20px;
                 padding: 20px;
             }
@@ -89,7 +87,7 @@ class PaymentDialog(QDialog):
         rec_box = QVBoxLayout()
         rec_box.setSpacing(6)
         rec_title = QLabel(i18n.t('received') or 'Recibido')
-        rec_title.setStyleSheet("font-size: 13px; color: #64748b; font-weight: 600;")
+        rec_title.setStyleSheet("font-size: 13px; font-weight: 600;")
         rec_title.setAlignment(Qt.AlignCenter)
         self.lbl_received = QLabel("$0.00")
         self.lbl_received.setStyleSheet("""
@@ -105,7 +103,7 @@ class PaymentDialog(QDialog):
         chg_box = QVBoxLayout()
         chg_box.setSpacing(6)
         chg_title = QLabel(i18n.t('change') or 'Cambio')
-        chg_title.setStyleSheet("font-size: 13px; color: #64748b; font-weight: 600;")
+        chg_title.setStyleSheet("font-size: 13px; font-weight: 600;")
         chg_title.setAlignment(Qt.AlignCenter)
         self.lbl_change = QLabel("$0.00")
         self.lbl_change.setStyleSheet("""
@@ -132,17 +130,16 @@ class PaymentDialog(QDialog):
                 QPushButton {
                     font-size: 20px;
                     font-weight: 700;
-                    background: #1a1a26;
-                    border: 1px solid #2a2a3a;
+                    background: rgba(0, 0, 0, 0.1);
+                    border: 1px solid palette(mid);
                     border-radius: 16px;
-                    color: #e2e8f0;
                 }
                 QPushButton:hover {
-                    background: #22222e;
-                    border-color: #6366f1;
+                    background: rgba(0, 0, 0, 0.2);
+                    border-color: palette(highlight);
                 }
                 QPushButton:pressed {
-                    background: #2a2a3a;
+                    background: rgba(0, 0, 0, 0.3);
                 }
             """)
             btn.clicked.connect(lambda _=None, v=val: self._add_bill(v))
@@ -268,7 +265,7 @@ class AdminPinDialog(QDialog):
 
         subtitle = QLabel("Ingrese su PIN de seguridad")
         subtitle.setAlignment(Qt.AlignCenter)
-        subtitle.setStyleSheet("color: #64748b; font-size: 14px;")
+        subtitle.setStyleSheet("font-size: 14px;")
 
         self.ed_pin = QLineEdit()
         self.ed_pin.setEchoMode(QLineEdit.Password)
@@ -280,12 +277,9 @@ class AdminPinDialog(QDialog):
                 font-size: 32px;
                 font-weight: 700;
                 letter-spacing: 8px;
-                background: #16161e;
-                border: 2px solid #2a2a3a;
+                background: rgba(0, 0, 0, 0.2);
+                border: 2px solid palette(mid);
                 border-radius: 18px;
-            }
-            QLineEdit:focus {
-                border-color: #6366f1;
             }
         """)
         self.ed_pin.setPlaceholderText("• • • •")
@@ -378,7 +372,7 @@ class AdminPinDialog(QDialog):
                     font-weight: 700;
                     letter-spacing: 8px;
                     background: rgba(239, 68, 68, 0.1);
-                    border: 2px solid #ef4444;
+                    border: 2px solid palette(highlight);
                     border-radius: 18px;
                 }
             """)
@@ -405,13 +399,13 @@ class QtyModeDialog(QDialog):
         # Title
         title = QLabel(i18n.t("qty_mode_title") or "¿Cómo desea agregar?")
         title.setAlignment(Qt.AlignCenter)
-        title.setStyleSheet("font-size: 18px; font-weight: 700; color: #f8fafc;")
+        title.setStyleSheet("font-size: 18px; font-weight: 700;")
         layout.addWidget(title)
         
         # Product name
         prod_lbl = QLabel(product_name)
         prod_lbl.setAlignment(Qt.AlignCenter)
-        prod_lbl.setStyleSheet("font-size: 14px; color: #94a3b8;")
+        prod_lbl.setStyleSheet("font-size: 14px;")
         prod_lbl.setWordWrap(True)
         layout.addWidget(prod_lbl)
         
@@ -627,7 +621,7 @@ class POSWindow(QMainWindow):
         total_frame = QFrame()
         total_frame.setStyleSheet("""
             QFrame {
-                background: #16161e;
+                background: rgba(0, 0, 0, 0.2);
                 border-radius: 18px;
                 padding: 16px;
             }
@@ -641,7 +635,6 @@ class POSWindow(QMainWindow):
             font-size: 12px;
             font-weight: 700;
             letter-spacing: 2px;
-            color: #64748b;
         """)
         total_label_title.setAlignment(Qt.AlignRight)
 
@@ -1145,16 +1138,20 @@ class POSWindow(QMainWindow):
             return
 
         from ui.widgets.admin_window import AdminWindow
+        from PySide6.QtCore import QTimer
 
-        self.hide()
+        # Create and show admin window first to avoid white flash
         self._admin_win = AdminWindow()
+        self._admin_win.showFullScreen()
+        
+        # Hide kiosk after a small delay to ensure admin is rendered
+        QTimer.singleShot(100, self.hide)
 
         def _back_to_kiosk():
             self._admin_win = None
             self.showFullScreen()
 
         self._admin_win.destroyed.connect(lambda _obj=None: _back_to_kiosk())
-        self._admin_win.showFullScreen()
 
     # ═══════════════════════════════════════════════════════════════════════
     # LANGUAGE
