@@ -30,8 +30,21 @@ def run():
         print(f"WARNING: Failed to load icon font: {e}")
 
     qss_path = Path(__file__).resolve().parent / "theme.qss"
-    if qss_path.exists():
-        app.setStyleSheet(qss_path.read_text(encoding="utf-8"))
+    
+    # Apply saved theme or fall back to theme.qss
+    try:
+        from services import themes as theme_svc
+        current_theme = theme_svc.get_current_theme()
+        if current_theme and current_theme != "dark":
+            # Apply custom theme
+            theme_svc.apply_theme(app, current_theme)
+        elif qss_path.exists():
+            # Default to theme.qss for dark theme
+            app.setStyleSheet(qss_path.read_text(encoding="utf-8"))
+    except Exception:
+        # Fallback to theme.qss on any error
+        if qss_path.exists():
+            app.setStyleSheet(qss_path.read_text(encoding="utf-8"))
 
     app.setOverrideCursor(QCursor(Qt.BlankCursor))
 

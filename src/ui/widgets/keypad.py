@@ -38,7 +38,6 @@ class NumKeypad(QDialog):
             font-size: 12px;
             font-weight: 700;
             letter-spacing: 3px;
-            color: #64748b;
         """)
         root.addWidget(title_lbl)
 
@@ -46,7 +45,6 @@ class NumKeypad(QDialog):
         display_frame = QFrame()
         display_frame.setStyleSheet("""
             QFrame {
-                background: #16161e;
                 border-radius: 18px;
             }
         """)
@@ -60,7 +58,6 @@ class NumKeypad(QDialog):
             QLineEdit {
                 font-size: 48px;
                 font-weight: 700;
-                color: #f8fafc;
                 background: transparent;
                 border: none;
                 padding: 8px 0;

@@ -294,7 +294,6 @@ class ProductDialog(QDialog):
             font-size: 12px;
             font-weight: 700;
             letter-spacing: 3px;
-            color: #64748b;
         """)
 
         root.addWidget(icon)
@@ -442,7 +441,6 @@ class EmployeeDialog(QDialog):
             font-size: 12px;
             font-weight: 700;
             letter-spacing: 3px;
-            color: #64748b;
         """)
 
         root.addWidget(icon)
@@ -536,7 +534,6 @@ class ShiftCloseDialog(QDialog):
             font-size: 12px;
             font-weight: 700;
             letter-spacing: 3px;
-            color: #64748b;
         """)
 
         root.addWidget(icon)
@@ -564,7 +561,8 @@ class ShiftCloseDialog(QDialog):
             info_layout.addWidget(QLabel(f"Total ventas: ${cents_to_money(sums.get('total', 0))}"))
             
             expected_lbl = QLabel(f"Efectivo esperado: ${cents_to_money(expected)}")
-            expected_lbl.setStyleSheet("font-size: 18px; font-weight: 700; color: #10b981;")
+            expected_lbl.setStyleSheet("font-size: 18px; font-weight: 700;")
+            expected_lbl.setProperty("role", "success")
             info_layout.addWidget(expected_lbl)
             
             root.addWidget(info_frame)
@@ -675,7 +673,6 @@ class TicketDetailDialog(QDialog):
             font-size: 12px;
             font-weight: 700;
             letter-spacing: 3px;
-            color: #64748b;
         """)
 
         root.addWidget(icon)
@@ -686,7 +683,6 @@ class TicketDetailDialog(QDialog):
         self.txt_details.setReadOnly(True)
         self.txt_details.setStyleSheet("""
             QTextEdit {
-                background: #16161e;
                 border-radius: 12px;
                 padding: 16px;
                 font-family: 'Courier New', monospace;
@@ -827,7 +823,6 @@ class ShiftPreviewDialog(QDialog):
             font-size: 12px;
             font-weight: 700;
             letter-spacing: 3px;
-            color: #64748b;
         """)
 
         root.addWidget(icon)
@@ -846,7 +841,6 @@ class ShiftPreviewDialog(QDialog):
         self.lst_tickets = QListWidget()
         self.lst_tickets.setStyleSheet("""
             QListWidget {
-                background: #16161e;
                 border-radius: 12px;
                 padding: 8px;
                 font-family: 'Courier New', monospace;
@@ -857,18 +851,14 @@ class ShiftPreviewDialog(QDialog):
                 margin: 2px 0;
             }
             QListWidget::item:hover {
-                background: #1f1f28;
                 cursor: pointer;
-            }
-            QListWidget::item:selected {
-                background: #2a2a37;
             }
         """)
         self.lst_tickets.itemDoubleClicked.connect(self._open_ticket_details)
         root.addWidget(self.lst_tickets, 1)
         
         hint = QLabel("💡 Haz doble clic en un ticket para ver detalles y reimprimir")
-        hint.setStyleSheet("color: #64748b; font-size: 12px; font-style: italic;")
+        hint.setStyleSheet("font-size: 12px; font-style: italic;")
         hint.setAlignment(Qt.AlignCenter)
         root.addWidget(hint)
 
@@ -1074,7 +1064,6 @@ class AdminWindow(QMainWindow):
         title_lbl.setStyleSheet("""
             font-size: 26px;
             font-weight: 700;
-            color: #f8fafc;
         """)
 
         self.lang_btn = QPushButton(i18n.t("lang"))
@@ -2486,9 +2475,9 @@ class AdminWindow(QMainWindow):
         preview_frame.setObjectName("ThemePreviewFrame")
         preview_frame.setStyleSheet("""
             QFrame#ThemePreviewFrame {
-                background: #16161e;
                 border-radius: 16px;
                 padding: 16px;
+                border: 1px solid palette(mid);
             }
         """)
         preview_grid = QGridLayout(preview_frame)
@@ -2538,6 +2527,7 @@ class AdminWindow(QMainWindow):
         self.theme_name_edit = QLineEdit()
         self.theme_name_edit.setPlaceholderText(i18n.t("theme_custom") or "Mi tema")
         self.theme_name_edit.setMinimumHeight(48)
+        self.theme_name_edit.installEventFilter(self._osk_filter)  # Enable OSK for touchscreen
         name_row.addWidget(name_lbl)
         name_row.addWidget(self.theme_name_edit, 1)
         right_panel.addLayout(name_row)
