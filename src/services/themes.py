@@ -549,6 +549,7 @@ QCalendarWidget QAbstractItemView {{
 
 QTableWidget {{
     background: {colors["bg_mid"]};
+    alternate-background-color: {colors["bg_deep"]};
     border: 1px solid {colors["border"]};
     border-radius: 20px;
     gridline-color: {colors["surface"]};
@@ -560,6 +561,11 @@ QTableWidget::item {{
     padding: 16px 20px;
     color: {colors["text_primary"]};
     border-bottom: 1px solid {colors["surface"]};
+}}
+
+QHeaderView {{
+    background-color: transparent;
+    border-radius: 18px;
 }}
 
 QHeaderView::section {{
@@ -578,6 +584,11 @@ QHeaderView::section:horizontal:first {{
 
 QHeaderView::section:horizontal:last {{
     border-top-right-radius: 18px;
+}}
+
+QTableCornerButton::section {{
+    background: transparent;
+    border: none;
 }}
 
 /* ═══════════════════════════════════════════════════════════════════════════
