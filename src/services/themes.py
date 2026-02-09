@@ -226,10 +226,11 @@ QLabel#PriceTag {{
 #CartPanel {{
     background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                                 stop:0 {colors["surface"]}, 
+                                stop:0.3 {colors["surface"]}, 
                                 stop:1 {colors["bg_mid"]});
     border: 1px solid {colors["border"]};
     border-radius: 28px;
-    padding: 12px;
+    padding: 24px;
 }}
 
 #GridPanel, #AdminPanel {{
@@ -374,6 +375,7 @@ QComboBox {{
     font-size: 16px;
     min-height: 56px;
     padding: 14px 20px;
+    padding-right: 50px;
     border: 2px solid {colors["border"]};
     border-radius: 16px;
     background: {colors["bg_mid"]};
@@ -382,7 +384,7 @@ QComboBox {{
 
 QComboBox:hover {{
     border-color: {colors["border_hover"]};
-    background: {colors["surface"]};
+    background: {colors["bg_mid"]};
 }}
 
 QComboBox:focus {{
@@ -391,12 +393,8 @@ QComboBox:focus {{
 }}
 
 QComboBox::drop-down {{
-    subcontrol-origin: padding;
-    subcontrol-position: top right;
-    width: 40px;
-    border-left-width: 0px;
-    border-top-right-radius: 16px;
-    border-bottom-right-radius: 16px;
+    width: 50px;
+    border: none;
     background: transparent;
 }}
 
@@ -405,12 +403,10 @@ QComboBox::down-arrow {{
     width: 24px;
     height: 24px;
     color: {colors["text_secondary"]};
-    /* Small arrow shape using border or character */
     border-left: 2px solid transparent;
     border-right: 2px solid transparent;
     border-top: 2px solid {colors["text_secondary"]};
     margin-top: 8px;
-    margin-right: 12px;
 }}
 
 QComboBox QAbstractItemView {{
@@ -516,22 +512,35 @@ QCalendarWidget {{
     background: {colors["surface"]};
     border: 2px solid {colors["accent_primary"]};
     border-radius: 20px;
+    min-width: 380px;
+    min-height: 320px;
+}}
+
+QCalendarWidget QWidget#qt_calendar_navigationbar {{
+    background: {colors["surface_elevated"]};
+    border-radius: 12px;
+    min-height: 50px;
 }}
 
 QCalendarWidget QToolButton {{
     background: {colors["surface_elevated"]};
     color: {colors["text_primary"]};
     border-radius: 10px;
+    padding: 8px;
+    font-weight: 600;
 }}
 
 QCalendarWidget QToolButton:hover {{
     background: {colors["accent_primary"]};
+    color: #ffffff;
 }}
 
 QCalendarWidget QAbstractItemView {{
-    background: {colors["surface"]};
+    background: {colors["bg_deep"]};
     selection-background-color: {colors["accent_primary"]};
+    selection-color: #ffffff;
     color: {colors["text_primary"]};
+    outline: none;
 }}
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -574,7 +583,8 @@ QTabWidget::pane {{
     background: {colors["bg_mid"]};
     border: 1px solid {colors["border"]};
     border-radius: 24px;
-    padding: 20px;
+    padding: 24px;
+    margin-top: 16px;
 }}
 
 QTabBar::tab {{
