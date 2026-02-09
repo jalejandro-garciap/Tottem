@@ -385,6 +385,103 @@ class AdminPinDialog(QDialog):
             QMessageBox.critical(self, "PIN", i18n.t("pin_bad") or "PIN incorrecto.")
 
 
+class QtyModeDialog(QDialog):
+    """Dialog to choose between quantity or amount input."""
+    
+    MODE_QUANTITY = "qty"
+    MODE_AMOUNT = "amount"
+    
+    def __init__(self, product_name: str, unit: str, parent=None):
+        super().__init__(parent)
+        self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
+        self.setModal(True)
+        self.setMinimumWidth(400)
+        self.selected_mode = None
+        
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(32, 32, 32, 32)
+        layout.setSpacing(20)
+        
+        # Title
+        title = QLabel("¿Cómo desea agregar?")
+        title.setAlignment(Qt.AlignCenter)
+        title.setStyleSheet("font-size: 18px; font-weight: 700; color: #f8fafc;")
+        layout.addWidget(title)
+        
+        # Product name
+        prod_lbl = QLabel(product_name)
+        prod_lbl.setAlignment(Qt.AlignCenter)
+        prod_lbl.setStyleSheet("font-size: 14px; color: #94a3b8;")
+        prod_lbl.setWordWrap(True)
+        layout.addWidget(prod_lbl)
+        
+        # Buttons row
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(16)
+        
+        # Quantity button
+        btn_qty = QPushButton(f"#  Cantidad\n({unit})")
+        btn_qty.setMinimumHeight(90)
+        btn_qty.setStyleSheet("""
+            QPushButton {
+                font-size: 16px;
+                font-weight: 600;
+                background: #1a1a26;
+                border: 2px solid #2a2a3a;
+                border-radius: 16px;
+                color: #e2e8f0;
+            }
+            QPushButton:hover {
+                background: #22222e;
+                border-color: #6366f1;
+            }
+            QPushButton:pressed {
+                background: #2a2a3a;
+            }
+        """)
+        btn_qty.clicked.connect(self._select_qty)
+        btn_row.addWidget(btn_qty)
+        
+        # Amount button
+        btn_amt = QPushButton("$  Monto\n(pesos)")
+        btn_amt.setMinimumHeight(90)
+        btn_amt.setStyleSheet("""
+            QPushButton {
+                font-size: 16px;
+                font-weight: 600;
+                background: #1a1a26;
+                border: 2px solid #2a2a3a;
+                border-radius: 16px;
+                color: #e2e8f0;
+            }
+            QPushButton:hover {
+                background: #22222e;
+                border-color: #10b981;
+            }
+            QPushButton:pressed {
+                background: #2a2a3a;
+            }
+        """)
+        btn_amt.clicked.connect(self._select_amount)
+        btn_row.addWidget(btn_amt)
+        
+        layout.addLayout(btn_row)
+        
+        # Cancel button
+        btn_cancel = QPushButton(i18n.t("cancel") or "Cancelar")
+        btn_cancel.setMinimumHeight(56)
+        btn_cancel.clicked.connect(self.reject)
+        layout.addWidget(btn_cancel)
+    
+    def _select_qty(self):
+        self.selected_mode = self.MODE_QUANTITY
+        self.accept()
+    
+    def _select_amount(self):
+        self.selected_mode = self.MODE_AMOUNT
+        self.accept()
+
+
 class POSWindow(QMainWindow):
     """
     Premium Point of Sale Interface
@@ -902,9 +999,22 @@ class POSWindow(QMainWindow):
         if idx < 0 or idx >= len(self.cart):
             return
         it = self.cart[idx]
-        allow_decimal = bool(
-            self.prod_meta.get(("id", it.product_id), self.prod_meta.get(("name", it.name), {})).get("allow_decimal", False)
-        )
+        meta = self.prod_meta.get(("id", it.product_id), self.prod_meta.get(("name", it.name), {}))
+        allow_decimal = bool(meta.get("allow_decimal", False))
+        unit = meta.get("unit", "pz") or "pz"
+        
+        if allow_decimal:
+            # Show selection dialog for decimal products
+            mode_dlg = QtyModeDialog(it.name, unit, self)
+            if mode_dlg.exec() != QDialog.Accepted:
+                return
+            
+            if mode_dlg.selected_mode == QtyModeDialog.MODE_AMOUNT:
+                # Input by amount
+                self._set_qty_by_amount(idx, it)
+                return
+        
+        # Default: input by quantity
         dlg = NumKeypad(title=i18n.t("quantity") or "Cantidad", allow_decimal=allow_decimal)
         if dlg.exec() == QDialog.Accepted:
             q = dlg.value_float()
@@ -913,6 +1023,26 @@ class POSWindow(QMainWindow):
             else:
                 q = max(1.0, float(int(round(q or 0.0)) or 1))
             self.cart[idx].qty = q
+            self._refresh_list_row(idx)
+            self._refresh_total()
+    
+    def _set_qty_by_amount(self, idx: int, item: CartItem):
+        """Set quantity by entering a dollar amount."""
+        if item.price <= 0:
+            QMessageBox.warning(self, "Error", "El producto tiene precio cero.")
+            return
+        
+        # Get amount in dollars
+        dlg = NumKeypad(title="Monto ($)", allow_decimal=True)
+        if dlg.exec() == QDialog.Accepted:
+            amount = dlg.value_float()
+            if amount <= 0:
+                return
+            # Calculate quantity: amount_cents / unit_price
+            amount_cents = int(round(amount * 100))
+            qty = amount_cents / item.price
+            qty = max(0.001, min(9999.0, qty))
+            self.cart[idx].qty = qty
             self._refresh_list_row(idx)
             self._refresh_total()
 
