@@ -549,30 +549,35 @@ QCalendarWidget QAbstractItemView {{
 
 QTableWidget {{
     background: {colors["bg_mid"]};
-    border: none;
+    border: 1px solid {colors["border"]};
     border-radius: 20px;
     gridline-color: {colors["surface"]};
     selection-background-color: {colors["accent_primary"]};
+    outline: none;
 }}
 
 QTableWidget::item {{
     padding: 16px 20px;
     color: {colors["text_primary"]};
-}}
-
-QTableWidget::item:selected {{
-    background: {colors["accent_primary"]};
-    color: #ffffff;
+    border-bottom: 1px solid {colors["surface"]};
 }}
 
 QHeaderView::section {{
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 700;
     background: {colors["surface"]};
     color: {colors["text_muted"]};
     padding: 18px 20px;
     border: none;
-    border-bottom: 1px solid {colors["border"]};
+    border-bottom: 2px solid {colors["border"]};
+}}
+
+QHeaderView::section:horizontal:first {{
+    border-top-left-radius: 18px;
+}}
+
+QHeaderView::section:horizontal:last {{
+    border-top-right-radius: 18px;
 }}
 
 /* ═══════════════════════════════════════════════════════════════════════════
