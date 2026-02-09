@@ -18,15 +18,14 @@ def run():
 
     qss_path = Path(__file__).resolve().parent / "theme.qss"
     
-    # Apply saved theme or fall back to theme.qss
+    # Apply saved theme (default to dark if none saved)
     try:
         from services import themes as theme_svc
-        current_theme = theme_svc.get_current_theme()
-        if current_theme and current_theme != "dark":
-            theme_svc.apply_theme(app, current_theme)
-        elif qss_path.exists():
-            app.setStyleSheet(qss_path.read_text(encoding="utf-8"))
-    except Exception:
+        current_theme = theme_svc.get_current_theme() or "dark"
+        theme_svc.apply_theme(app, current_theme)
+    except Exception as e:
+        print(f"WARNING: Dynamic theme failed: {e}")
+        # absolute fallback
         if qss_path.exists():
             app.setStyleSheet(qss_path.read_text(encoding="utf-8"))
 

@@ -1019,6 +1019,7 @@ class ShiftPreviewDialog(QDialog):
 class LoadingOverlay(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.setObjectName("LoadingOverlay")
         self.setAttribute(Qt.WA_TransparentForMouseEvents, False)
         self.hide()
         
@@ -2732,7 +2733,6 @@ class AdminWindow(QMainWindow):
         wifi_frame.setObjectName("SystemCard")
         wifi_frame.setStyleSheet("""
             QFrame#SystemCard {
-                background: rgba(0, 0, 0, 0.25);
                 border-radius: 10px;
             }
         """)
@@ -2812,7 +2812,6 @@ class AdminWindow(QMainWindow):
         email_frame.setObjectName("SystemCard")
         email_frame.setStyleSheet("""
             QFrame#SystemCard {
-                background: rgba(0, 0, 0, 0.25);
                 border-radius: 10px;
             }
         """)
@@ -2884,7 +2883,6 @@ class AdminWindow(QMainWindow):
         ip_frame.setObjectName("SystemCard")
         ip_frame.setStyleSheet("""
             QFrame#SystemCard {
-                background: rgba(0, 0, 0, 0.15);
                 border-radius: 10px;
             }
         """)
@@ -2931,7 +2929,6 @@ class AdminWindow(QMainWindow):
         reset_frame.setObjectName("SystemCard")
         reset_frame.setStyleSheet("""
             QFrame#SystemCard {
-                background: rgba(0, 0, 0, 0.15);
                 border-radius: 10px;
             }
         """)

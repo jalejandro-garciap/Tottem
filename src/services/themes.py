@@ -160,10 +160,10 @@ QWidget {{
     font-family: "SF Pro Display", "Inter", "Segoe UI", -apple-system, sans-serif;
     font-size: 15px;
     color: {colors["text_primary"]};
-    background: {colors["bg_deep"]};
+    /* Removed global background to prevent issues with overlays and inheritance */
 }}
 
-QMainWindow {{
+QMainWindow, #POSWindow, #AdminWindow {{
     background: {colors["bg_deep"]};
 }}
 
@@ -232,17 +232,15 @@ QLabel#PriceTag {{
     padding: 24px;
 }}
 
-#GridPanel {{
-    background: transparent;
+#GridPanel, #AdminPanel {{
+    background: {colors["bg_deep"]};
     border: none;
     border-radius: 28px;
     padding: 24px;
 }}
 
-#AdminPanel {{
-    background: {colors["bg_mid"]};
-    border: 1px solid {colors["surface_elevated"]};
-    border-radius: 24px;
+#LoadingOverlay {{
+    background: transparent;
 }}
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -404,13 +402,16 @@ QComboBox::drop-down {{
 }}
 
 QComboBox::down-arrow {{
-    width: 12px;
-    height: 12px;
+    image: none;
+    width: 24px;
+    height: 24px;
+    color: {colors["text_secondary"]};
+    /* Small arrow shape using border or character */
+    border-left: 2px solid transparent;
+    border-right: 2px solid transparent;
+    border-top: 2px solid {colors["text_secondary"]};
+    margin-top: 8px;
     margin-right: 12px;
-    /* Drawing a simplified CSS arrow using borders if image fails */
-    border-left: 2px solid {colors["text_secondary"]};
-    border-bottom: 2px solid {colors["text_secondary"]};
-    /* Since we can't rotate, we can use a small Unicode character or a simpler indicator */
 }}
 
 QComboBox QAbstractItemView {{
