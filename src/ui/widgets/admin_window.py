@@ -1037,6 +1037,55 @@ class ShiftPreviewDialog(QDialog):
 
 
 
+# --- Loading Overlay ---
+class LoadingOverlay(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setAttribute(Qt.WA_TransparentForMouseEvents, False)
+        self.hide()
+        
+        layout = QVBoxLayout(self)
+        layout.setAlignment(Qt.AlignCenter)
+        
+        container = QFrame()
+        container.setObjectName("LoadingContainer")
+        container.setFixedSize(280, 160)
+        container.setStyleSheet("""
+            QFrame#LoadingContainer {
+                background: palette(window);
+                border: 2px solid palette(highlight);
+                border-radius: 24px;
+            }
+        """)
+        
+        c_layout = QVBoxLayout(container)
+        c_layout.setContentsMargins(24, 24, 24, 24)
+        c_layout.setSpacing(16)
+        
+        from ui.icon_helper import get_icon_char
+        icon = QLabel(get_icon_char("spinner") or "⏳")
+        icon.setStyleSheet("font-size: 32px; color: palette(highlight);")
+        icon.setAlignment(Qt.AlignCenter)
+        
+        msg = QLabel("Aplicando tema...")
+        msg.setStyleSheet("font-weight: 700; font-size: 16px;")
+        msg.setAlignment(Qt.AlignCenter)
+        
+        c_layout.addWidget(icon)
+        c_layout.addWidget(msg)
+        layout.addWidget(container)
+
+    def paintEvent(self, event):
+        from PySide6.QtGui import QPainter, QColor
+        painter = QPainter(self)
+        painter.fillRect(self.rect(), QColor(0, 0, 0, 140))
+
+    def show_event(self):
+        if not self.parent(): return
+        self.setGeometry(self.parent().rect())
+        self.show()
+        self.raise_()
+
 class AdminWindow(QMainWindow):
     """Premium Administration Interface"""
     
@@ -1112,6 +1161,7 @@ class AdminWindow(QMainWindow):
         lay.addWidget(self.tabs)
         self.setCentralWidget(wrap)
         self.toast_mgr = ToastManager(self)
+        self.loading_overlay = LoadingOverlay(self)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -1693,7 +1743,7 @@ class AdminWindow(QMainWindow):
 
         # Instrucción para el usuario
         hint_label = QLabel("💡 Haz doble clic en un ticket para ver detalles y reimprimir")
-        hint_label.setStyleSheet("color: #64748b; font-size: 12px; font-style: italic;")
+        hint_label.setStyleSheet("font-size: 12px; font-style: italic;")
         hint_label.setAlignment(Qt.AlignCenter)
         v.addWidget(hint_label)
 
@@ -1850,7 +1900,7 @@ class AdminWindow(QMainWindow):
         self.ed_emails.setMinimumHeight(42)
         
         lbl_recent = QLabel(i18n.t("recent_emails") or "Recientes")
-        lbl_recent.setStyleSheet("color: #94a3b8; font-weight: 600;")
+        lbl_recent.setStyleSheet("font-weight: 600;")
         
         self.cb_recent = QComboBox()
         self.cb_recent.setMinimumHeight(42)
@@ -1860,19 +1910,15 @@ class AdminWindow(QMainWindow):
         btn_add_recent = QPushButton("+")
         btn_add_recent.setFixedSize(60, 40)
         btn_add_recent.setToolTip("Agregar seleccionado")
-        btn_add_recent.setStyleSheet("""
-            QPushButton { background: #6366f1; color: white; font-weight: bold; border-radius: 6px; }
-            QPushButton:hover { background: #818cf8; }
-        """)
+        btn_add_recent.setProperty("role", "primary")
+        btn_add_recent.setStyleSheet("font-weight: bold; border-radius: 6px;")
         btn_add_recent.clicked.connect(self._add_recent_email_from_combo)
         
         btn_del_recent = QPushButton("x")
         btn_del_recent.setFixedSize(60, 40)
         btn_del_recent.setToolTip("Eliminar seleccionado")
-        btn_del_recent.setStyleSheet("""
-            QPushButton { background: rgba(239, 68, 68, 0.2); color: #ef4444; font-weight: bold; border-radius: 6px; border: 1px solid rgba(239, 68, 68, 0.3); }
-            QPushButton:hover { background: rgba(239, 68, 68, 0.3); }
-        """)
+        btn_del_recent.setProperty("role", "danger")
+        btn_del_recent.setStyleSheet("font-weight: bold; border-radius: 6px;")
         btn_del_recent.clicked.connect(self._remove_recent_email_from_combo)
 
         mail_row2.addWidget(self.ed_emails, 1) # Stretch
@@ -1889,17 +1935,15 @@ class AdminWindow(QMainWindow):
         btn_send = QPushButton(f" {icon_char} \n{i18n.t('send_mail') or 'Enviar'}")
         btn_send.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
         btn_send.setMaximumWidth(180)
+        btn_send.setProperty("role", "primary")
         btn_send.setStyleSheet("""
             QPushButton {
-                background-color: #6366f1;
                 font-size: 16px;
                 font-weight: 700;
                 border-radius: 12px;
                 padding: 10px;
                 text-align: center;
             }
-            QPushButton:hover { background-color: #818cf8; }
-            QPushButton:pressed { background-color: #4f46e5; }
         """)
         btn_send.clicked.connect(self._send_mail)
         
@@ -2606,19 +2650,32 @@ class AdminWindow(QMainWindow):
                 self.color_previews[key].setStyleSheet(f"border-radius: 12px; background: {hex_color};")
     
     def _apply_theme(self):
-        """Apply the selected theme."""
+        """Apply the selected theme with a loading indicator."""
         from services import themes as theme_svc
         from PySide6.QtWidgets import QApplication
         
         if not self._current_theme_id:
             self._toast(i18n.t("theme_select") or "Selecciona un tema.", level="warning")
             return
+            
+        self.loading_overlay.show_event()
+        # Use QTimer to allow UI to render the overlay before blocking for QSS apply
+        QTimer.singleShot(100, self._do_apply_theme)
+
+    def _do_apply_theme(self):
+        from services import themes as theme_svc
+        from PySide6.QtWidgets import QApplication
         
         app = QApplication.instance()
         if theme_svc.apply_theme(app, self._current_theme_id):
             self._toast(i18n.t("theme_applied") or "Tema aplicado.", level="success")
         else:
             self._toast("Error applying theme.", level="error")
+            
+        self.loading_overlay.hide()
+        # Refresh current tab UI if needed (some objects might need manual refresh)
+        self.style().unpolish(self)
+        self.style().polish(self)
     
     def _new_theme(self):
         """Start creating a new custom theme based on current."""
@@ -2695,9 +2752,10 @@ class AdminWindow(QMainWindow):
         
         # === Sección WiFi (lado izquierdo) ===
         wifi_frame = QFrame()
+        wifi_frame.setObjectName("SystemCard")
         wifi_frame.setStyleSheet("""
-            QFrame {
-                background: #16161e;
+            QFrame#SystemCard {
+                background: palette(mid);
                 border-radius: 10px;
             }
         """)
@@ -2707,7 +2765,8 @@ class AdminWindow(QMainWindow):
         
         wifi_icon = get_icon_char("network-wired") or "🌐"
         wifi_title = QLabel(f"{wifi_icon}  Configuración WiFi")
-        wifi_title.setStyleSheet("font-size: 13px; font-weight: 700; color: #818cf8;")
+        wifi_title.setObjectName("SectionTitleSmall")
+        wifi_title.setStyleSheet("font-size: 13px; font-weight: 700;")
         wifi_layout.addWidget(wifi_title)
         
         # SSID row
@@ -2740,9 +2799,10 @@ class AdminWindow(QMainWindow):
         status_row = QHBoxLayout()
         status_row.setSpacing(6)
         status_lbl = QLabel("Estado:")
-        status_lbl.setStyleSheet("color: #94a3b8; font-size: 11px;")
+        status_lbl.setStyleSheet("font-size: 11px;")
         self.wifi_state = QLabel("(—)")
-        self.wifi_state.setStyleSheet("color: #10b981; font-weight: 600; font-size: 11px;")
+        self.wifi_state.setStyleSheet("font-weight: 600; font-size: 11px;")
+        self.wifi_state.setProperty("role", "success")
         btn_state = QPushButton("Actualizar")
         btn_state.setMinimumSize(90, 28)
         btn_state.setToolTip("Actualizar estado")
@@ -2772,9 +2832,10 @@ class AdminWindow(QMainWindow):
         
         # === Sección Email Gmail (lado derecho, 50% ancho) ===
         email_frame = QFrame()
+        email_frame.setObjectName("SystemCard")
         email_frame.setStyleSheet("""
-            QFrame {
-                background: #16161e;
+            QFrame#SystemCard {
+                background: palette(mid);
                 border-radius: 10px;
             }
         """)
@@ -2784,12 +2845,12 @@ class AdminWindow(QMainWindow):
         
         email_icon = get_icon_char("envelope") or "📧"
         email_title = QLabel(f"{email_icon}  Configuración Gmail")
-        email_title.setStyleSheet("font-size: 13px; font-weight: 700; color: #818cf8;")
-        email_layout.addWidget(email_title)
+        email_title.setObjectName("SectionTitleSmall")
+        email_title.setStyleSheet("font-size: 13px; font-weight: 700;")
         
         # Gmail user
         user_lbl = QLabel("Cuenta Gmail:")
-        user_lbl.setStyleSheet("color: #94a3b8; font-size: 11px;")
+        user_lbl.setStyleSheet("font-size: 11px;")
         email_layout.addWidget(user_lbl)
         
         self.gmail_user = QLineEdit()
@@ -2799,7 +2860,7 @@ class AdminWindow(QMainWindow):
         
         # Gmail password
         pass_lbl = QLabel("Contraseña de App:")
-        pass_lbl.setStyleSheet("color: #94a3b8; font-size: 11px;")
+        pass_lbl.setStyleSheet("font-size: 11px;")
         email_layout.addWidget(pass_lbl)
         
         self.gmail_pass = QLineEdit()
@@ -2818,7 +2879,7 @@ class AdminWindow(QMainWindow):
         
         # Note
         note = QLabel("Usa contraseña de aplicación.\nmyaccount.google.com/apppasswords")
-        note.setStyleSheet("color: #64748b; font-size: 10px;")
+        note.setStyleSheet("font-size: 10px;")
         note.setWordWrap(True)
         email_layout.addWidget(note)
         
@@ -2834,7 +2895,7 @@ class AdminWindow(QMainWindow):
         # --- Separador ---
         separator = QFrame()
         separator.setFrameShape(QFrame.HLine)
-        separator.setStyleSheet("background-color: #2a2a3a; max-height: 1px;")
+        separator.setStyleSheet("max-height: 1px; border: 1px solid palette(mid);")
         main_layout.addWidget(separator)
         
         # --- Bottom Section: Public IP (left) + Factory Reset (right) ---
@@ -2843,9 +2904,10 @@ class AdminWindow(QMainWindow):
         
         # === Public IP and Remote Support (60-70% left) ===
         ip_frame = QFrame()
+        ip_frame.setObjectName("SystemCard")
         ip_frame.setStyleSheet("""
-            QFrame {
-                background: #16161e;
+            QFrame#SystemCard {
+                background: palette(mid);
                 border-radius: 10px;
             }
         """)
@@ -2855,16 +2917,18 @@ class AdminWindow(QMainWindow):
         
         server_icon = get_icon_char("server") or "🖥"
         ip_title = QLabel(f"{server_icon}  Conectividad & Soporte")
-        ip_title.setStyleSheet("font-size: 13px; font-weight: 700; color: #818cf8;")
+        ip_title.setObjectName("SectionTitleSmall")
+        ip_title.setStyleSheet("font-size: 13px; font-weight: 700;")
         ip_layout.addWidget(ip_title)
         
         # Public IP row
         ip_row = QHBoxLayout()
         ip_row.setSpacing(8)
         ip_lbl = QLabel(i18n.t("public_ip") or "IP Pública:")
-        ip_lbl.setStyleSheet("color: #94a3b8; font-size: 11px;")
+        ip_lbl.setStyleSheet("font-size: 11px;")
         self.lbl_public_ip = QLabel(i18n.t("getting_ip") or "Obteniendo...")
-        self.lbl_public_ip.setStyleSheet("color: #10b981; font-weight: 700; font-size: 14px;")
+        self.lbl_public_ip.setStyleSheet("font-weight: 700; font-size: 14px;")
+        self.lbl_public_ip.setProperty("role", "success")
         self.lbl_public_ip.setTextInteractionFlags(Qt.TextSelectableByMouse)
         btn_refresh_ip = QPushButton(i18n.t("prod_refresh") or "Actualizar")
         btn_refresh_ip.setMinimumSize(90, 28)
@@ -2877,7 +2941,7 @@ class AdminWindow(QMainWindow):
         
         # SSH note
         ssh_note = QLabel(i18n.t("ssh_support_note") or "Para soporte remoto, usa SSH con esta IP.")
-        ssh_note.setStyleSheet("color: #64748b; font-size: 10px;")
+        ssh_note.setStyleSheet("font-size: 10px;")
         ssh_note.setWordWrap(True)
         ip_layout.addWidget(ssh_note)
         
@@ -2887,9 +2951,10 @@ class AdminWindow(QMainWindow):
         
         # === Factory Reset (30-40% right) ===
         reset_frame = QFrame()
+        reset_frame.setObjectName("SystemCard")
         reset_frame.setStyleSheet("""
-            QFrame {
-                background: #16161e;
+            QFrame#SystemCard {
+                background: palette(mid);
                 border-radius: 10px;
             }
         """)
@@ -2899,7 +2964,8 @@ class AdminWindow(QMainWindow):
         
         gear_icon = get_icon_char("gears") or "⚙️"
         reset_title = QLabel(f"{gear_icon}  Sistema")
-        reset_title.setStyleSheet("font-size: 13px; font-weight: 700; color: #818cf8;")
+        reset_title.setObjectName("SectionTitleSmall")
+        reset_title.setStyleSheet("font-size: 13px; font-weight: 700;")
         reset_layout.addWidget(reset_title)
         
         reset_layout.addStretch()
@@ -2927,7 +2993,8 @@ class AdminWindow(QMainWindow):
         reset_layout.addWidget(btn_factory_reset)
         
         factory_note = QLabel(i18n.t("factory_reset_warning") or "⚠ Elimina todos los datos")
-        factory_note.setStyleSheet("color: #f87171; font-size: 9px;")
+        factory_note.setStyleSheet("font-size: 9px;")
+        factory_note.setProperty("role", "danger")
         factory_note.setAlignment(Qt.AlignCenter)
         reset_layout.addWidget(factory_note)
         

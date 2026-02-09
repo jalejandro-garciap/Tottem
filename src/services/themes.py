@@ -547,7 +547,7 @@ QHeaderView::section {{
 
 QTabWidget::pane {{
     background: {colors["bg_mid"]};
-    border: 1px solid {colors["surface_elevated"]};
+    border: 1px solid {colors["border"]};
     border-radius: 24px;
     padding: 20px;
 }}
