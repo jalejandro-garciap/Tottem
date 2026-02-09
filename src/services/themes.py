@@ -8,6 +8,7 @@ custom theme creation and persistence via config.yaml.
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 import yaml
+from services.settings import load_config, save_config
 
 ROOT = Path(__file__).resolve().parents[2]
 CONFIG_PATH = ROOT / "config" / "config.yaml"
@@ -67,36 +68,22 @@ THEMES: Dict[str, Dict[str, str]] = {
 }
 
 
-def _load_config() -> dict:
-    """Load config.yaml"""
-    if CONFIG_PATH.exists():
-        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
-            return yaml.safe_load(f) or {}
-    return {}
-
-
-def _save_config(data: dict) -> None:
-    """Save config.yaml with safety checks."""
-    if not isinstance(data, dict) or not data:
-        print("Warning: Attempted to save invalid or empty config. Aborting.")
-        return
-    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
-        yaml.safe_dump(data, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+# Using load_config and save_config from services.settings
 
 
 def get_current_theme() -> str:
     """Get the currently active theme name."""
-    cfg = _load_config()
+    cfg = load_config()
     return cfg.get("ui", {}).get("theme", "dark")
 
 
 def set_current_theme(name: str) -> None:
     """Set the active theme."""
-    cfg = _load_config()
+    cfg = load_config()
     if "ui" not in cfg:
         cfg["ui"] = {}
     cfg["ui"]["theme"] = name
-    _save_config(cfg)
+    save_config(cfg)
 
 
 def get_theme(name: str) -> Optional[Dict[str, str]]:
@@ -105,7 +92,7 @@ def get_theme(name: str) -> Optional[Dict[str, str]]:
     if name in THEMES:
         return THEMES[name].copy()
     # Check custom
-    cfg = _load_config()
+    cfg = load_config()
     custom = cfg.get("ui", {}).get("custom_themes", {})
     return custom.get(name)
 
@@ -123,7 +110,7 @@ def list_themes() -> List[Dict[str, Any]]:
             "colors": data,
         })
     # Custom themes
-    cfg = _load_config()
+    cfg = load_config()
     custom = cfg.get("ui", {}).get("custom_themes", {})
     for key, data in custom.items():
         themes.append({
@@ -138,22 +125,22 @@ def list_themes() -> List[Dict[str, Any]]:
 
 def save_custom_theme(theme_id: str, colors: Dict[str, str]) -> None:
     """Save a custom theme to config."""
-    cfg = _load_config()
+    cfg = load_config()
     if "ui" not in cfg:
         cfg["ui"] = {}
     if "custom_themes" not in cfg["ui"]:
         cfg["ui"]["custom_themes"] = {}
     cfg["ui"]["custom_themes"][theme_id] = colors
-    _save_config(cfg)
+    save_config(cfg)
 
 
 def delete_custom_theme(theme_id: str) -> bool:
     """Delete a custom theme. Returns True if deleted."""
-    cfg = _load_config()
+    cfg = load_config()
     custom = cfg.get("ui", {}).get("custom_themes", {})
     if theme_id in custom:
         del custom[theme_id]
-        _save_config(cfg)
+        save_config(cfg)
         return True
     return False
 
@@ -404,6 +391,26 @@ QComboBox:hover {{
 QComboBox:focus {{
     border-color: {colors["accent_primary"]};
     background: {colors["surface"]};
+}}
+
+QComboBox::drop-down {{
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    width: 40px;
+    border-left-width: 0px;
+    border-top-right-radius: 16px;
+    border-bottom-right-radius: 16px;
+    background: transparent;
+}}
+
+QComboBox::down-arrow {{
+    width: 12px;
+    height: 12px;
+    margin-right: 12px;
+    /* Drawing a simplified CSS arrow using borders if image fails */
+    border-left: 2px solid {colors["text_secondary"]};
+    border-bottom: 2px solid {colors["text_secondary"]};
+    /* Since we can't rotate, we can use a small Unicode character or a simpler indicator */
 }}
 
 QComboBox QAbstractItemView {{

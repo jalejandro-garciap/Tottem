@@ -44,7 +44,7 @@ from services.reports import (
 )
 from services.receipts import render_ticket
 from services.emailer import send_mail, recent_emails
-from services.settings import is_categories_enabled, set_categories_enabled
+from services.settings import load_config, save_config, is_categories_enabled, set_categories_enabled
 from ui.icon_helper import get_icon_char
 from ui.widgets.osk import OnScreenKeyboard
 from ui.widgets.keypad import NumKeypad
@@ -61,18 +61,8 @@ ROOT = Path(__file__).resolve().parents[3]
 CONFIG_PATH = ROOT / "config" / "config.yaml"
 
 
-def _load_settings() -> dict:
-    try:
-        return yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8")) or {}
-    except Exception:
-        return {}
-
-
-def _save_settings(data: dict) -> None:
-    CONFIG_PATH.write_text(
-        yaml.safe_dump(data, allow_unicode=True, sort_keys=False),
-        encoding="utf-8"
-    )
+# Removed local _load_settings and _save_settings. 
+# Using load_config and save_config from services.settings instead.
 
 
 def _intval(s: str) -> int:
@@ -318,21 +308,9 @@ class ProductDialog(QDialog):
         self.combo_icon.setMinimumHeight(64)  # Touch-friendly height
         self.combo_icon.setMaxVisibleItems(8)  # Reduce scroll, show 8 items at once
         
-        # Touch-friendly styling
-        self.combo_icon.setStyleSheet("""
-            QComboBox {
-                font-size: 16px;
-                padding: 12px;
-            }
-            QComboBox::drop-down {
-                width: 50px;
-            }
-            QComboBox QAbstractItemView::item {
-                min-height: 56px;
-                padding: 12px 16px;
-                font-size: 16px;
-            }
-        """)
+        # Touch-friendly settings
+        self.combo_icon.setMinimumHeight(64)
+        self.combo_icon.setMaxVisibleItems(8)
         
         # Add "No icon" option first
         self.combo_icon.addItem("(Sin ícono)", "")
@@ -1216,7 +1194,7 @@ class AdminWindow(QMainWindow):
         h = ph.hash(new1)
         data = _load_settings()
         data.setdefault("security", {})["admin_pin_hash"] = h
-        _save_settings(data)
+        save_config(data)
         QMessageBox.information(self, "PIN", i18n.t("pin_saved"))
 
     # ---------- Devices
@@ -1258,7 +1236,7 @@ class AdminWindow(QMainWindow):
         self.iface_spin.setRange(0, 9)
         self.out_ep = QLineEdit()
         self.in_ep = QLineEdit()
-        cur = _load_settings()
+        cur = load_config()
         pr = cur.get("hardware", {}).get("printer", {})
         self.vendor_id.setText(_fmt_hex(pr.get("vendor_id")))
         self.product_id.setText(_fmt_hex(pr.get("product_id")))
@@ -1301,7 +1279,7 @@ class AdminWindow(QMainWindow):
         if not items:
             QMessageBox.warning(self, i18n.t("devices"), i18n.t("no_printers"))
             return
-        cur = _load_settings().get("hardware", {}).get("printer", {})
+        cur = load_config().get("hardware", {}).get("printer", {})
         self._prefill_printer_combo_from_config(cur)
         for d in items:
             vendor = d.get("manufacturer") or "USB"
@@ -1336,7 +1314,7 @@ class AdminWindow(QMainWindow):
         pr["interface"] = int(d.get("interface", 0))
         pr["out_ep"] = int(d["eps_out"][0]) if d.get("eps_out") else None
         pr["in_ep"] = int(d["eps_in"][0]) if d.get("eps_in") else None
-        _save_settings(data)
+        save_config(data)
         self.vendor_id.setText(_fmt_hex(pr["vendor_id"]))
         self.product_id.setText(_fmt_hex(pr["product_id"]))
         self.iface_spin.setValue(int(pr["interface"]))
@@ -1345,7 +1323,7 @@ class AdminWindow(QMainWindow):
         QMessageBox.information(self, i18n.t("devices"), i18n.t("saved_ok"))
 
     def _save_printer_advanced(self):
-        data = _load_settings()
+        data = load_config()
         pr = data.setdefault("hardware", {}).setdefault("printer", {})
         pr["vendor_id"] = _intval(self.vendor_id.text())
         pr["product_id"] = _intval(self.product_id.text())
@@ -1354,7 +1332,7 @@ class AdminWindow(QMainWindow):
         in_txt = (self.in_ep.text() or "").strip()
         pr["out_ep"] = _intval(out_txt) if out_txt else None
         pr["in_ep"] = _intval(in_txt) if in_txt else None
-        _save_settings(data)
+        save_config(data)
         QMessageBox.information(self, i18n.t("devices"), i18n.t("saved_adv_ok"))
 
     def _test_print(self):
@@ -1375,7 +1353,7 @@ class AdminWindow(QMainWindow):
     def _tab_store(self) -> QWidget:
         w = QWidget()
         f = QFormLayout(w)
-        s = _load_settings()
+        s = load_config()
         st = s.get("store", {})
         self.name = QLineEdit(st.get("name", ""))
         self.rfc = QLineEdit(st.get("rfc", ""))
@@ -1394,14 +1372,14 @@ class AdminWindow(QMainWindow):
         return w
 
     def _save_store(self):
-        data = _load_settings()
+        data = load_config()
         data["store"] = {
             "name": self.name.text(),
             "rfc": self.rfc.text(),
             "ticket_header": self.header.text(),
             "ticket_footer": self.footer.text(),
         }
-        _save_settings(data)
+        save_config(data)
         QMessageBox.information(self, i18n.t("tab_store"), i18n.t("store_saved"))
 
     # ---------- Products (con Categoría + filtros)

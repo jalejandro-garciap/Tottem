@@ -420,14 +420,13 @@ class QtyModeDialog(QDialog):
             QPushButton {
                 font-size: 16px;
                 font-weight: 600;
-                background: #1a1a26;
-                border: 2px solid #2a2a3a;
+                background: rgba(0, 0, 0, 0.1);
+                border: 2px solid palette(mid);
                 border-radius: 16px;
-                color: #e2e8f0;
             }
             QPushButton:hover {
-                background: #22222e;
-                border-color: #6366f1;
+                background: rgba(0, 0, 0, 0.2);
+                border-color: palette(highlight);
             }
             QPushButton:pressed {
                 background: #2a2a3a;
@@ -443,14 +442,13 @@ class QtyModeDialog(QDialog):
             QPushButton {
                 font-size: 16px;
                 font-weight: 600;
-                background: #1a1a26;
-                border: 2px solid #2a2a3a;
+                background: rgba(0, 0, 0, 0.1);
+                border: 2px solid palette(mid);
                 border-radius: 16px;
-                color: #e2e8f0;
             }
             QPushButton:hover {
-                background: #22222e;
-                border-color: #10b981;
+                background: rgba(0, 0, 0, 0.2);
+                border-color: palette(highlight);
             }
             QPushButton:pressed {
                 background: #2a2a3a;
@@ -1141,8 +1139,13 @@ class POSWindow(QMainWindow):
         from PySide6.QtCore import QTimer
 
         # Create and show admin window first to avoid white flash
-        self._admin_win = AdminWindow()
-        self._admin_win.showFullScreen()
+        try:
+            self._admin_win = AdminWindow()
+            self._admin_win.showFullScreen()
+        except Exception as e:
+            QMessageBox.critical(self, "Admin", f"Error al iniciar administrador: {e}")
+            print(f"AdminWindow Error: {e}")
+            return
         
         # Hide kiosk after a small delay to ensure admin is rendered
         QTimer.singleShot(100, self.hide)
