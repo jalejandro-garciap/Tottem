@@ -6,7 +6,7 @@ from PySide6.QtWidgets import (
     QFrame, QStackedLayout, QTextEdit, QDialogButtonBox, QDateEdit,
     QToolButton, QMenu, QWidgetAction, QSizePolicy
 )
-from PySide6.QtCore import Qt, QObject, QEvent, QTimer, QDate
+from PySide6.QtCore import Qt, QObject, QEvent, QTimer, QDate, QLocale
 from pathlib import Path
 
 import sys
@@ -1825,8 +1825,11 @@ class AdminWindow(QMainWindow):
         left_col.setSpacing(12)
 
         # Row 1: Dates
+        loc = QLocale(QLocale.Spanish) if i18n.current_lang() == "es" else QLocale(QLocale.English)
+        
         dates_row = QHBoxLayout()
         self.date_from = QDateEdit()
+        self.date_from.setLocale(loc)
         self.date_from.setMinimumHeight(56)
         self.date_from.setCalendarPopup(True)
         self.date_from.setDisplayFormat("yyyy-MM-dd")
@@ -1834,6 +1837,7 @@ class AdminWindow(QMainWindow):
         self.date_from.removeEventFilter(self._osk_filter)
 
         self.date_to = QDateEdit()
+        self.date_to.setLocale(loc)
         self.date_to.setMinimumHeight(56)
         self.date_to.setCalendarPopup(True)
         self.date_to.setDisplayFormat("yyyy-MM-dd")
