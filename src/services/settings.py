@@ -18,6 +18,10 @@ def load_config() -> Dict[str, Any]:
 
 
 def save_config(cfg: Dict[str, Any]) -> None:
+    """Save config.yaml with safety checks."""
+    if not isinstance(cfg, dict) or not cfg:
+        print("Warning: Attempted to save invalid or empty config. Aborting.")
+        return
     CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
     with CONFIG_PATH.open("w", encoding="utf-8") as f:
         yaml.safe_dump(cfg, f, sort_keys=False, allow_unicode=True)

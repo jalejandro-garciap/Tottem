@@ -1,14 +1,8 @@
 store:
   name: Mi Tienda
   rfc: XAXX010101000
-  ticket_header: 'Mi Tienda
-
-    RFC: XAXX010101000
-
-    '
-  ticket_footer: 'Gracias por su compra
-
-    '
+  ticket_header: "Mi Tienda\n\nRFC: XAXX010101000\n\n"
+  ticket_footer: "Gracias por su compra\n\n"
 hardware:
   printer:
     vendor_id: 1046

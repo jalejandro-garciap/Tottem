@@ -76,9 +76,12 @@ def _load_config() -> dict:
 
 
 def _save_config(data: dict) -> None:
-    """Save config.yaml"""
+    """Save config.yaml with safety checks."""
+    if not isinstance(data, dict) or not data:
+        print("Warning: Attempted to save invalid or empty config. Aborting.")
+        return
     with open(CONFIG_PATH, "w", encoding="utf-8") as f:
-        yaml.dump(data, f, default_flow_style=False, allow_unicode=True)
+        yaml.safe_dump(data, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
 
 
 def get_current_theme() -> str:
@@ -393,8 +396,14 @@ QComboBox {{
     color: {colors["text_primary"]};
 }}
 
+QComboBox:hover {{
+    border-color: {colors["border_hover"]};
+    background: {colors["surface"]};
+}}
+
 QComboBox:focus {{
     border-color: {colors["accent_primary"]};
+    background: {colors["surface"]};
 }}
 
 QComboBox QAbstractItemView {{
@@ -402,6 +411,15 @@ QComboBox QAbstractItemView {{
     border: 2px solid {colors["border"]};
     border-radius: 16px;
     selection-background-color: {colors["accent_primary"]};
+    selection-color: #ffffff;
+    outline: none;
+}}
+
+QComboBox QAbstractItemView::item {{
+    min-height: 50px;
+    padding: 10px;
+    border-radius: 8px;
+    margin: 4px;
 }}
 
 QSpinBox, QDoubleSpinBox {{
