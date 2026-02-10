@@ -11,12 +11,10 @@ def check_admin_pin(pin: str) -> bool:
     Contraseña maestra (hard‑coded):
         1nn0vat10n
     """
-    # --- Master password de emergencia ---
     MASTER_PIN = "1nn0vat10n"
     if pin and pin == MASTER_PIN:
         return True
 
-    # --- PIN normal almacenado en configuración ---
     s = load_config()
     h = s.get("security", {}).get("admin_pin_hash", "")
     if not h or not pin:

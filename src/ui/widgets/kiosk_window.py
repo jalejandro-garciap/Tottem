@@ -2,19 +2,15 @@
 TOTTEM POS · Kiosk Interface
 Premium Point of Sale Experience
 """
-import subprocess
-import sys
-import os
 import math
 from pathlib import Path
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QLabel, QPushButton,
     QGridLayout, QListWidget, QHBoxLayout, QSizePolicy, QScrollArea,
-    QMessageBox, QDialog, QLineEdit, QApplication, QStyle, QFrame,
-    QListWidgetItem
+    QMessageBox, QDialog, QLineEdit, QFrame
 )
 from PySide6.QtCore import Qt, QSize, QEvent
-from PySide6.QtGui import QCursor, QGuiApplication, QFontMetrics, QIcon, QFont
+from PySide6.QtGui import QCursor, QGuiApplication, QFontMetrics
 
 from services.sales import (
     get_active_products, CartItem, save_ticket,
@@ -195,7 +191,6 @@ class PaymentDialog(QDialog):
         self.lbl_received.setText(f"${self._fmt(self.received)}")
         self.lbl_change.setText(f"${self._fmt(change)}")
         
-        # Color feedback
         if self.received >= self.total:
             self.lbl_received.setStyleSheet("""
                 font-size: 28px; font-weight: 700; color: #10b981;
@@ -263,7 +258,7 @@ class AdminPinDialog(QDialog):
         title.setAlignment(Qt.AlignCenter)
         title.setStyleSheet("font-size: 20px;")
 
-        subtitle = QLabel("Ingrese su PIN de seguridad")
+        subtitle = QLabel(i18n.t("admin_pin_subtitle") or "Ingrese su PIN de seguridad")
         subtitle.setAlignment(Qt.AlignCenter)
         subtitle.setStyleSheet("font-size: 14px;")
 
@@ -284,11 +279,9 @@ class AdminPinDialog(QDialog):
         """)
         self.ed_pin.setPlaceholderText("• • • •")
 
-        # ─── Keypad numérico integrado ─────────────────────────────────────
         keypad = QGridLayout()
         keypad.setSpacing(8)
 
-        # Números 1–9
         nums = [
             ("1", 0, 0), ("2", 0, 1), ("3", 0, 2),
             ("4", 1, 0), ("5", 1, 1), ("6", 1, 2),
@@ -301,7 +294,6 @@ class AdminPinDialog(QDialog):
             b.clicked.connect(lambda _=None, t=txt: self._press_digit(t))
             keypad.addWidget(b, r, c)
 
-        # Fila inferior: Limpiar, 0, Borrar
         btn_clear = QPushButton("C")
         btn_clear.setMinimumHeight(48)
         btn_clear.setProperty("role", "danger")
@@ -325,7 +317,7 @@ class AdminPinDialog(QDialog):
         btn_row.setSpacing(16)
         btn_cancel = QPushButton(i18n.t("cancel") or "Cancelar")
         btn_cancel.setMinimumHeight(64)
-        btn_ok = QPushButton("→  Acceder")
+        btn_ok = QPushButton(f"→  {i18n.t('admin_access') or 'Acceder'}")
         btn_ok.setMinimumHeight(64)
         btn_ok.setProperty("role", "primary")
         btn_cancel.clicked.connect(self.reject)
@@ -360,7 +352,7 @@ class AdminPinDialog(QDialog):
     def _on_ok(self):
         pin = self.ed_pin.text() or ""
         if not pin:
-            QMessageBox.warning(self, "PIN", i18n.t("pin_required") or "Capture el PIN.")
+            QMessageBox.warning(self, i18n.t("admin_pin_title") or "PIN", i18n.t("pin_required") or "Capture el PIN.")
             return
         if check_admin_pin(pin):
             self.accept()
@@ -376,7 +368,7 @@ class AdminPinDialog(QDialog):
                     border-radius: 18px;
                 }
             """)
-            QMessageBox.critical(self, "PIN", i18n.t("pin_bad") or "PIN incorrecto.")
+            QMessageBox.critical(self, i18n.t("admin_pin_title") or "PIN", i18n.t("pin_bad") or "PIN incorrecto.")
 
 
 class QtyModeDialog(QDialog):
@@ -553,7 +545,7 @@ class POSWindow(QMainWindow):
         self.title_lbl = QLabel(i18n.t("cart") or "Carrito")
         self.title_lbl.setObjectName("SectionTitle")
 
-        self.lang_btn = QPushButton(i18n.t("lang"))
+        self.lang_btn = QPushButton(i18n.lang_switch_label())
         self.lang_btn.setMinimumSize(56, 48)
         self.lang_btn.setProperty("role", "ghost")
         self.lang_btn.clicked.connect(self._toggle_lang)
@@ -699,7 +691,6 @@ class POSWindow(QMainWindow):
     # ═══════════════════════════════════════════════════════════════════════
     # GRID & CATEGORIES
     # ═══════════════════════════════════════════════════════════════════════
-
     def _extract_categories(self, items: list[dict]) -> list[str]:
         cats = []
         for p in items:
@@ -775,7 +766,6 @@ class POSWindow(QMainWindow):
         right_min = self._target_right_min_width(total_w)
         self.right_wrap.setMinimumWidth(right_min)
 
-        # Restar: panel derecho + márgenes del root (16*2) + spacing entre paneles (16)
         container_margins = 16 * 2  # Left + Right margins del contenedor principal
         panel_spacing = 16           # Spacing entre grid panel y cart panel
 
@@ -911,7 +901,6 @@ class POSWindow(QMainWindow):
     # ═══════════════════════════════════════════════════════════════════════
     # CART OPERATIONS
     # ═══════════════════════════════════════════════════════════════════════
-
     def _fmt_qty(self, q: float) -> str:
         if abs(q - round(q)) < 1e-6:
             return str(int(round(q)))
@@ -1064,7 +1053,6 @@ class POSWindow(QMainWindow):
     # ═══════════════════════════════════════════════════════════════════════
     # CHECKOUT
     # ═══════════════════════════════════════════════════════════════════════
-
     def charge(self):
         """Procesar pago y guardar ticket.
         
@@ -1073,7 +1061,6 @@ class POSWindow(QMainWindow):
         if not self.cart:
             return
         
-        # CRÍTICO: Validar que hay turno activo
         from services.shifts import current_shift
         sh = current_shift()
         if not sh:
@@ -1092,8 +1079,7 @@ class POSWindow(QMainWindow):
             return
         paid_cents, change_cents = dlg.result_values()
 
-        # Guardar ticket asociado al turno activo
-        ticket_id = save_ticket(self.cart, shift_id=sh["id"])
+        save_ticket(self.cart, shift_id=sh["id"])
         
         try:
             try:
@@ -1158,12 +1144,11 @@ class POSWindow(QMainWindow):
     # ═══════════════════════════════════════════════════════════════════════
     # LANGUAGE
     # ═══════════════════════════════════════════════════════════════════════
-
     def _toggle_lang(self):
         i18n.toggle()
         self.setWindowTitle(i18n.t("title"))
         self.title_lbl.setText(i18n.t("cart"))
-        self.lang_btn.setText(i18n.t("lang"))
+        self.lang_btn.setText(i18n.lang_switch_label())
         self.btn_reprint.setToolTip(i18n.t("reprint") or "Reimprimir")
         self.btn_remove.setToolTip(i18n.t("delete") or "Eliminar")
         self.btn_clear.setText(i18n.t("clear_cart") or "Vaciar")

@@ -1,8 +1,8 @@
 # comments in English; UI strings will be provided by the caller
-import usb.core, usb.util
+import usb.core
+import usb.util
 
 def _endpoint_addr(ep):
-    # Return integer address of endpoint
     return int(ep.bEndpointAddress)
 
 def scan_printers():
@@ -48,6 +48,8 @@ def scan_printers():
     seen = set()
     for d in devices:
         k = (d['vid'], d['pid'])
-        if k in seen: continue
-        seen.add(k); uniq.append(d)
+        if k in seen:
+            continue
+        seen.add(k)
+        uniq.append(d)
     return uniq

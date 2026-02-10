@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-# services/receipts.py — Renderiza texto de ticket (ESC/POS)
 
 from __future__ import annotations
 from typing import Iterable, Optional
@@ -43,7 +42,6 @@ def render_ticket(
     else:
         out.append("Mi Tienda\n")
 
-    # Agregar metadatos del ticket si están disponibles
     if ticket_number is not None:
         out.append(f"\nTicket: {ticket_number}\n")
     if served_by:
@@ -63,7 +61,6 @@ def render_ticket(
     out.append("------------------------------\n")
     out.append(f"TOTAL: $ {cents_to_money(total)}\n")
 
-    # Mostrar pago y cambio si están disponibles
     if paid_cents is not None and paid_cents > 0:
         out.append(f"Pago:  $ {cents_to_money(int(paid_cents))}\n")
     if change_cents is not None and change_cents > 0:

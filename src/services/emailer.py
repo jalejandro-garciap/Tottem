@@ -26,10 +26,8 @@ def _create_html_email_report(date_from: str, date_to: str, stats: dict) -> str:
     """
     Crea un email HTML compacto y adaptable.
     """
-    # Formatear total
     total_formatted = f"{stats['total_cents'] / 100:,.2f}"
     
-    # Formatear fechas
     from datetime import datetime
     dt_from = datetime.strptime(date_from, "%Y-%m-%d")
     dt_to = datetime.strptime(date_to, "%Y-%m-%d")
@@ -122,7 +120,6 @@ def send_mail(subject: str, body: str, recipients: List[str],
           gmail_user: "user@gmail.com"      # Para Gmail con yagmail
           gmail_pass: "app_password"         # Contraseña de aplicación
           
-          # O configuración SMTP tradicional:
           smtp_host: "smtp.example.com"
           smtp_port: 587
           use_tls: true
@@ -135,12 +132,10 @@ def send_mail(subject: str, body: str, recipients: List[str],
     cfg = _load_cfg()
     email_cfg = (cfg.get("notifications", {}) or {}).get("email", {}) or {}
     
-    # Intentar usar Gmail/yagmail primero
     gmail_user = email_cfg.get("gmail_user", "").strip()
     gmail_pass = email_cfg.get("gmail_pass", "").strip()
     
     if gmail_user and gmail_pass:
-        # Usar yagmail para Gmail
         try:
             import yagmail
         except ImportError:
@@ -149,32 +144,26 @@ def send_mail(subject: str, body: str, recipients: List[str],
         try:
             yag = yagmail.SMTP(gmail_user, gmail_pass)
             
-            # yagmail usa HTML automáticamente si detecta tags HTML
             email_contents = html_body if html_body else body
             
-            # Preparar adjuntos para yagmail
             attachments_yagmail = []
             if attachments:
-                # yagmail necesita archivos temporales para adjuntos desde bytes
                 import tempfile
                 import os
                 temp_files = []
                 for fname, data in attachments:
-                    # Crear archivo temporal
                     fd, path = tempfile.mkstemp(suffix=f"_{fname}")
                     os.write(fd, data)
                     os.close(fd)
                     temp_files.append(path)
                     attachments_yagmail.append(path)
                 
-                # Enviar email
                 yag.send(to=recipients, subject=subject, contents=email_contents, attachments=attachments_yagmail)
                 
-                # Limpiar archivos temporales
                 for path in temp_files:
                     try:
                         os.remove(path)
-                    except:
+                    except OSError:
                         pass
             else:
                 yag.send(to=recipients, subject=subject, contents=email_contents)
@@ -200,7 +189,6 @@ def send_mail(subject: str, body: str, recipients: List[str],
     msg["From"] = from_addr
     msg["To"] = ", ".join(recipients)
     
-    # Si hay HTML, configurar contenido multipart
     if html_body:
         msg.set_content(body)  # Texto plano como fallback
         msg.add_alternative(html_body, subtype='html')  # HTML como alternativa

@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import List, Optional, Dict, Any
 from services.sales import (
-    connect, cents_to_money, money_to_cents,
+    money_to_cents,
     list_products as _list_products_core,
     list_products_by_category,
     get_product as _get_product_core,
@@ -47,7 +47,6 @@ def update_product(*, product_id: int, name: str, price_money: str | float | int
     )
 
 def set_active(product_id: int, active: bool) -> None:
-    # simple helper using update with same data
     data = _get_product_core(product_id)
     if not data:
         return

@@ -182,14 +182,12 @@ def save_ticket(
     if not items:
         raise ValueError("No hay items para guardar en el ticket")
     
-    # Obtener shift_id si no se proporcionó
     if shift_id is None:
         from services.shifts import current_shift
         sh = current_shift()
         shift_id = sh["id"] if sh else None
     total_cents = int(round(sum(round(i.price * i.qty) for i in items)))
     with connect() as c:
-        # CRÍTICO: Incluir shift_id para asociar venta con turno, y paid/change
         cur = c.execute("""
             INSERT INTO ticket(ts, total, shift_id, paid, change_amount) 
             VALUES(datetime('now'), ?, ?, ?, ?)

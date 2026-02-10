@@ -35,6 +35,8 @@ _STRINGS: Dict[str, Dict[str, str]] = {
         "pin_saved": "PIN actualizado. Reinicia la aplicación.",
         "admin_pin_prompt": "Ingrese PIN de administrador",
         "admin_pin_title": "PIN de administrador",
+        "admin_pin_subtitle": "Ingrese su PIN de seguridad",
+        "admin_access": "Acceder",
 
         # Devices
         "printer_simple_title": "Impresora ESC/POS (Modo simple)",
@@ -102,10 +104,10 @@ _STRINGS: Dict[str, Dict[str, str]] = {
         "enable_categories": "Habilitar Categorías",
         "categories_enabled": "Categorías habilitadas. El kiosko mostrará submenús por categoría.",
         "categories_disabled": "Categorías deshabilitadas. El kiosko mostrará un solo menú de productos.",
-        "category": "Categoría",
 
         # Reports
         "reports_title": "Reportes",
+        "tickets": "Tickets",
         "shift_label_closed": "Turno: (cerrado)",
         "shift_label_open_fmt": "Turno #{id}  •  Abierto: {opened_at}  •  Tickets: {tickets}  •  Total: $ {total}",
         "open_shift": "Abrir turno",
@@ -140,7 +142,6 @@ _STRINGS: Dict[str, Dict[str, str]] = {
         "emp_deleted": "Empleado eliminado.",
         "emp_required": "Número de empleado y nombre son obligatorios.",
 
-        # --- Kiosk extra keys (faltantes) ---
         "charge_total": "Total a cobrar",
         "received": "Recibido",
         "change": "Cambio",
@@ -234,6 +235,8 @@ _STRINGS: Dict[str, Dict[str, str]] = {
         "pin_saved": "PIN updated. Restart the app.",
         "admin_pin_prompt": "Enter admin PIN",
         "admin_pin_title": "Admin PIN",
+        "admin_pin_subtitle": "Enter your security PIN",
+        "admin_access": "Access",
 
         "printer_simple_title": "ESC/POS Printer (Simple mode)",
         "scan_usb_printers": "Scan USB printers",
@@ -300,6 +303,7 @@ _STRINGS: Dict[str, Dict[str, str]] = {
         "categories_disabled": "Categories disabled. The kiosk will show a single product menu.",
 
         "reports_title": "Reports",
+        "tickets": "Tickets",
         "shift_label_closed": "Shift: (closed)",
         "shift_label_open_fmt": "Shift #{id}  •  Opened: {opened_at}  •  Tickets: {tickets}  •  Total: $ {total}",
         "open_shift": "Open shift",
@@ -425,3 +429,8 @@ def t(key: str, **kwargs) -> str:
 def current_lang() -> str:
     return _LANG
 
+
+
+def lang_switch_label() -> str:
+    """Label for the language toggle button (shows target language)."""
+    return "EN" if _LANG == "es" else "ES"
