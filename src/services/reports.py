@@ -15,7 +15,6 @@ def get_shift_tickets_detail(shift_id: int) -> List[dict]:
     conn = connect()
     cur = conn.cursor()
     
-    # Obtener todos los tickets del turno
     cur.execute("""
         SELECT id, ts, total 
         FROM ticket 
@@ -28,7 +27,6 @@ def get_shift_tickets_detail(shift_id: int) -> List[dict]:
     for ticket in tickets:
         ticket_id = ticket[0]
         
-        # Obtener items del ticket
         cur.execute("""
             SELECT name, price, quantity, COALESCE(unit, 'pz') as unit
             FROM ticket_item
@@ -108,7 +106,6 @@ def render_shift_text(shift_id: int, detailed: bool = False) -> str:
     
     out.append("\n")
     
-    # Detalle de tickets
     if detailed:
         tickets_detail = get_shift_tickets_detail(shift_id)
         if tickets_detail:
@@ -117,14 +114,13 @@ def render_shift_text(shift_id: int, detailed: bool = False) -> str:
             out.append("================================\n\n")
             
             for idx, ticket in enumerate(tickets_detail, 1):
-                # Extraer hora del timestamp
                 try:
                     ts = ticket["timestamp"]
                     if "T" in ts:
                         hora = ts.split("T")[1][:5]
                     else:
                         hora = ts.split(" ")[1][:5] if " " in ts else ts
-                except:
+                except (KeyError, TypeError, ValueError, IndexError):
                     hora = ticket["timestamp"]
                 
                 out.append(f"#{ticket['id']} - {hora}\n")
@@ -140,7 +136,6 @@ def render_shift_text(shift_id: int, detailed: bool = False) -> str:
                 out.append(f"  TOTAL: $ {cents_to_money(ticket['total'])}\n")
                 out.append("\n")
     else:
-        # Solo lista resumida de tickets
         cur.execute("SELECT id, ts, total FROM ticket WHERE shift_id=? ORDER BY id;", (int(shift_id),))
         tickets = cur.fetchall()
         if tickets:
@@ -167,7 +162,6 @@ def render_shift_closure_report(shift_id: int, closing_cash: int = 0, closed_by:
     conn = connect()
     cur = conn.cursor()
     
-    # Obtener datos del turno
     cur.execute("""
         SELECT id, opened_at, opened_by, closed_at, closed_by, opening_cash, closing_cash 
         FROM shift WHERE id=?
@@ -188,7 +182,6 @@ def render_shift_closure_report(shift_id: int, closing_cash: int = 0, closed_by:
     out.append("================================\n")
     out.append("\n")
     
-    # Fecha y hora
     now = datetime.now()
     out.append(f"Fecha: {now.strftime('%d/%m/%Y')}\n")
     out.append(f"Hora:  {now.strftime('%H:%M:%S')}\n")
@@ -205,7 +198,6 @@ def render_shift_closure_report(shift_id: int, closing_cash: int = 0, closed_by:
     out.append(f"Cierre:   {now.strftime('%Y-%m-%d %H:%M:%S')}\n")
     out.append("\n")
     
-    # Resumen de ventas
     out.append("--------------------------------\n")
     out.append("RESUMEN DE VENTAS\n")
     out.append("--------------------------------\n")
@@ -214,7 +206,6 @@ def render_shift_closure_report(shift_id: int, closing_cash: int = 0, closed_by:
     out.append(f"Total en ventas:   ${cents_to_money(sums['total']):>9}\n")
     out.append("\n")
     
-    # Cuadre de caja
     out.append("--------------------------------\n")
     out.append("CUADRE DE CAJA\n")
     out.append("--------------------------------\n")
@@ -234,7 +225,6 @@ def render_shift_closure_report(shift_id: int, closing_cash: int = 0, closed_by:
         out.append("CUADRE:              EXACTO ✓\n")
     out.append("\n")
     
-    # Detalle de transacciones
     tickets_detail = get_shift_tickets_detail(shift_id)
     if tickets_detail:
         out.append("================================\n")
@@ -250,7 +240,7 @@ def render_shift_closure_report(shift_id: int, closing_cash: int = 0, closed_by:
                     hora = ts.split("T")[1][:5]
                 else:
                     hora = ts
-            except:
+            except (KeyError, TypeError, ValueError, IndexError):
                 hora = "??:??"
             
             out.append(f"Ticket #{ticket['id']} [{hora}]\n")
@@ -359,7 +349,6 @@ def csv_sales_detailed_bytes(date_from: str, date_to: str) -> bytes:
     conn = connect()
     cur = conn.cursor()
     
-    # Query con JOIN para obtener toda la información necesaria
     cur.execute(
         """
         SELECT 
@@ -386,7 +375,6 @@ def csv_sales_detailed_bytes(date_from: str, date_to: str) -> bytes:
     buf = io.StringIO()
     w = csv.writer(buf)
     
-    # Encabezados del CSV
     w.writerow([
         "ticket",
         "fecha",
@@ -401,7 +389,6 @@ def csv_sales_detailed_bytes(date_from: str, date_to: str) -> bytes:
         "total_ticket"
     ])
     
-    # Escribir datos convertidos a formato decimal
     for r in rows:
         ticket_id = r[0]
         fecha = r[1]
@@ -455,10 +442,8 @@ def report_z(closed_by: str = "", closing_cash: int = 0) -> str:
     if not sh:
         return "No hay turno abierto.\n"
     
-    # Generar reporte detallado antes de cerrar
     text = render_shift_closure_report(sh["id"], closing_cash=closing_cash, closed_by=closed_by)
     
-    # Cerrar el turno
     close_shift(closed_by=closed_by, closing_cash=int(closing_cash))
     
     return text

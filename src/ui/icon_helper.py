@@ -3,7 +3,6 @@ TOTTEM POS · Icon Helper
 FontAwesome 6 Free Integration for Raspbian Lite
 """
 from PySide6.QtGui import QFontDatabase, QFont
-from PySide6.QtCore import QFile
 from pathlib import Path
 
 # Icon font path

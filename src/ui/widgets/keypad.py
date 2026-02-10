@@ -101,7 +101,6 @@ class NumKeypad(QDialog):
             b_dot.clicked.connect(lambda: self._press("."))
             grid.addWidget(b_dot, 3, 2)
         else:
-            # Backspace button when no decimal
             b_back = QPushButton("⌫")
             b_back.setObjectName("KeypadButton")
             b_back.clicked.connect(self._backspace)

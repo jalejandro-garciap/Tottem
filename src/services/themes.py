@@ -7,7 +7,6 @@ custom theme creation and persistence via config.yaml.
 
 from pathlib import Path
 from typing import Dict, Any, List, Optional
-import yaml
 from services.settings import load_config, save_config
 
 ROOT = Path(__file__).resolve().parents[2]

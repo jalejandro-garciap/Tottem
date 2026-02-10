@@ -3,8 +3,8 @@ from PySide6.QtWidgets import (
     QLineEdit, QPushButton, QLabel, QHBoxLayout, QComboBox,
     QMessageBox, QSpinBox, QGridLayout, QTableWidget, QTableWidgetItem,
     QAbstractItemView, QCheckBox, QDialog, QListWidget, QListWidgetItem, QApplication,
-    QFrame, QStackedLayout, QTextEdit, QDialogButtonBox, QDateEdit,
-    QToolButton, QMenu, QWidgetAction, QSizePolicy
+    QFrame, QStackedLayout, QTextEdit, QDateEdit,
+    QSizePolicy
 )
 from PySide6.QtCore import Qt, QObject, QEvent, QTimer, QDate, QLocale
 from pathlib import Path
@@ -12,9 +12,8 @@ from pathlib import Path
 import sys
 import subprocess
 import os
-import yaml
 
-from argon2 import PasswordHasher, exceptions as argon_exc
+from argon2 import PasswordHasher
 from services.osctl import wifi_list, wifi_connect, wifi_status, reboot, poweroff
 from drivers.printer_escpos import EscposPrinter
 from services import i18n
@@ -36,11 +35,10 @@ from services.shifts import (
     close_shift,
     list_shifts_since,
     shift_totals,
-    close_current_shift,
 )
 from services.reports import (
-    report_x, report_z, render_shift_text, render_range_text,
-    csv_tickets_bytes, csv_items_bytes, csv_sales_detailed_bytes
+    render_shift_text, render_range_text,
+    csv_sales_detailed_bytes
 )
 from services.receipts import render_ticket
 from services.emailer import send_mail, recent_emails
@@ -246,7 +244,6 @@ class _PinKeypadFocusFilter(QObject):
             self.win._pinpad_guard = True
             try:
                 dlg = NumKeypad(title=i18n.t("keypad_title") or "Teclado", allow_decimal=False)
-                # Usar el valor actual como texto inicial
                 if obj.text():
                     dlg.edit.setText(obj.text())
                 if dlg.exec():
@@ -312,7 +309,6 @@ class ProductDialog(QDialog):
         self.combo_icon.setMinimumHeight(64)
         self.combo_icon.setMaxVisibleItems(8)
         
-        # Add "No icon" option first
         self.combo_icon.addItem("(Sin ícono)", "")
         
         # Add available icons sorted by name
@@ -517,7 +513,6 @@ class ShiftCloseDialog(QDialog):
         root.addWidget(icon)
         root.addWidget(title)
 
-        # Info del turno
         if shift_info:
             sums = shift_totals(shift_info.get("id", 0))
             opening = shift_info.get("opening_cash", 0)
@@ -612,7 +607,7 @@ class ShiftCloseDialog(QDialog):
         cash_text = self.ed_cash.text().strip().replace(",", "")
         try:
             cash_cents = money_to_cents(cash_text)
-        except:
+        except (KeyError, TypeError, ValueError, IndexError):
             cash_cents = 0
         
         return {
@@ -656,7 +651,6 @@ class TicketDetailDialog(QDialog):
         root.addWidget(icon)
         root.addWidget(title)
 
-        # Detalles del ticket
         self.txt_details = QTextEdit()
         self.txt_details.setReadOnly(True)
         self.txt_details.setStyleSheet("""
@@ -689,13 +683,12 @@ class TicketDetailDialog(QDialog):
         row.addWidget(btn_print)
         root.addLayout(row)
 
-        # Cargar detalles si se proporcionó ticket_id
         if ticket_id:
             self.load_ticket(ticket_id)
 
     def load_ticket(self, ticket_id: int):
         """Carga y muestra los detalles de un ticket."""
-        from services.sales import get_ticket_details, cents_to_money
+        from services.sales import cents_to_money
         
         self.ticket_id = ticket_id
         self.ticket_details = get_ticket_details(ticket_id)
@@ -704,7 +697,6 @@ class TicketDetailDialog(QDialog):
             self.txt_details.setPlainText("Error: No se pudo cargar el ticket.")
             return
         
-        # Formatear detalles con mejor diseño
         lines = []
         lines.append("═" * 50)
         lines.append(f"  Ticket: {self.ticket_details['id']}")
@@ -717,7 +709,6 @@ class TicketDetailDialog(QDialog):
         lines.append("PRODUCTOS:")
         lines.append("")
         
-        from services.sales import cents_to_money
         for item in self.ticket_details["items"]:
             qty_str = f"x{item.qty}".ljust(6)
             price_str = f"$ {cents_to_money(item.price)}".rjust(12)
@@ -729,7 +720,6 @@ class TicketDetailDialog(QDialog):
         total_str = f"$ {cents_to_money(self.ticket_details['total'])}".rjust(12)
         lines.append(f"{'TOTAL:'.ljust(38)}{total_str}")
         
-        # Mostrar pago y cambio si están disponibles
         paid = self.ticket_details.get('paid', 0)
         change_amt = self.ticket_details.get('change_amount', 0)
         if paid > 0:
@@ -749,10 +739,8 @@ class TicketDetailDialog(QDialog):
             QMessageBox.warning(self, "Error", "No hay ticket cargado.")
             return
         
-        from services.receipts import render_ticket
         from drivers.printer_escpos import EscposPrinter
         
-        # Generar ticket con todos los parámetros
         ticket_text = render_ticket(
             self.ticket_details["items"],
             ticket_number=self.ticket_details["id"],
@@ -762,7 +750,6 @@ class TicketDetailDialog(QDialog):
             change_cents=self.ticket_details.get('change_amount', 0)
         )
         
-        # Imprimir
         try:
             EscposPrinter().print_text(ticket_text)
             QMessageBox.information(self, "Éxito", f"Ticket #{self.ticket_id} enviado a impresión.")
@@ -806,12 +793,10 @@ class ShiftPreviewDialog(QDialog):
         root.addWidget(icon)
         root.addWidget(title)
 
-        # Panel de información del turno
         if shift_id:
             info_panel = self._build_info_panel()
             root.addWidget(info_panel)
 
-        # Lista de tickets
         lbl_tickets = QLabel("Tickets del turno:")
         lbl_tickets.setStyleSheet("font-weight: 600; font-size: 14px;")
         root.addWidget(lbl_tickets)
@@ -840,13 +825,11 @@ class ShiftPreviewDialog(QDialog):
         hint.setAlignment(Qt.AlignCenter)
         root.addWidget(hint)
 
-        # Botón cerrar
         btn_close = QPushButton("Cerrar")
         btn_close.setMinimumHeight(60)
         btn_close.clicked.connect(self.reject)
         root.addWidget(btn_close)
 
-        # Cargar datos
         if shift_id:
             self._load_data()
 
@@ -856,7 +839,6 @@ class ShiftPreviewDialog(QDialog):
         from services.sales import cents_to_money
         from core.db import connect
         
-        # Obtener datos del turno
         conn = connect()
         cur = conn.cursor()
         cur.execute("""
@@ -874,14 +856,12 @@ class ShiftPreviewDialog(QDialog):
         self.shift_totals = shift_totals(self.shift_id)
         
         
-        # Panel con grid de información
         panel = QWidget()
         
         grid = QGridLayout(panel)
         grid.setSpacing(12)
         grid.setContentsMargins(16, 16, 16, 16)
         
-        # Fila 1: Turno # y Estado
         lbl_turno = QLabel("Turno #:")
         lbl_turno.setStyleSheet("color: #94a3b8; font-weight: 600;")
         val_turno = QLabel(str(sh[0]))
@@ -899,7 +879,6 @@ class ShiftPreviewDialog(QDialog):
         grid.addWidget(lbl_estado, 0, 2)
         grid.addWidget(val_estado, 0, 3)
         
-        # Fila 2: Apertura y Cierre
         lbl_apertura = QLabel("Apertura:")
         lbl_apertura.setStyleSheet("color: #94a3b8; font-weight: 600;")
         val_apertura = QLabel(sh[1] or "-")
@@ -915,7 +894,6 @@ class ShiftPreviewDialog(QDialog):
         grid.addWidget(lbl_cierre, 1, 2)
         grid.addWidget(val_cierre, 1, 3)
         
-        # Fila 3: Cajeros
         if sh[2]:  # opened_by
             lbl_abierto = QLabel("Abierto por:")
             lbl_abierto.setStyleSheet("color: #94a3b8; font-weight: 600;")
@@ -932,13 +910,11 @@ class ShiftPreviewDialog(QDialog):
             grid.addWidget(lbl_cerrado, 2, 2)
             grid.addWidget(val_cerrado, 2, 3)
         
-        # Separador
         line = QFrame()
         line.setFrameShape(QFrame.HLine)
         line.setStyleSheet("background: #2a2a37;")
         grid.addWidget(line, 3, 0, 1, 4)
         
-        # Fila 4: Resumen
         lbl_tickets = QLabel("Tickets:")
         lbl_tickets.setStyleSheet("color: #94a3b8; font-weight: 600;")
         val_tickets = QLabel(str(self.shift_totals['tickets']))
@@ -954,7 +930,6 @@ class ShiftPreviewDialog(QDialog):
         grid.addWidget(lbl_items, 4, 2)
         grid.addWidget(val_items, 4, 3)
         
-        # Fila 5: Totales
         lbl_total = QLabel("Total Ventas:")
         lbl_total.setStyleSheet("color: #94a3b8; font-weight: 600;")
         val_total = QLabel(f"$ {cents_to_money(self.shift_totals['total'])}")
@@ -987,7 +962,6 @@ class ShiftPreviewDialog(QDialog):
             timestamp = t[1]
             total = t[2]
             
-            # Formatear hora
             try:
                 if " " in timestamp:
                     hora = timestamp.split(" ")[1][:5]
@@ -995,14 +969,13 @@ class ShiftPreviewDialog(QDialog):
                     hora = timestamp.split("T")[1][:5]
                 else:
                     hora = timestamp[-8:-3]
-            except:
+            except (KeyError, TypeError, ValueError, IndexError):
                 hora = "??:??"
             
-            # Formato: "#123  |  14:30  |  $ 150.00"
             text = f"#{ticket_id:<6} | {hora} | $ {cents_to_money(total):>10}"
             
             item = QListWidgetItem(text)
-            item.setData(Qt.UserRole, ticket_id)  # Guardar ID para recuperar después
+            item.setData(Qt.UserRole, ticket_id)
             self.lst_tickets.addItem(item)
 
     def _open_ticket_details(self, item):
@@ -1060,7 +1033,8 @@ class LoadingOverlay(QWidget):
         painter.fillRect(self.rect(), QColor(0, 0, 0, 140))
 
     def show_event(self):
-        if not self.parent(): return
+        if not self.parent():
+            return
         self.setGeometry(self.parent().rect())
         self.show()
         self.raise_()
@@ -1094,7 +1068,7 @@ class AdminWindow(QMainWindow):
             font-weight: 700;
         """)
 
-        self.lang_btn = QPushButton(i18n.t("lang"))
+        self.lang_btn = QPushButton(i18n.lang_switch_label())
         self.lang_btn.setMinimumSize(72, 48)
         self.lang_btn.setProperty("role", "ghost")
         self.lang_btn.clicked.connect(self._toggle_lang)
@@ -1125,7 +1099,7 @@ class AdminWindow(QMainWindow):
         self.tabs.addTab(self._tab_store(), f"{get_icon_char('store') or '🏪'}  " + i18n.t("tab_store"))
         self.tabs.addTab(self._tab_products(), f"{get_icon_char('box') or '📦'}  " + i18n.t("tab_products"))
         self.tabs.addTab(self._tab_shifts(), f"{get_icon_char('chart-bar') or '📊'}  " + (i18n.t("tab_shifts") or "Turnos"))
-        self.tabs.addTab(self._tab_tickets(), f"{get_icon_char('receipt') or '🧾'}  Tickets")
+        self.tabs.addTab(self._tab_tickets(), f"{get_icon_char('receipt') or '🧾'}  " + (i18n.t("tickets") if i18n.t("tickets") != "tickets" else "Tickets"))
         self.tabs.addTab(self._tab_reports(), f"{get_icon_char('chart-line') or '📈'}  " + i18n.t("tab_reports"))
         self.tabs.addTab(self._tab_themes(), f"{get_icon_char('palette') or '🎨'}  " + i18n.t("tab_themes"))
         self.tabs.addTab(self._tab_system(), f"{get_icon_char('computer') or '💻'}  " + i18n.t("tab_system"))
@@ -1175,7 +1149,6 @@ class AdminWindow(QMainWindow):
         f.addRow(i18n.t("repeat_pin"), self.pin_new2)
         f.addRow(btn_set)
 
-        # Para seguridad usamos keypad numérico en lugar de OSK completo
         for wle in (self.pin_in, self.pin_new, self.pin_new2):
             wle.installEventFilter(self._keypad_filter)
         return w
@@ -1383,14 +1356,13 @@ class AdminWindow(QMainWindow):
         save_config(data)
         QMessageBox.information(self, i18n.t("tab_store"), i18n.t("store_saved"))
 
-    # ---------- Products (con Categoría + filtros)
+    # ---------- Products (category + filters)
     def _tab_products(self) -> QWidget:
         w = QWidget()
         v = QVBoxLayout(w)
         v.setContentsMargins(10, 10, 10, 10)
         v.setSpacing(8)
 
-        # Filtros: categoría + búsqueda
         fl = QHBoxLayout()
         self.cmb_cat = QComboBox()
         self.cmb_cat.addItem(i18n.t("all") or "Todas", "_ALL_")
@@ -1407,7 +1379,6 @@ class AdminWindow(QMainWindow):
         fl.addWidget(btn_refresh)
         self.prod_search.installEventFilter(self._osk_filter)
 
-        # Tabla: agregamos columna de Categoría
         self.tbl = QTableWidget(0, 7)
         self.tbl.setHorizontalHeaderLabels(
             [
@@ -1501,7 +1472,6 @@ class AdminWindow(QMainWindow):
             self.tbl.setItem(r, 5, QTableWidgetItem("Sí" if p.get("allow_decimal") else "No"))
             self.tbl.setItem(r, 6, QTableWidgetItem(cat))
 
-        # reconstruye categorías disponibles desde TODOS los productos (no solo filtrados)
         try:
             all_items = list_products(q="", include_inactive=True)
         except Exception:
@@ -1513,7 +1483,6 @@ class AdminWindow(QMainWindow):
         self.cmb_cat.addItem(i18n.t("all") or "Todas", "_ALL_")
         for c in cats:
             self.cmb_cat.addItem(c, c)
-        # intentar restaurar selección previa
         if cur_data is not None:
             idx = max(
                 0,
@@ -1658,7 +1627,6 @@ class AdminWindow(QMainWindow):
         v.setContentsMargins(10, 10, 10, 10)
         v.setSpacing(10)
 
-        # Barra de búsqueda
         search_row = QHBoxLayout()
         search_row.setSpacing(12)
         self.ed_ticket_search = QLineEdit()
@@ -1675,10 +1643,8 @@ class AdminWindow(QMainWindow):
         search_row.addWidget(btn_clear)
         v.addLayout(search_row)
 
-        # Keypad numérico para el campo de búsqueda
         self.ed_ticket_search.installEventFilter(self._keypad_filter)
 
-        # Tabla de tickets
         self.tbl_tickets = QTableWidget(0, 5)
         self.tbl_tickets.setHorizontalHeaderLabels([
             "Ticket", "Fecha", "Empleado", "Turno", "Total"
@@ -1687,13 +1653,10 @@ class AdminWindow(QMainWindow):
         self.tbl_tickets.setSelectionMode(QAbstractItemView.SingleSelection)
         self.tbl_tickets.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.tbl_tickets.verticalHeader().setVisible(False)
-        # NO usar alternating row colors para evitar problemas visuales en tema oscuro
         self.tbl_tickets.setAlternatingRowColors(False)
         
-        # Evento de doble clic para mostrar detalles
         self.tbl_tickets.itemDoubleClicked.connect(self._tickets_show_details_dialog)
         
-        # Continuar con responsive columns después de la tabla
         from PySide6.QtWidgets import QHeaderView
         header = self.tbl_tickets.horizontalHeader()
         header.setStretchLastSection(False)
@@ -1705,7 +1668,6 @@ class AdminWindow(QMainWindow):
         
         v.addWidget(self.tbl_tickets, 1)
 
-        # Paginación
         page_row = QHBoxLayout()
         self.btn_tickets_prev = QPushButton("◀ Anterior")
         self.btn_tickets_prev.setMinimumHeight(40)
@@ -1720,17 +1682,14 @@ class AdminWindow(QMainWindow):
         page_row.addWidget(self.btn_tickets_next)
         v.addLayout(page_row)
 
-        # Instrucción para el usuario
         hint_label = QLabel("💡 Haz doble clic en un ticket para ver detalles y reimprimir")
         hint_label.setStyleSheet("font-size: 12px; font-style: italic;")
         hint_label.setAlignment(Qt.AlignCenter)
         v.addWidget(hint_label)
 
-        # Inicializar variables de paginación
         self.tickets_offset = 0
         self.tickets_page_size = 15
 
-        # Cargar tickets iniciales
         self._tickets_refresh()
 
         return w
@@ -1750,11 +1709,9 @@ class AdminWindow(QMainWindow):
             self.tbl_tickets.setItem(r, 3, QTableWidgetItem(f"{t['shift_id']}" if t['shift_id'] else "—"))
             self.tbl_tickets.setItem(r, 4, QTableWidgetItem(f"$ {cents_to_money(t['total'])}"))
         
-        # Actualizar label de página
         page_num = (offset // self.tickets_page_size) + 1
         self.lbl_tickets_page.setText(f"Página {page_num}")
         
-        # Habilitar/deshabilitar botones de navegación
         self.btn_tickets_prev.setEnabled(offset > 0)
         self.btn_tickets_next.setEnabled(len(tickets) == self.tickets_page_size)
 
@@ -1777,7 +1734,6 @@ class AdminWindow(QMainWindow):
             self.tbl_tickets.setRowCount(0)
             return
         
-        # Mostrar solo ese ticket en la tabla
         self.tbl_tickets.setRowCount(0)
         self.tbl_tickets.insertRow(0)
         self.tbl_tickets.setItem(0, 0, QTableWidgetItem(str(ticket["id"])))
@@ -1786,7 +1742,6 @@ class AdminWindow(QMainWindow):
         self.tbl_tickets.setItem(0, 3, QTableWidgetItem(f"{ticket['shift_id']}" if ticket['shift_id'] else "—"))
         self.tbl_tickets.setItem(0, 4, QTableWidgetItem(f"$ {cents_to_money(ticket['total'])}"))
         
-        # Deshabilitar paginación durante búsqueda
         self.btn_tickets_prev.setEnabled(False)
         self.btn_tickets_next.setEnabled(False)
         self.lbl_tickets_page.setText("Búsqueda")
@@ -1811,7 +1766,6 @@ class AdminWindow(QMainWindow):
         except ValueError:
             return
         
-        # Abrir diálogo con detalles del ticket
         dlg = TicketDetailDialog(self, ticket_id=ticket_id)
         dlg.exec()
 
@@ -1826,7 +1780,7 @@ class AdminWindow(QMainWindow):
         self._tickets_refresh(new_offset)
 
 
-    # ---------- Reports (solo rango de fechas + correo)
+    # ---------- Reports (date range + email)
     def _tab_reports(self) -> QWidget:
         w = QWidget()
         v = QVBoxLayout(w)
@@ -1839,7 +1793,6 @@ class AdminWindow(QMainWindow):
         main_layout = QHBoxLayout()
         main_layout.setSpacing(16)
 
-        # --- Left Column ---
         left_col = QVBoxLayout()
         left_col.setSpacing(12)
 
@@ -1885,7 +1838,6 @@ class AdminWindow(QMainWindow):
         self.cb_recent.setMinimumHeight(42)
         self.cb_recent.setMinimumWidth(180)
         
-        # Botones + y x
         btn_add_recent = QPushButton("+")
         btn_add_recent.setFixedSize(60, 40)
         btn_add_recent.setToolTip("Agregar seleccionado")
@@ -1909,7 +1861,6 @@ class AdminWindow(QMainWindow):
         left_col.addLayout(mail_row2)
         main_layout.addLayout(left_col, 3) # Take 3/4 space
 
-        # --- Right Column: Giant Send Button ---
         icon_char = get_icon_char("envelope") or "📧"
         btn_send = QPushButton(f" {icon_char} \n{i18n.t('send_mail') or 'Enviar'}")
         btn_send.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
@@ -1930,13 +1881,10 @@ class AdminWindow(QMainWindow):
 
         v.addLayout(main_layout)
 
-        # Poblar combo inicial
         self._reload_recent_combo()
 
-        # Solo el campo de emails usa OSK
         self.ed_emails.installEventFilter(self._osk_filter)
 
-        # --- Turnos de la semana + impresión de reporte de turno ---
         v.addWidget(QLabel(i18n.t("print_shift_report") or "Imprimir reporte de turno"))
 
         self.list_shifts = QListWidget()
@@ -1962,7 +1910,6 @@ class AdminWindow(QMainWindow):
         self.btn_print.clicked.connect(self._print_selected_shift)
         v.addWidget(self.btn_print)
 
-        # Cargar los turnos de los últimos 7 días
         self._reload_week_shifts()
 
         return w
@@ -1985,7 +1932,6 @@ class AdminWindow(QMainWindow):
         return base
 
     def _open_shift(self):
-        # Tomar empleado seleccionado
         emp_code = None
         if hasattr(self, "cmb_shift_employee"):
             emp_code = self.cmb_shift_employee.currentData() or None
@@ -1996,7 +1942,6 @@ class AdminWindow(QMainWindow):
             )
             return
 
-        # opening_cash en centavos; por ahora 0
         open_shift(opened_by=emp_code, opening_cash=0)
 
         self.lbl_shift.setText(self._shift_label_text())
@@ -2011,7 +1956,6 @@ class AdminWindow(QMainWindow):
             self._toast("No hay turno abierto.", level="error")
             return
         
-        # Abrir diálogo premium
         dlg = ShiftPreviewDialog(self, shift_id=sh["id"])
         dlg.exec()
 
@@ -2020,13 +1964,11 @@ class AdminWindow(QMainWindow):
         Cierra el turno actual con diálogo de conteo de efectivo,
         genera reporte resumido e imprime.
         """
-        # Comprobamos que haya turno abierto antes de intentar cerrar
         sh = current_shift()
         if not sh:
             self._toast("No hay turno abierto.", level="error")
             return
 
-        # Mostrar diálogo de cierre para capturar efectivo y cajero
         dlg = ShiftCloseDialog(self, shift_info=sh)
         if dlg.exec() != QDialog.Accepted:
             return
@@ -2035,7 +1977,6 @@ class AdminWindow(QMainWindow):
         closing_cash = close_data.get("closing_cash", 0)
         closed_by = close_data.get("closed_by", "")
 
-        # Cerrar turno en BD
         try:
             close_shift(closed_by=closed_by, closing_cash=closing_cash)
         except Exception as e:
@@ -2046,17 +1987,14 @@ class AdminWindow(QMainWindow):
             )
             return
 
-        # Generar reporte resumido (sin detalles de ítems, solo lista de tickets)
         txt = render_shift_text(sh["id"], detailed=False)
 
-        # Intentar imprimir el reporte del turno
         try:
             EscposPrinter().print_text(txt)
             self._toast(
                 f"Turno #{sh['id']} cerrado e impreso.", level="success"
             )
         except Exception as e:
-            # Mostrar el reporte en pantalla si no se puede imprimir
             QMessageBox.information(
                 self,
                 "Reporte de Turno",
@@ -2066,16 +2004,13 @@ class AdminWindow(QMainWindow):
                 f"Turno cerrado. Error al imprimir: {e}", level="error"
             )
 
-        # Actualizar etiqueta (ya no debe haber turno abierto)
         self.lbl_shift.setText(self._shift_label_text())
 
-        # Refrescar lista de turnos en pestaña de reportes, si existe
         if hasattr(self, "list_shifts"):
             self._reload_week_shifts()
 
     def _reload_recent_combo(self):
         """Recarga el combobox de correos recientes."""
-        from services.emailer import recent_emails
         self.cb_recent.clear()
         self.cb_recent.addItem("") # Opción vacía inicial
         for e in recent_emails():
@@ -2096,7 +2031,6 @@ class AdminWindow(QMainWindow):
         else:
             self.ed_emails.setText(email)
             
-        # Feedback visual
         self.ed_emails.setStyleSheet("border: 1px solid #10b981;")
         QTimer.singleShot(1000, lambda: self.ed_emails.setStyleSheet(""))
 
@@ -2109,7 +2043,7 @@ class AdminWindow(QMainWindow):
         from services.emailer import remove_recent_email
         remove_recent_email(email)
         self._reload_recent_combo()
-        self._toast(f"Email eliminado", level="warning")
+        self._toast("Email eliminado", level="warning")
 
 
     def _send_mail(self):
@@ -2129,7 +2063,6 @@ class AdminWindow(QMainWindow):
             )
             return
         
-        # Validar que date_from <= date_to
         if self.date_from.date() > self.date_to.date():
             self._toast(
                 "La fecha inicial debe ser anterior a la fecha final.", level="error", duration_ms=4200
@@ -2137,7 +2070,6 @@ class AdminWindow(QMainWindow):
             return
         self._mark_field_state(self.ed_emails, None)
         
-        # Calcular estadísticas para el HTML
         conn = connect()
         cur = conn.cursor()
         cur.execute("""
@@ -2156,11 +2088,9 @@ class AdminWindow(QMainWindow):
             'total_cents': row[2] or 0
         }
         
-        # Crear cuerpo HTML
         html_body = _create_html_email_report(df, dt, stats)
         plain_body = render_range_text(df, dt)
         
-        # Nombre de archivo mejorado
         date_from_obj = datetime.strptime(df, "%Y-%m-%d")
         date_to_obj = datetime.strptime(dt, "%Y-%m-%d")
         from_str = date_from_obj.strftime("%d-%b-%Y")  # 01-Feb-2026
@@ -2184,8 +2114,6 @@ class AdminWindow(QMainWindow):
             self._toast(
                 i18n.t("report_sent_ok") or "Reporte enviado.", level="success"
             )
-            # Refrescar lista de correos recientes (no es necesario si el menu lo hace on-demand)
-            # Pero podemos limpiar el campo si se desea. Mantengamos el texto.
         else:
             self._toast(
                 i18n.t("report_sent_err", err=msg)
@@ -2231,19 +2159,17 @@ class AdminWindow(QMainWindow):
         except Exception as e:
             self._toast(f"Error al imprimir reporte: {e}", level="error")
 
-    # ---------- Shifts (Turnos) + Empleados
+    # ---------- Shifts + Employees
     def _tab_shifts(self) -> QWidget:
         w = QWidget()
         v = QVBoxLayout(w)
         v.setContentsMargins(10, 10, 10, 10)
         v.setSpacing(10)
 
-        # --- Sección turnos ---
         self.lbl_shift = QLabel(self._shift_label_text())
         self.lbl_shift.setWordWrap(True)
         v.addWidget(self.lbl_shift)
 
-        # Selector de empleado para el turno
         emp_row = QHBoxLayout()
         emp_row.addWidget(QLabel(i18n.t("emp_for_shift") or "Empleado del turno"))
         self.cmb_shift_employee = QComboBox()
@@ -2265,7 +2191,6 @@ class AdminWindow(QMainWindow):
         row1.addWidget(btn_close)
         v.addLayout(row1)
 
-        # --- Sección empleados ---
         v.addWidget(QLabel(i18n.t("employees_title") or "Empleados"))
 
         self.tbl_employees = QTableWidget(0, 5)
@@ -2283,7 +2208,6 @@ class AdminWindow(QMainWindow):
         self.tbl_employees.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.tbl_employees.verticalHeader().setVisible(False)
         
-        # Configure responsive columns for 22" display (en lugar de widths fijos)
         from PySide6.QtWidgets import QHeaderView
         header = self.tbl_employees.horizontalHeader()
         header.setStretchLastSection(False)
@@ -2337,7 +2261,6 @@ class AdminWindow(QMainWindow):
             self.tbl_employees.setItem(
                 idx, 4, QTableWidgetItem("Sí" if r.get("active") else "No")
             )
-        # Actualizar combo de empleados de turno si existe
         if hasattr(self, "cmb_shift_employee"):
             self._reload_shift_employees()
 
@@ -2352,7 +2275,6 @@ class AdminWindow(QMainWindow):
             return
         for e in emps:
             label = f"{e['emp_no']} - {e['full_name']}"
-            # Guardamos como dato el emp_no (podría ser el ID si lo prefieres)
             self.cmb_shift_employee.addItem(label, e["emp_no"])
 
     def _emp_current_id(self) -> int | None:
@@ -2436,15 +2358,12 @@ class AdminWindow(QMainWindow):
     # ---------- Themes
     def _tab_themes(self) -> QWidget:
         """Tab for theme selection and customization."""
-        from services import themes as theme_svc
-        from PySide6.QtWidgets import QColorDialog
         
         w = QWidget()
         main_layout = QHBoxLayout(w)
         main_layout.setSpacing(24)
         main_layout.setContentsMargins(16, 16, 16, 16)
         
-        # --- Left panel: Theme list ---
         left_panel = QVBoxLayout()
         left_panel.setSpacing(16)
         
@@ -2484,7 +2403,6 @@ class AdminWindow(QMainWindow):
         
         main_layout.addLayout(left_panel)
         
-        # --- Right panel: Preview and color editing ---
         right_panel = QVBoxLayout()
         right_panel.setSpacing(16)
         
@@ -2629,8 +2547,6 @@ class AdminWindow(QMainWindow):
     
     def _apply_theme(self):
         """Apply the selected theme with a loading indicator."""
-        from services import themes as theme_svc
-        from PySide6.QtWidgets import QApplication
         
         if not self._current_theme_id:
             self._toast(i18n.t("theme_select") or "Selecciona un tema.", level="warning")
@@ -2724,11 +2640,9 @@ class AdminWindow(QMainWindow):
         main_layout.setSpacing(12)
         main_layout.setContentsMargins(12, 12, 12, 12)
         
-        # --- Contenedor horizontal para WiFi y Gmail lado a lado ---
         top_container = QHBoxLayout()
         top_container.setSpacing(16)
         
-        # === Sección WiFi (lado izquierdo) ===
         wifi_frame = QFrame()
         wifi_frame.setObjectName("SystemCard")
         wifi_frame.setStyleSheet("""
@@ -2807,7 +2721,6 @@ class AdminWindow(QMainWindow):
         
         top_container.addWidget(wifi_frame, 1)
         
-        # === Sección Email Gmail (lado derecho, 50% ancho) ===
         email_frame = QFrame()
         email_frame.setObjectName("SystemCard")
         email_frame.setStyleSheet("""
@@ -2868,13 +2781,11 @@ class AdminWindow(QMainWindow):
         
         main_layout.addLayout(top_container, 1)
         
-        # --- Separador ---
         separator = QFrame()
         separator.setFrameShape(QFrame.HLine)
         separator.setStyleSheet("max-height: 1px; border: 1px solid palette(mid);")
         main_layout.addWidget(separator)
         
-        # --- Bottom Section: Public IP (left) + Factory Reset (right) ---
         bottom_container = QHBoxLayout()
         bottom_container.setSpacing(16)
         
@@ -2967,7 +2878,6 @@ class AdminWindow(QMainWindow):
         
         main_layout.addLayout(bottom_container)
         
-        # Cargar configuración actual
         self._load_gmail_config()
         self._refresh_public_ip()
         
@@ -3010,16 +2920,12 @@ class AdminWindow(QMainWindow):
         cfg = load_config()
         email_cfg = cfg.get("notifications", {}).get("email", {})
         
-        # Valores por defecto para Gmail
         default_gmail_user = "tottem.reports@gmail.com"
         default_gmail_pass = "mfexwikphlncahve"
         
         gmail_user = email_cfg.get("gmail_user", default_gmail_user)
-        gmail_pass = email_cfg.get("gmail_pass", default_gmail_pass)
-        
         self.gmail_user.setText(gmail_user)
         
-        # Si no hay configuración guardada, guardar los valores por defecto
         if not email_cfg.get("gmail_user"):
             if "notifications" not in cfg:
                 cfg["notifications"] = {}
@@ -3034,7 +2940,6 @@ class AdminWindow(QMainWindow):
         gmail_user = self.gmail_user.text().strip()
         gmail_pass = self.gmail_pass.text().strip()
         
-        # Validar que sea una cuenta de Gmail
         if gmail_user and not gmail_user.endswith("@gmail.com"):
             QMessageBox.warning(
                 self,
@@ -3051,7 +2956,6 @@ class AdminWindow(QMainWindow):
             )
             return
         
-        # Guardar en config.yaml
         cfg = load_config()
         if "notifications" not in cfg:
             cfg["notifications"] = {}
@@ -3070,7 +2974,6 @@ class AdminWindow(QMainWindow):
             "Configuración de Gmail guardada correctamente."
         )
         
-        # Limpiar el campo de contraseña por seguridad
         self.gmail_pass.clear()
 
 
@@ -3125,30 +3028,25 @@ class AdminWindow(QMainWindow):
 
     # ---------- Language toggle ----------
     def _toggle_lang(self):
-        # Cambiar idioma global
         i18n.toggle()
 
-        # Cambiar textos de la barra superior
         self.setWindowTitle(i18n.t("admin_title"))
-        self.lang_btn.setText(i18n.t("lang"))
+        self.lang_btn.setText(i18n.lang_switch_label())
 
-        # --- Recrear todas las pestañas para refrescar traducciones ---
-        # Guardar índice actual
         current_idx = self.tabs.currentIndex()
         
-        # Guardar referencias de los widgets antiguos para que se limpien
         self.tabs.clear()
         
-        # Volver a agregar tabs (esto llama a las funciones que usan i18n.t)
         self.tabs.addTab(self._tab_security(), f"{get_icon_char('lock') or '🔐'}  " + i18n.t("tab_security"))
         self.tabs.addTab(self._tab_devices(), f"{get_icon_char('print') or '🖨'}  " + i18n.t("tab_devices"))
         self.tabs.addTab(self._tab_store(), f"{get_icon_char('store') or '🏪'}  " + i18n.t("tab_store"))
         self.tabs.addTab(self._tab_products(), f"{get_icon_char('box') or '📦'}  " + i18n.t("tab_products"))
         self.tabs.addTab(self._tab_shifts(), f"{get_icon_char('chart-bar') or '📊'}  " + (i18n.t("tab_shifts") or "Turnos"))
-        self.tabs.addTab(self._tab_tickets(), f"{get_icon_char('receipt') or '🧾'}  Tickets")
+        self.tabs.addTab(self._tab_tickets(), f"{get_icon_char('receipt') or '🧾'}  " + (i18n.t("tickets") if i18n.t("tickets") != "tickets" else "Tickets"))
         self.tabs.addTab(self._tab_reports(), f"{get_icon_char('chart-line') or '📈'}  " + i18n.t("tab_reports"))
         self.tabs.addTab(self._tab_themes(), f"{get_icon_char('palette') or '🎨'}  " + i18n.t("tab_themes"))
         self.tabs.addTab(self._tab_system(), f"{get_icon_char('computer') or '💻'}  " + i18n.t("tab_system"))
         
-        # Restaurar índice
         self.tabs.setCurrentIndex(current_idx)
+        if hasattr(self, "lbl_shift"):
+            self.lbl_shift.setText(self._shift_label_text())
