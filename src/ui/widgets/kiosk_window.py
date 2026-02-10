@@ -258,7 +258,7 @@ class AdminPinDialog(QDialog):
         title.setAlignment(Qt.AlignCenter)
         title.setStyleSheet("font-size: 20px;")
 
-        subtitle = QLabel("Ingrese su PIN de seguridad")
+        subtitle = QLabel(i18n.t("admin_pin_subtitle") or "Ingrese su PIN de seguridad")
         subtitle.setAlignment(Qt.AlignCenter)
         subtitle.setStyleSheet("font-size: 14px;")
 
@@ -317,7 +317,7 @@ class AdminPinDialog(QDialog):
         btn_row.setSpacing(16)
         btn_cancel = QPushButton(i18n.t("cancel") or "Cancelar")
         btn_cancel.setMinimumHeight(64)
-        btn_ok = QPushButton("→  Acceder")
+        btn_ok = QPushButton(f"→  {i18n.t('admin_access') or 'Acceder'}")
         btn_ok.setMinimumHeight(64)
         btn_ok.setProperty("role", "primary")
         btn_cancel.clicked.connect(self.reject)
@@ -352,7 +352,7 @@ class AdminPinDialog(QDialog):
     def _on_ok(self):
         pin = self.ed_pin.text() or ""
         if not pin:
-            QMessageBox.warning(self, "PIN", i18n.t("pin_required") or "Capture el PIN.")
+            QMessageBox.warning(self, i18n.t("admin_pin_title") or "PIN", i18n.t("pin_required") or "Capture el PIN.")
             return
         if check_admin_pin(pin):
             self.accept()
@@ -368,7 +368,7 @@ class AdminPinDialog(QDialog):
                     border-radius: 18px;
                 }
             """)
-            QMessageBox.critical(self, "PIN", i18n.t("pin_bad") or "PIN incorrecto.")
+            QMessageBox.critical(self, i18n.t("admin_pin_title") or "PIN", i18n.t("pin_bad") or "PIN incorrecto.")
 
 
 class QtyModeDialog(QDialog):

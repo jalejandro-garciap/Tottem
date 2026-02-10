@@ -35,6 +35,8 @@ _STRINGS: Dict[str, Dict[str, str]] = {
         "pin_saved": "PIN actualizado. Reinicia la aplicación.",
         "admin_pin_prompt": "Ingrese PIN de administrador",
         "admin_pin_title": "PIN de administrador",
+        "admin_pin_subtitle": "Ingrese su PIN de seguridad",
+        "admin_access": "Acceder",
 
         # Devices
         "printer_simple_title": "Impresora ESC/POS (Modo simple)",
@@ -233,6 +235,8 @@ _STRINGS: Dict[str, Dict[str, str]] = {
         "pin_saved": "PIN updated. Restart the app.",
         "admin_pin_prompt": "Enter admin PIN",
         "admin_pin_title": "Admin PIN",
+        "admin_pin_subtitle": "Enter your security PIN",
+        "admin_access": "Access",
 
         "printer_simple_title": "ESC/POS Printer (Simple mode)",
         "scan_usb_printers": "Scan USB printers",

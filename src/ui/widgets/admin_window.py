@@ -1061,9 +1061,9 @@ class AdminWindow(QMainWindow):
         top.setSpacing(16)
 
         from ui.icon_helper import get_icon_char
-        title_lbl = QLabel(f"{get_icon_char('gear') or '⚙'}  " + (i18n.t("admin_title") or "Administración"))
-        title_lbl.setObjectName("SectionTitle")
-        title_lbl.setStyleSheet("""
+        self.title_lbl = QLabel(f"{get_icon_char('gear') or '⚙'}  " + (i18n.t("admin_title") or "Administración"))
+        self.title_lbl.setObjectName("SectionTitle")
+        self.title_lbl.setStyleSheet("""
             font-size: 26px;
             font-weight: 700;
         """)
@@ -1074,21 +1074,21 @@ class AdminWindow(QMainWindow):
         self.lang_btn.clicked.connect(self._toggle_lang)
 
         from ui.icon_helper import get_icon_char
-        btn_close = QPushButton(f"{get_icon_char('arrow-left') or '←'}  " + (i18n.t("exit") or "Salir"))
-        btn_close.setMinimumHeight(52)
-        btn_close.setProperty("role", "danger")
-        btn_close.setStyleSheet("""
+        self.btn_close = QPushButton(f"{get_icon_char('arrow-left') or '←'}  " + (i18n.t("exit") or "Salir"))
+        self.btn_close.setMinimumHeight(52)
+        self.btn_close.setProperty("role", "danger")
+        self.btn_close.setStyleSheet("""
             QPushButton {
                 padding-left: 20px;
                 padding-right: 20px;
             }
         """)
-        btn_close.clicked.connect(self._exit_to_kiosk)
+        self.btn_close.clicked.connect(self._exit_to_kiosk)
 
-        top.addWidget(title_lbl)
+        top.addWidget(self.title_lbl)
         top.addStretch(1)
         top.addWidget(self.lang_btn)
-        top.addWidget(btn_close)
+        top.addWidget(self.btn_close)
 
         # ─── Tab Widget ───────────────────────────────────────────────────
         self.tabs = QTabWidget()
@@ -3032,6 +3032,8 @@ class AdminWindow(QMainWindow):
 
         self.setWindowTitle(i18n.t("admin_title"))
         self.lang_btn.setText(i18n.lang_switch_label())
+        self.title_lbl.setText(f"{get_icon_char('gear') or '⚙'}  " + (i18n.t("admin_title") or "Administración"))
+        self.btn_close.setText(f"{get_icon_char('arrow-left') or '←'}  " + (i18n.t("exit") or "Salir"))
 
         current_idx = self.tabs.currentIndex()
         
