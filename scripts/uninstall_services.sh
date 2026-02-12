@@ -3,9 +3,10 @@
 # TOTTEM POS - Desinstalación de Servicios del Sistema
 # ═══════════════════════════════════════════════════════════════════════════
 # Revierte los cambios realizados por setup_services.sh:
-#   - Detiene y deshabilita el servicio pos.service
+#   - Detiene y deshabilita el servicio pos.service y splash services
 #   - Elimina archivo de servicio, sudoers, autologin, screen blanking
 #   - Restaura configuración de suspensión del sistema
+#   - Restaura texto de arranque del kernel
 #   - Elimina grupo posadm
 #
 # Uso: sudo bash scripts/uninstall_services.sh
@@ -77,11 +78,31 @@ log_info "Eliminando archivo de servicio..."
 
 if [ -f /etc/systemd/system/pos.service ]; then
     rm -f /etc/systemd/system/pos.service
-    systemctl daemon-reload
-    log_success "Archivo de servicio eliminado."
+    log_success "Archivo de servicio POS eliminado."
 else
-    log_warning "No se encontró el archivo de servicio."
+    log_warning "No se encontró el archivo de servicio POS."
 fi
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 2b. Eliminar servicios de splash
+# ─────────────────────────────────────────────────────────────────────────────
+
+log_info "Eliminando servicios de splash..."
+
+for svc in tottem-splash.service tottem-splash-shutdown.service; do
+    if systemctl is-active --quiet "$svc" 2>/dev/null; then
+        systemctl stop "$svc" 2>/dev/null || true
+    fi
+    if systemctl is-enabled --quiet "$svc" 2>/dev/null; then
+        systemctl disable "$svc" 2>/dev/null || true
+    fi
+    if [ -f "/etc/systemd/system/$svc" ]; then
+        rm -f "/etc/systemd/system/$svc"
+        log_success "$svc eliminado."
+    fi
+done
+
+systemctl daemon-reload
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 3. Eliminar configuración de sudoers
@@ -157,6 +178,33 @@ else
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
+# 8. Restaurar texto de arranque del kernel y config.txt
+# ─────────────────────────────────────────────────────────────────────────────
+
+log_info "Restaurando parámetros de arranque del kernel..."
+
+# Restaurar cmdline.txt desde respaldo
+for path in /boot/firmware/cmdline.txt /boot/cmdline.txt; do
+    if [ -f "${path}.bak.tottem" ]; then
+        cp "${path}.bak.tottem" "$path"
+        rm -f "${path}.bak.tottem"
+        log_success "cmdline.txt restaurado desde respaldo."
+        break
+    fi
+done
+
+# Eliminar disable_splash de config.txt
+for path in /boot/firmware/config.txt /boot/config.txt; do
+    if [ -f "$path" ]; then
+        if grep -q "disable_splash=1" "$path" 2>/dev/null; then
+            sed -i '/^disable_splash=1$/d' "$path"
+            log_success "Splash arcoíris de RPi restaurado."
+        fi
+        break
+    fi
+done
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Resumen final
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -174,6 +222,8 @@ echo "  ✓ Autologin en TTY1"
 echo "  ✓ Perfil de screen blanking"
 echo "  ✓ Prevención de suspensión (restaurada)"
 echo "  ✓ Grupo posadm"
+echo "  ✓ Servicios de splash (arranque/apagado)"
+echo "  ✓ Parámetros de kernel (texto de arranque restaurado)"
 echo ""
 echo "Para desinstalar dependencias del sistema:"
 echo "  sudo bash scripts/uninstall_deps.sh"

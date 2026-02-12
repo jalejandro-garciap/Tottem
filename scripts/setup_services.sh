@@ -96,12 +96,16 @@ StandardInput=tty
 TTYVHangup=yes
 
 # Preparar la consola antes de iniciar
+ExecStartPre=-/bin/systemctl stop tottem-splash.service
 ExecStartPre=/bin/sh -lc 'echo 0 > /sys/class/graphics/fbcon/cursor_blink 2>/dev/null || true'
 ExecStartPre=/bin/sh -lc "printf '\\033[?25l' > /dev/tty1 || true"
 ExecStartPre=/bin/sh -lc 'chvt 1 && setterm -cursor off -blank 0 -powersave off -clear all </dev/tty1 2>/dev/null || true'
 
 # Iniciar el kiosk
 ExecStart=$APP_DIR/.venv/bin/pos run-kiosk
+
+# Al detener: iniciar animación de apagado
+ExecStopPost=-/bin/systemctl start tottem-splash-shutdown.service
 
 # Restaurar la consola al salir
 ExecStopPost=/bin/sh -lc "printf '\\033[?25h' > /dev/tty1 || true"
@@ -171,7 +175,66 @@ log_info "Habilitando servicio..."
 systemctl daemon-reload
 systemctl enable pos.service
 
-log_success "Servicio habilitado."
+log_success "Servicio POS habilitado."
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 5b. Configurar splash de arranque y apagado
+# ─────────────────────────────────────────────────────────────────────────────
+
+log_info "Configurando animaciones de arranque y apagado..."
+
+# Hacer splash.sh ejecutable
+chmod +x "$APP_DIR/system/splash.sh"
+
+# --- Servicio de boot splash ---
+cat > /etc/systemd/system/tottem-splash.service << EOF
+[Unit]
+Description=TOTTEM POS - Animación de Arranque
+DefaultDependencies=no
+After=local-fs.target
+Before=pos.service
+ConditionPathExists=$APP_DIR/system/tottem_turn_on.mp4
+
+[Service]
+Type=simple
+ExecStart=$APP_DIR/system/splash.sh boot
+TTYPath=/dev/tty1
+StandardInput=tty
+StandardOutput=null
+StandardError=null
+
+[Install]
+WantedBy=sysinit.target
+EOF
+
+# --- Servicio de shutdown splash ---
+cat > /etc/systemd/system/tottem-splash-shutdown.service << EOF
+[Unit]
+Description=TOTTEM POS - Animación de Apagado
+DefaultDependencies=no
+Before=systemd-reboot.service systemd-poweroff.service systemd-halt.service
+Before=umount.target
+ConditionPathExists=$APP_DIR/system/tottem_turn_off.mp4
+
+[Service]
+Type=simple
+ExecStart=$APP_DIR/system/splash.sh shutdown
+TTYPath=/dev/tty1
+StandardInput=tty
+StandardOutput=null
+StandardError=null
+TimeoutStartSec=30
+TimeoutStopSec=5
+
+[Install]
+WantedBy=reboot.target poweroff.target halt.target
+EOF
+
+systemctl daemon-reload
+systemctl enable tottem-splash.service
+systemctl enable tottem-splash-shutdown.service
+
+log_success "Animaciones de arranque y apagado configuradas."
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 6. Configuraciones adicionales del sistema
@@ -210,13 +273,58 @@ fi
 log_success "Suspensión e hibernación deshabilitadas."
 
 # Configurar resolución de pantalla si es necesario (para monitores comunes)
-if [ -f /boot/config.txt ]; then
-    if ! grep -q "disable_overscan=1" /boot/config.txt; then
-        echo "" >> /boot/config.txt
-        echo "# TOTTEM POS - Configuración de pantalla" >> /boot/config.txt
-        echo "disable_overscan=1" >> /boot/config.txt
-        echo "hdmi_force_hotplug=1" >> /boot/config.txt
+# Detectar ubicación de config.txt (Bookworm vs versiones anteriores)
+BOOT_CONFIG=""
+if [ -f /boot/firmware/config.txt ]; then
+    BOOT_CONFIG="/boot/firmware/config.txt"
+elif [ -f /boot/config.txt ]; then
+    BOOT_CONFIG="/boot/config.txt"
+fi
+
+if [ -n "$BOOT_CONFIG" ]; then
+    if ! grep -q "disable_overscan=1" "$BOOT_CONFIG"; then
+        echo "" >> "$BOOT_CONFIG"
+        echo "# TOTTEM POS - Configuración de pantalla" >> "$BOOT_CONFIG"
+        echo "disable_overscan=1" >> "$BOOT_CONFIG"
+        echo "hdmi_force_hotplug=1" >> "$BOOT_CONFIG"
         log_success "Configuración de pantalla actualizada."
+    fi
+
+    # Desactivar el splash arcoíris de Raspberry Pi
+    if ! grep -q "disable_splash=1" "$BOOT_CONFIG"; then
+        echo "disable_splash=1" >> "$BOOT_CONFIG"
+        log_success "Splash arcoíris de RPi deshabilitado."
+    fi
+fi
+
+# Ocultar texto de arranque del kernel
+# Detectar ubicación de cmdline.txt
+CMDLINE=""
+if [ -f /boot/firmware/cmdline.txt ]; then
+    CMDLINE="/boot/firmware/cmdline.txt"
+elif [ -f /boot/cmdline.txt ]; then
+    CMDLINE="/boot/cmdline.txt"
+fi
+
+if [ -n "$CMDLINE" ]; then
+    # Respaldar cmdline original
+    if [ ! -f "${CMDLINE}.bak.tottem" ]; then
+        cp "$CMDLINE" "${CMDLINE}.bak.tottem"
+    fi
+
+    # Agregar parámetros para ocultar texto de arranque
+    CURRENT=$(cat "$CMDLINE")
+    MODIFIED="$CURRENT"
+
+    for param in "quiet" "loglevel=0" "logo.nologo" "vt.global_cursor_default=0"; do
+        if ! echo "$MODIFIED" | grep -q "$param"; then
+            MODIFIED="$MODIFIED $param"
+        fi
+    done
+
+    if [ "$CURRENT" != "$MODIFIED" ]; then
+        echo "$MODIFIED" > "$CMDLINE"
+        log_success "Parámetros de kernel actualizados para ocultar texto de arranque."
     fi
 fi
 

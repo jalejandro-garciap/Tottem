@@ -112,10 +112,11 @@ sudo apt install -y \
     libusb-1.0-0-dev \
     libudev-dev
 
-# Herramientas de terminal
+# Herramientas de terminal y reproductor de video
 sudo apt install -y \
     kbd \
-    console-setup
+    console-setup \
+    mpv
 
 log_success "Dependencias del sistema instaladas."
 
