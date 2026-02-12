@@ -183,7 +183,10 @@ _STRINGS: Dict[str, Dict[str, str]] = {
         "ssh_support_note": "Para soporte remoto, usa SSH con esta IP.",
         "factory_reset": "Restaurar de Fábrica",
         "factory_reset_warning": "⚠ Elimina todos los datos",
-        "factory_reset_not_impl": "Esta función aún no está implementada.\n\nEn el futuro, esta acción eliminará toda la configuración y datos del sistema.",
+        "factory_reset_confirm": "¿Estás seguro?\n\nEsta acción eliminará TODOS los datos:\n• Productos\n• Tickets y ventas\n• Turnos\n• Empleados\n• Configuración\n• Temas personalizados\n\nEl PIN se restablecerá a 1234.",
+        "factory_reset_type_confirm": "Escribe RESET para confirmar:",
+        "factory_reset_success": "Restauración completada.\nLa aplicación se reiniciará.",
+        "factory_reset_error": "Error durante la restauración: {err}",
 
         # Themes
         "tab_themes": "Temas",
@@ -379,7 +382,10 @@ _STRINGS: Dict[str, Dict[str, str]] = {
         "ssh_support_note": "For remote support, use SSH with this IP.",
         "factory_reset": "Factory Reset",
         "factory_reset_warning": "⚠ Deletes all data",
-        "factory_reset_not_impl": "This feature is not yet implemented.\n\nIn the future, this action will delete all system configuration and data.",
+        "factory_reset_confirm": "Are you sure?\n\nThis action will delete ALL data:\n• Products\n• Tickets and sales\n• Shifts\n• Employees\n• Configuration\n• Custom themes\n\nThe PIN will be reset to 1234.",
+        "factory_reset_type_confirm": "Type RESET to confirm:",
+        "factory_reset_success": "Factory reset completed.\nThe application will restart.",
+        "factory_reset_error": "Error during factory reset: {err}",
 
         # Themes
         "tab_themes": "Themes",

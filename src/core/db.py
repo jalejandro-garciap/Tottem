@@ -41,3 +41,22 @@ def ensure_migrated():
             )
     conn.close()
 
+
+def factory_reset() -> bool:
+    """Delete the database file and recreate it from migrations.
+
+    Returns True on success, False on error.
+    """
+    try:
+        # Remove existing database files (WAL, SHM, main)
+        for suffix in ("", "-wal", "-shm"):
+            p = Path(str(DB_PATH) + suffix)
+            if p.exists():
+                p.unlink()
+
+        # Recreate from migrations
+        ensure_migrated()
+        return True
+    except Exception as exc:
+        print(f"[factory_reset] Error: {exc}")
+        return False

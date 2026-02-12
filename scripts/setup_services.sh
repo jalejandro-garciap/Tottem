@@ -185,6 +185,30 @@ cat > /etc/profile.d/pos-console.sh << 'EOF'
 setterm -blank 0 -powersave off 2>/dev/null || true
 EOF
 
+# Prevenir suspensión e hibernación
+log_info "Deshabilitando suspensión e hibernación..."
+systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target 2>/dev/null || true
+
+# Configurar logind para ignorar cierre de tapa e inactividad
+LOGIND_CONF="/etc/systemd/logind.conf"
+if [ -f "$LOGIND_CONF" ]; then
+    if [ ! -f "${LOGIND_CONF}.bak.tottem" ]; then
+        cp "$LOGIND_CONF" "${LOGIND_CONF}.bak.tottem"
+    fi
+    for opt in "HandleLidSwitch=ignore" "HandleLidSwitchExternalPower=ignore" "HandleLidSwitchDocked=ignore" "IdleAction=ignore"; do
+        key="${opt%%=*}"
+        if grep -q "^${key}=" "$LOGIND_CONF" 2>/dev/null; then
+            sed -i "s/^${key}=.*/${opt}/" "$LOGIND_CONF"
+        elif grep -q "^#${key}=" "$LOGIND_CONF" 2>/dev/null; then
+            sed -i "s/^#${key}=.*/${opt}/" "$LOGIND_CONF"
+        else
+            echo "$opt" >> "$LOGIND_CONF"
+        fi
+    done
+    systemctl restart systemd-logind 2>/dev/null || true
+fi
+log_success "Suspensión e hibernación deshabilitadas."
+
 # Configurar resolución de pantalla si es necesario (para monitores comunes)
 if [ -f /boot/config.txt ]; then
     if ! grep -q "disable_overscan=1" /boot/config.txt; then

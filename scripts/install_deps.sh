@@ -259,6 +259,40 @@ EOF
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
+# 10. Prevenir suspensión / hibernación del equipo
+# ─────────────────────────────────────────────────────────────────────────────
+
+log_info "Deshabilitando suspensión e hibernación..."
+
+# Mask targets de suspensión para que nunca se activen
+sudo systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target 2>/dev/null || true
+
+# Configurar logind para ignorar cierre de tapa e inactividad
+LOGIND_CONF="/etc/systemd/logind.conf"
+if [ -f "$LOGIND_CONF" ]; then
+    # Respaldar el original si no existe respaldo
+    if [ ! -f "${LOGIND_CONF}.bak.tottem" ]; then
+        sudo cp "$LOGIND_CONF" "${LOGIND_CONF}.bak.tottem"
+    fi
+
+    # Asegurar que las opciones existan con los valores correctos
+    for opt in "HandleLidSwitch=ignore" "HandleLidSwitchExternalPower=ignore" "HandleLidSwitchDocked=ignore" "IdleAction=ignore"; do
+        key="${opt%%=*}"
+        if sudo grep -q "^${key}=" "$LOGIND_CONF" 2>/dev/null; then
+            sudo sed -i "s/^${key}=.*/${opt}/" "$LOGIND_CONF"
+        elif sudo grep -q "^#${key}=" "$LOGIND_CONF" 2>/dev/null; then
+            sudo sed -i "s/^#${key}=.*/${opt}/" "$LOGIND_CONF"
+        else
+            echo "$opt" | sudo tee -a "$LOGIND_CONF" > /dev/null
+        fi
+    done
+
+    # Reiniciar logind para aplicar cambios
+    sudo systemctl restart systemd-logind 2>/dev/null || true
+fi
+
+log_success "Suspensión e hibernación deshabilitadas."
+# ─────────────────────────────────────────────────────────────────────────────
 # 9. Resumen final
 # ─────────────────────────────────────────────────────────────────────────────
 

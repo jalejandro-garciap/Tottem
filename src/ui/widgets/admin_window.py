@@ -42,7 +42,7 @@ from services.reports import (
 )
 from services.receipts import render_ticket
 from services.emailer import send_mail, recent_emails
-from services.settings import load_config, save_config, is_categories_enabled, set_categories_enabled
+from services.settings import load_config, save_config, is_categories_enabled, set_categories_enabled, reset_config_to_defaults
 from ui.icon_helper import get_icon_char
 from ui.widgets.osk import OnScreenKeyboard
 from ui.widgets.keypad import NumKeypad
@@ -2884,12 +2884,119 @@ class AdminWindow(QMainWindow):
         return w
     
     def _confirm_factory_reset(self):
-        """Displays confirmation dialog for factory reset (not implemented yet)."""
-        QMessageBox.information(
+        """Factory reset with double confirmation (yes/no + type RESET) and OSK."""
+        # --- First confirmation ---
+        ans = QMessageBox.warning(
             self,
-            i18n.t("factory_reset") or "Restaurar de Fábrica",
-            i18n.t("factory_reset_not_impl") or "Esta función aún no está implementada.\n\nEn el futuro, esta acción eliminará toda la configuración y datos del sistema."
+            i18n.t("factory_reset"),
+            i18n.t("factory_reset_confirm"),
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
         )
+        if ans != QMessageBox.Yes:
+            return
+
+        # --- Second confirmation: type RESET in a custom dialog w/ OSK ---
+        dlg = QDialog(self)
+        dlg.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
+        dlg.setModal(True)
+        dlg.setMinimumWidth(420)
+        dlg.setStyleSheet("""
+            QDialog { border: 2px solid #ef4444; border-radius: 14px; padding: 18px; }
+            QLabel#ResetTitle { font-size: 16px; font-weight: 700; color: #ef4444; }
+        """)
+
+        lay = QVBoxLayout(dlg)
+        lay.setSpacing(14)
+        lay.setContentsMargins(20, 20, 20, 20)
+
+        title = QLabel(f"⚠  {i18n.t('factory_reset')}")
+        title.setObjectName("ResetTitle")
+        title.setAlignment(Qt.AlignCenter)
+        lay.addWidget(title)
+
+        lbl = QLabel(i18n.t("factory_reset_type_confirm"))
+        lbl.setStyleSheet("font-size: 13px;")
+        lbl.setAlignment(Qt.AlignCenter)
+        lay.addWidget(lbl)
+
+        ed_confirm = QLineEdit()
+        ed_confirm.setPlaceholderText("RESET")
+        ed_confirm.setMinimumHeight(48)
+        ed_confirm.setAlignment(Qt.AlignCenter)
+        ed_confirm.setStyleSheet("font-size: 16px; font-weight: 700; letter-spacing: 4px;")
+        # Install OSK filter for touchscreen support
+        ed_confirm.installEventFilter(self._osk_filter)
+        lay.addWidget(ed_confirm)
+
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(12)
+
+        btn_cancel = QPushButton(i18n.t("cancel") or "Cancelar")
+        btn_cancel.setMinimumHeight(48)
+        btn_cancel.clicked.connect(dlg.reject)
+
+        btn_ok = QPushButton(i18n.t("factory_reset"))
+        btn_ok.setMinimumHeight(48)
+        btn_ok.setProperty("role", "danger")
+        btn_ok.setStyleSheet("font-weight: 700;")
+
+        def _try_accept():
+            if ed_confirm.text().strip().upper() == "RESET":
+                dlg.accept()
+            else:
+                ed_confirm.setStyleSheet(
+                    "font-size: 16px; font-weight: 700; letter-spacing: 4px; border: 2px solid #ef4444;"
+                )
+
+        btn_ok.clicked.connect(_try_accept)
+
+        btn_row.addWidget(btn_cancel)
+        btn_row.addWidget(btn_ok)
+        lay.addLayout(btn_row)
+
+        if dlg.exec() != QDialog.Accepted:
+            return
+
+        # --- Execute factory reset ---
+        try:
+            # 1. Delete custom themes
+            themes_dir = ROOT / "config" / "themes"
+            if themes_dir.exists():
+                import shutil
+                shutil.rmtree(themes_dir, ignore_errors=True)
+
+            # 2. Reset config.yaml to factory defaults
+            reset_config_to_defaults()
+
+            # 3. Wipe and recreate database
+            from core.db import factory_reset
+            ok = factory_reset()
+            if not ok:
+                raise RuntimeError("factory_reset() returned False")
+
+            # 4. Show success and restart app
+            QMessageBox.information(
+                self,
+                i18n.t("factory_reset"),
+                i18n.t("factory_reset_success"),
+            )
+
+            # Restart app (same mechanism as _exit_to_kiosk)
+            env = os.environ.copy()
+            cmd = [sys.executable, "-m", "cli", "run-kiosk"]
+            try:
+                subprocess.Popen(cmd, cwd=str(ROOT), env=env)
+            except Exception:
+                pass
+            QApplication.instance().quit()
+
+        except Exception as exc:
+            QMessageBox.critical(
+                self,
+                i18n.t("factory_reset"),
+                i18n.t("factory_reset_error", err=str(exc)),
+            )
     
     def _refresh_public_ip(self):
         """Gets and displays the system's public IP address."""
