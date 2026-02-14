@@ -78,8 +78,9 @@ log_info "Generando archivo de servicio..."
 cat > /etc/systemd/system/pos.service << EOF
 [Unit]
 Description=TOTTEM POS - Punto de Venta (linuxfb)
-After=network-online.target local-fs.target
-Wants=network-online.target
+After=network.target local-fs.target
+Wants=network.target
+Conflicts=getty@tty1.service
 
 [Service]
 Type=simple
@@ -93,7 +94,10 @@ Environment=QT_LOGGING_RULES=*.debug=false
 # Ejecutar en TTY1 para control del framebuffer
 TTYPath=/dev/tty1
 StandardInput=tty
+StandardOutput=inherit
+StandardError=inherit
 TTYVHangup=yes
+TTYVTDisallocate=yes
 
 # Preparar la consola antes de iniciar
 ExecStartPre=-/bin/systemctl stop tottem-splash.service

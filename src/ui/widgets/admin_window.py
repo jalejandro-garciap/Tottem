@@ -3002,18 +3002,19 @@ class AdminWindow(QMainWindow):
         """Gets and displays the system's public IP address."""
         import urllib.request
         import threading
+        from PySide6.QtCore import QTimer
         
         def fetch_ip():
             try:
                 with urllib.request.urlopen("https://api.ipify.org", timeout=5) as response:
                     ip = response.read().decode("utf-8").strip()
-                    # Update label on the main thread
-                    if hasattr(self, "lbl_public_ip"):
-                        self.lbl_public_ip.setText(ip)
+                    QTimer.singleShot(0, lambda: self.lbl_public_ip.setText(ip) if hasattr(self, "lbl_public_ip") else None)
             except Exception:
-                if hasattr(self, "lbl_public_ip"):
-                    self.lbl_public_ip.setText(i18n.t("ip_not_available") or "No disponible")
-                    self.lbl_public_ip.setStyleSheet("color: #f87171; font-weight: 700; font-size: 16px;")
+                def _error_ui():
+                    if hasattr(self, "lbl_public_ip"):
+                        self.lbl_public_ip.setText(i18n.t("ip_not_available") or "No disponible")
+                        self.lbl_public_ip.setStyleSheet("color: #f87171; font-weight: 700; font-size: 16px;")
+                QTimer.singleShot(0, _error_ui)
         
         # Run in a separate thread to avoid UI blocking
         if hasattr(self, "lbl_public_ip"):
@@ -3085,20 +3086,44 @@ class AdminWindow(QMainWindow):
 
 
     def _scan_wifi(self):
-        nets = wifi_list()
+        from PySide6.QtCore import QTimer
+        import threading
         self.ssid_combo.clear()
-        for n in nets:
-            label = f"{n['ssid']}  ({n['signal']})"
-            self.ssid_combo.addItem(label, n["ssid"])
+        self.ssid_combo.addItem(i18n.t("getting_ip") or "Buscando...", "")
+        def _do_scan():
+            nets = wifi_list()
+            def _update_ui():
+                self.ssid_combo.clear()
+                for n in nets:
+                    label = f"{n['ssid']}  ({n['signal']})"
+                    self.ssid_combo.addItem(label, n["ssid"])
+                if not nets:
+                    self.ssid_combo.addItem("—", "")
+            QTimer.singleShot(0, _update_ui)
+        threading.Thread(target=_do_scan, daemon=True).start()
 
     def _connect_wifi(self):
+        from PySide6.QtCore import QTimer
+        import threading
         ssid = self.ssid_combo.currentData()
-        ok, msg = wifi_connect(ssid or "", self.wifi_pass.text())
-        QMessageBox.information(self, i18n.t("wifi_msg"), msg)
-        self._refresh_wifi()
+        pwd = self.wifi_pass.text()
+        def _do_connect():
+            ok, msg = wifi_connect(ssid or "", pwd)
+            def _update_ui():
+                QMessageBox.information(self, i18n.t("wifi_msg"), msg)
+                self._refresh_wifi()
+            QTimer.singleShot(0, _update_ui)
+        threading.Thread(target=_do_connect, daemon=True).start()
 
     def _refresh_wifi(self):
-        self.wifi_state.setText(wifi_status())
+        from PySide6.QtCore import QTimer
+        import threading
+        def _do_refresh():
+            status_text = wifi_status()
+            def _update_ui():
+                self.wifi_state.setText(status_text or "—")
+            QTimer.singleShot(0, _update_ui)
+        threading.Thread(target=_do_refresh, daemon=True).start()
 
     def _confirm_reboot(self):
         if (
