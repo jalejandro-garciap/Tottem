@@ -100,6 +100,7 @@ TTYVHangup=yes
 TTYVTDisallocate=yes
 
 # Preparar la consola antes de iniciar
+ExecStartPre=/bin/sleep 3
 ExecStartPre=-/bin/systemctl stop tottem-splash.service
 ExecStartPre=/bin/sh -lc 'echo 0 > /sys/class/graphics/fbcon/cursor_blink 2>/dev/null || true'
 ExecStartPre=/bin/sh -lc "printf '\\033[?25l' > /dev/tty1 || true"

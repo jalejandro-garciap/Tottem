@@ -14,7 +14,7 @@ import subprocess
 import os
 
 from argon2 import PasswordHasher
-from services.osctl import wifi_list, wifi_connect, wifi_status, reboot, poweroff
+from services.osctl import wifi_list, wifi_connect, wifi_status, reboot, poweroff, is_online
 from drivers.printer_escpos import EscposPrinter
 from services import i18n
 from services.products import (
@@ -2816,13 +2816,13 @@ class AdminWindow(QMainWindow):
         self.lbl_public_ip.setStyleSheet("font-weight: 700; font-size: 14px;")
         self.lbl_public_ip.setProperty("role", "success")
         self.lbl_public_ip.setTextInteractionFlags(Qt.TextSelectableByMouse)
-        btn_refresh_ip = QPushButton(i18n.t("prod_refresh") or "Actualizar")
-        btn_refresh_ip.setMinimumSize(90, 28)
-        btn_refresh_ip.setToolTip(i18n.t("update_status") or "Actualizar IP")
-        btn_refresh_ip.clicked.connect(self._refresh_public_ip)
+        self.btn_refresh_ip = QPushButton(i18n.t("prod_refresh") or "Actualizar")
+        self.btn_refresh_ip.setMinimumSize(90, 28)
+        self.btn_refresh_ip.setToolTip(i18n.t("update_status") or "Actualizar IP")
+        self.btn_refresh_ip.clicked.connect(self._refresh_public_ip)
         ip_row.addWidget(ip_lbl)
         ip_row.addWidget(self.lbl_public_ip, 1)
-        ip_row.addWidget(btn_refresh_ip)
+        ip_row.addWidget(self.btn_refresh_ip)
         ip_layout.addLayout(ip_row)
         
         # SSH note
@@ -3004,24 +3004,46 @@ class AdminWindow(QMainWindow):
         import threading
         from PySide6.QtCore import QTimer
         
+        # UI Feedback
+        if hasattr(self, "lbl_public_ip"):
+            self.lbl_public_ip.setText(i18n.t("getting_ip") or "Obteniendo...")
+            self.lbl_public_ip.setStyleSheet("color: #10b981; font-weight: 700; font-size: 14px;")
+        if hasattr(self, "btn_refresh_ip"):
+            self.btn_refresh_ip.setEnabled(False)
+
         def fetch_ip():
+            # Check online status first
+            if not is_online():
+                def _offline_ui():
+                    if hasattr(self, "lbl_public_ip"):
+                        self.lbl_public_ip.setText(i18n.t("no_connection") or "Sin conexión")
+                        self.lbl_public_ip.setStyleSheet("color: #94a3b8; font-weight: 700; font-size: 14px;")
+                    if hasattr(self, "btn_refresh_ip"):
+                        self.btn_refresh_ip.setEnabled(True)
+                QTimer.singleShot(0, _offline_ui)
+                return
+
             try:
                 with urllib.request.urlopen("https://api.ipify.org", timeout=5) as response:
                     ip = response.read().decode("utf-8").strip()
-                    QTimer.singleShot(0, lambda: self.lbl_public_ip.setText(ip) if hasattr(self, "lbl_public_ip") else None)
+                    def _success_ui():
+                        if hasattr(self, "lbl_public_ip"):
+                            self.lbl_public_ip.setText(ip)
+                            self.lbl_public_ip.setStyleSheet("color: #10b981; font-weight: 700; font-size: 14px;")
+                        if hasattr(self, "btn_refresh_ip"):
+                            self.btn_refresh_ip.setEnabled(True)
+                    QTimer.singleShot(0, _success_ui)
             except Exception:
                 def _error_ui():
                     if hasattr(self, "lbl_public_ip"):
                         self.lbl_public_ip.setText(i18n.t("ip_not_available") or "No disponible")
-                        self.lbl_public_ip.setStyleSheet("color: #f87171; font-weight: 700; font-size: 16px;")
+                        self.lbl_public_ip.setStyleSheet("color: #f87171; font-weight: 700; font-size: 14px;")
+                    if hasattr(self, "btn_refresh_ip"):
+                        self.btn_refresh_ip.setEnabled(True)
                 QTimer.singleShot(0, _error_ui)
         
         # Run in a separate thread to avoid UI blocking
-        if hasattr(self, "lbl_public_ip"):
-            self.lbl_public_ip.setText(i18n.t("getting_ip") or "Obteniendo...")
-            self.lbl_public_ip.setStyleSheet("color: #10b981; font-weight: 700; font-size: 16px;")
-        thread = threading.Thread(target=fetch_ip, daemon=True)
-        thread.start()
+        threading.Thread(target=fetch_ip, daemon=True).start()
     
     def _load_gmail_config(self):
         """Carga la configuración de Gmail desde config.yaml"""
@@ -3088,17 +3110,25 @@ class AdminWindow(QMainWindow):
     def _scan_wifi(self):
         from PySide6.QtCore import QTimer
         import threading
+        
         self.ssid_combo.clear()
         self.ssid_combo.addItem(i18n.t("getting_ip") or "Buscando...", "")
+        self.ssid_combo.setEnabled(False)
+        
         def _do_scan():
-            nets = wifi_list()
+            # Only scan if potentially online/managed
+            nets = []
+            if is_online() or wifi_status():
+                nets = wifi_list()
+            
             def _update_ui():
                 self.ssid_combo.clear()
+                self.ssid_combo.setEnabled(True)
                 for n in nets:
                     label = f"{n['ssid']}  ({n['signal']})"
                     self.ssid_combo.addItem(label, n["ssid"])
                 if not nets:
-                    self.ssid_combo.addItem("—", "")
+                    self.ssid_combo.addItem(i18n.t("no_networks") or "Sin redes", "")
             QTimer.singleShot(0, _update_ui)
         threading.Thread(target=_do_scan, daemon=True).start()
 
@@ -3107,8 +3137,11 @@ class AdminWindow(QMainWindow):
         import threading
         ssid = self.ssid_combo.currentData()
         pwd = self.wifi_pass.text()
+        
+        if not ssid: return
+
         def _do_connect():
-            ok, msg = wifi_connect(ssid or "", pwd)
+            ok, msg = wifi_connect(ssid, pwd)
             def _update_ui():
                 QMessageBox.information(self, i18n.t("wifi_msg"), msg)
                 self._refresh_wifi()
@@ -3121,7 +3154,7 @@ class AdminWindow(QMainWindow):
         def _do_refresh():
             status_text = wifi_status()
             def _update_ui():
-                self.wifi_state.setText(status_text or "—")
+                self.wifi_state.setText(status_text or i18n.t("no_connection") or "Sin conexión")
             QTimer.singleShot(0, _update_ui)
         threading.Thread(target=_do_refresh, daemon=True).start()
 

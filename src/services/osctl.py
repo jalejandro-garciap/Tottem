@@ -108,3 +108,13 @@ def poweroff() -> tuple[int, str, str]:
     """
     return _run(["sudo", "/usr/sbin/poweroff"])
 
+
+def is_online() -> bool:
+    """
+    Quickly check if the system has an active network connection 
+    (not just WiFi, but any interface with a default route).
+    """
+    # Check general network state via nmcli
+    code, out, err = _run(["nmcli", "-t", "-f", "STATE", "g"], timeout=2)
+    return "connected" in out.lower()
+
