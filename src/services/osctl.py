@@ -5,21 +5,13 @@
 import subprocess
 
 
-def _run(cmd: list[str], timeout: int = 10) -> tuple[int, str, str]:
+def _run(cmd: list[str]) -> tuple[int, str, str]:
     """
     Run a command and return (exit_code, stdout, stderr), all text.
-    Timeout prevents UI from hanging if the command blocks.
     """
-    try:
-        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        out, err = p.communicate(timeout=timeout)
-        return p.returncode, (out or "").strip(), (err or "").strip()
-    except subprocess.TimeoutExpired:
-        p.kill()
-        p.communicate()
-        return 1, "", "Tiempo de espera agotado."
-    except Exception as e:
-        return 1, "", str(e)
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    out, err = p.communicate()
+    return p.returncode, (out or "").strip(), (err or "").strip()
 
 
 def wifi_list() -> list[dict]:
@@ -27,7 +19,7 @@ def wifi_list() -> list[dict]:
     List available Wi-Fi networks via nmcli.
     Returns: [{'ssid': str, 'security': str, 'signal': str}, ...]
     """
-    code, out, err = _run(["nmcli", "-t", "-f", "SSID,SECURITY,SIGNAL", "dev", "wifi", "list"], timeout=15)
+    code, out, err = _run(["nmcli", "-t", "-f", "SSID,SECURITY,SIGNAL", "dev", "wifi", "list"])
     if code != 0:
         return []
     nets: list[dict] = []
@@ -48,43 +40,11 @@ def wifi_connect(ssid: str, password: str = "") -> tuple[bool, str]:
     """
     if not ssid:
         return False, "SSID vacío."
-
-    # Try simple connect first
     cmd = ["nmcli", "dev", "wifi", "connect", ssid]
     if password:
         cmd += ["password", password]
-    code, out, err = _run(cmd, timeout=30)
-
-    if code == 0:
-        return True, out or "Conectado."
-
-    # Fallback: if key-mgmt error, use explicit connection profile
-    combined = f"{out} {err}"
-    if "key-mgmt" in combined or "802-11-wireless-security" in combined:
-        # Delete existing connection profile if any
-        _run(["nmcli", "connection", "delete", ssid], timeout=10)
-
-        # Create connection with explicit security settings
-        cmd2 = [
-            "nmcli", "connection", "add",
-            "type", "wifi",
-            "con-name", ssid,
-            "ssid", ssid,
-        ]
-        if password:
-            cmd2 += [
-                "wifi-sec.key-mgmt", "wpa-psk",
-                "wifi-sec.psk", password,
-            ]
-        code2, out2, err2 = _run(cmd2, timeout=15)
-        if code2 != 0:
-            return False, out2 or err2 or "Error al crear perfil de conexión."
-
-        # Activate the connection
-        code3, out3, err3 = _run(["nmcli", "connection", "up", ssid], timeout=30)
-        return (code3 == 0, out3 or err3 or "Sin salida.")
-
-    return (False, out or err or "Sin salida.")
+    code, out, err = _run(cmd)
+    return (code == 0, out or err or "Sin salida.")
 
 
 def wifi_status() -> str:
@@ -107,14 +67,4 @@ def poweroff() -> tuple[int, str, str]:
     Power off the system (requires sudo NOPASSWD for /usr/sbin/poweroff).
     """
     return _run(["sudo", "/usr/sbin/poweroff"])
-
-
-def is_online() -> bool:
-    """
-    Quickly check if the system has an active network connection 
-    (not just WiFi, but any interface with a default route).
-    """
-    # Check general network state via nmcli
-    code, out, err = _run(["nmcli", "-t", "-f", "STATE", "g"], timeout=2)
-    return "connected" in out.lower()
 

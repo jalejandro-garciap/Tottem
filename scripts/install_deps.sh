@@ -132,9 +132,10 @@ if [ -d ".venv" ]; then
 fi
 
 python3 -m venv .venv
+source .venv/bin/activate
 
 log_info "Actualizando pip..."
-.venv/bin/pip install --upgrade pip wheel setuptools
+python -m pip install --upgrade pip wheel setuptools
 
 log_success "Entorno virtual creado."
 
@@ -145,7 +146,7 @@ log_success "Entorno virtual creado."
 log_info "Instalando dependencias de Python..."
 
 # Instalar el proyecto en modo editable
-.venv/bin/pip install -e .
+pip install -e .
 
 log_success "Dependencias de Python instaladas."
 
