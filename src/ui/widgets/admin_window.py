@@ -1044,6 +1044,7 @@ class AdminWindow(QMainWindow):
     
     def __init__(self):
         super().__init__()
+        self.setAttribute(Qt.WA_DeleteOnClose, True)
         self.setWindowFlag(Qt.FramelessWindowHint, True)
         self.setWindowTitle(i18n.t("admin_title"))
         self._osk_guard = False

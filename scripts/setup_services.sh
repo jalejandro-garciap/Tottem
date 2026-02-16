@@ -238,6 +238,60 @@ systemctl enable tottem-splash-shutdown.service
 log_success "Animaciones de arranque y apagado configuradas."
 
 # ─────────────────────────────────────────────────────────────────────────────
+# 5c. Configurar dominio regulatorio WiFi (México)
+# ─────────────────────────────────────────────────────────────────────────────
+
+log_info "Configurando dominio regulatorio WiFi para México..."
+
+# Establecer dominio regulatorio inmediatamente
+iw reg set MX 2>/dev/null || true
+
+# Persistir en wpa_supplicant
+WPA_CONF="/etc/wpa_supplicant/wpa_supplicant.conf"
+if [ -f "$WPA_CONF" ]; then
+    if ! grep -q "^country=" "$WPA_CONF" 2>/dev/null; then
+        sed -i '1i country=MX' "$WPA_CONF"
+    else
+        sed -i 's/^country=.*/country=MX/' "$WPA_CONF"
+    fi
+else
+    cat > "$WPA_CONF" << 'WPAEOF'
+country=MX
+ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
+update_config=1
+WPAEOF
+fi
+
+# Persistir en CRDA (sistemas que lo usen)
+if [ -f /etc/default/crda ]; then
+    sed -i 's/^REGDOMAIN=.*/REGDOMAIN=MX/' /etc/default/crda
+else
+    echo "REGDOMAIN=MX" > /etc/default/crda 2>/dev/null || true
+fi
+
+# Asegurar que NetworkManager gestione WiFi
+nmcli radio wifi on 2>/dev/null || true
+
+log_success "Dominio regulatorio WiFi configurado (MX)."
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 5d. Habilitar SSH para soporte remoto
+# ─────────────────────────────────────────────────────────────────────────────
+
+log_info "Habilitando servicio SSH..."
+
+systemctl enable ssh 2>/dev/null || systemctl enable sshd 2>/dev/null || true
+systemctl start ssh 2>/dev/null || systemctl start sshd 2>/dev/null || true
+
+# Si ufw está instalado y activo, abrir puerto 22
+if command -v ufw &> /dev/null; then
+    ufw allow ssh 2>/dev/null || true
+    log_info "Regla de firewall para SSH aplicada."
+fi
+
+log_success "SSH habilitado y activo."
+
+# ─────────────────────────────────────────────────────────────────────────────
 # 6. Configuraciones adicionales del sistema
 # ─────────────────────────────────────────────────────────────────────────────
 

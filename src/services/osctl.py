@@ -19,7 +19,7 @@ def wifi_list() -> list[dict]:
     List available Wi-Fi networks via nmcli.
     Returns: [{'ssid': str, 'security': str, 'signal': str}, ...]
     """
-    code, out, err = _run(["sudo", "nmcli", "-t", "-f", "SSID,SECURITY,SIGNAL", "dev", "wifi", "list"])
+    code, out, err = _run(["sudo", "nmcli", "-t", "-f", "SSID,SECURITY,SIGNAL", "dev", "wifi", "list", "--rescan", "yes"])
     if code != 0:
         return []
     nets: list[dict] = []
