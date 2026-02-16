@@ -2997,6 +2997,7 @@ class AdminWindow(QMainWindow):
         """Gets and displays the system's public IP address (thread-safe)."""
         import urllib.request
         import threading
+        import socket
 
         # Disable button during fetch
         if hasattr(self, "btn_refresh_ip"):
@@ -3014,8 +3015,11 @@ class AdminWindow(QMainWindow):
             QTimer.singleShot(0, _update)
 
         def fetch_ip():
+            old_timeout = socket.getdefaulttimeout()
             try:
-                with urllib.request.urlopen("https://api.ipify.org", timeout=5) as response:
+                # Set global socket timeout to cover DNS resolution too
+                socket.setdefaulttimeout(3)
+                with urllib.request.urlopen("https://api.ipify.org", timeout=3) as response:
                     ip = response.read().decode("utf-8").strip()
                     _set_ip(ip, "font-weight: 700; font-size: 14px;")
             except Exception:
@@ -3023,6 +3027,8 @@ class AdminWindow(QMainWindow):
                     i18n.t("ip_not_available") or "Sin conexión",
                     "color: #f87171; font-weight: 700; font-size: 14px;",
                 )
+            finally:
+                socket.setdefaulttimeout(old_timeout)
 
         # Show loading state
         if hasattr(self, "lbl_public_ip"):
