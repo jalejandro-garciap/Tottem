@@ -78,8 +78,9 @@ log_info "Generando archivo de servicio..."
 cat > /etc/systemd/system/pos.service << EOF
 [Unit]
 Description=TOTTEM POS - Punto de Venta (linuxfb)
-After=network-online.target local-fs.target
-Wants=network-online.target
+After=local-fs.target systemd-user-sessions.service
+Wants=local-fs.target
+Conflicts=getty@tty1.service
 
 [Service]
 Type=simple

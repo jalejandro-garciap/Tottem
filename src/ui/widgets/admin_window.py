@@ -2816,13 +2816,13 @@ class AdminWindow(QMainWindow):
         self.lbl_public_ip.setStyleSheet("font-weight: 700; font-size: 14px;")
         self.lbl_public_ip.setProperty("role", "success")
         self.lbl_public_ip.setTextInteractionFlags(Qt.TextSelectableByMouse)
-        btn_refresh_ip = QPushButton(i18n.t("prod_refresh") or "Actualizar")
-        btn_refresh_ip.setMinimumSize(90, 28)
-        btn_refresh_ip.setToolTip(i18n.t("update_status") or "Actualizar IP")
-        btn_refresh_ip.clicked.connect(self._refresh_public_ip)
+        self.btn_refresh_ip = QPushButton(i18n.t("prod_refresh") or "Actualizar")
+        self.btn_refresh_ip.setMinimumSize(90, 28)
+        self.btn_refresh_ip.setToolTip(i18n.t("update_status") or "Actualizar IP")
+        self.btn_refresh_ip.clicked.connect(self._refresh_public_ip)
         ip_row.addWidget(ip_lbl)
         ip_row.addWidget(self.lbl_public_ip, 1)
-        ip_row.addWidget(btn_refresh_ip)
+        ip_row.addWidget(self.btn_refresh_ip)
         ip_layout.addLayout(ip_row)
         
         # SSH note
@@ -2999,26 +2999,40 @@ class AdminWindow(QMainWindow):
             )
     
     def _refresh_public_ip(self):
-        """Gets and displays the system's public IP address."""
+        """Gets and displays the system's public IP address (thread-safe)."""
         import urllib.request
         import threading
-        
+
+        # Disable button during fetch
+        if hasattr(self, "btn_refresh_ip"):
+            self.btn_refresh_ip.setEnabled(False)
+
+        def _set_ip(text, style=None):
+            """Marshal widget update to the main Qt thread."""
+            def _update():
+                if hasattr(self, "lbl_public_ip"):
+                    self.lbl_public_ip.setText(text)
+                    if style:
+                        self.lbl_public_ip.setStyleSheet(style)
+                if hasattr(self, "btn_refresh_ip"):
+                    self.btn_refresh_ip.setEnabled(True)
+            QTimer.singleShot(0, _update)
+
         def fetch_ip():
             try:
                 with urllib.request.urlopen("https://api.ipify.org", timeout=5) as response:
                     ip = response.read().decode("utf-8").strip()
-                    # Update label on the main thread
-                    if hasattr(self, "lbl_public_ip"):
-                        self.lbl_public_ip.setText(ip)
+                    _set_ip(ip, "font-weight: 700; font-size: 14px;")
             except Exception:
-                if hasattr(self, "lbl_public_ip"):
-                    self.lbl_public_ip.setText(i18n.t("ip_not_available") or "No disponible")
-                    self.lbl_public_ip.setStyleSheet("color: #f87171; font-weight: 700; font-size: 16px;")
-        
-        # Run in a separate thread to avoid UI blocking
+                _set_ip(
+                    i18n.t("ip_not_available") or "Sin conexión",
+                    "color: #f87171; font-weight: 700; font-size: 14px;",
+                )
+
+        # Show loading state
         if hasattr(self, "lbl_public_ip"):
             self.lbl_public_ip.setText(i18n.t("getting_ip") or "Obteniendo...")
-            self.lbl_public_ip.setStyleSheet("color: #10b981; font-weight: 700; font-size: 16px;")
+            self.lbl_public_ip.setStyleSheet("color: #10b981; font-weight: 700; font-size: 14px;")
         thread = threading.Thread(target=fetch_ip, daemon=True)
         thread.start()
     

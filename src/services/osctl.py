@@ -19,7 +19,7 @@ def wifi_list() -> list[dict]:
     List available Wi-Fi networks via nmcli.
     Returns: [{'ssid': str, 'security': str, 'signal': str}, ...]
     """
-    code, out, err = _run(["nmcli", "-t", "-f", "SSID,SECURITY,SIGNAL", "dev", "wifi", "list"])
+    code, out, err = _run(["sudo", "nmcli", "-t", "-f", "SSID,SECURITY,SIGNAL", "dev", "wifi", "list"])
     if code != 0:
         return []
     nets: list[dict] = []
@@ -35,14 +35,16 @@ def wifi_list() -> list[dict]:
 
 def wifi_connect(ssid: str, password: str = "") -> tuple[bool, str]:
     """
-    Connect to a Wi-Fi SSID. If password is provided, pass it to nmcli.
+    Connect to a Wi-Fi SSID. If password is provided, pass it to nmcli
+    with wifi-sec.key-mgmt wpa-psk to avoid missing key-mgmt errors.
     Returns: (ok, message)
     """
     if not ssid:
         return False, "SSID vacío."
-    cmd = ["nmcli", "dev", "wifi", "connect", ssid]
+    cmd = ["sudo", "nmcli", "dev", "wifi", "connect", ssid]
     if password:
         cmd += ["password", password]
+        cmd += ["wifi-sec.key-mgmt", "wpa-psk"]
     code, out, err = _run(cmd)
     return (code == 0, out or err or "Sin salida.")
 
@@ -51,7 +53,7 @@ def wifi_status() -> str:
     """
     Get a compact Wi-Fi status. Adjust interface if not wlan0 in your device.
     """
-    code, out, err = _run(["nmcli", "-t", "-f", "GENERAL.STATE,IP4.ADDRESS", "dev", "show", "wlan0"])
+    code, out, err = _run(["sudo", "nmcli", "-t", "-f", "GENERAL.STATE,IP4.ADDRESS", "dev", "show", "wlan0"])
     return out or err or ""
 
 
