@@ -35,18 +35,36 @@ def wifi_list() -> list[dict]:
 
 def wifi_connect(ssid: str, password: str = "") -> tuple[bool, str]:
     """
-    Connect to a Wi-Fi SSID. If password is provided, pass it to nmcli
-    with wifi-sec.key-mgmt wpa-psk to avoid missing key-mgmt errors.
+    Connect to a Wi-Fi SSID using nmcli connection profiles.
+    Uses 'nmcli connection add' + 'nmcli connection up' to properly set
+    wifi-sec.key-mgmt wpa-psk (avoids 'invalid extra argument' error).
     Returns: (ok, message)
     """
     if not ssid:
         return False, "SSID vacío."
-    cmd = ["sudo", "nmcli", "dev", "wifi", "connect", ssid]
+
+    con_name = f"tottem-{ssid}"
+
+    # Remove any previous connection profile with this name
+    _run(["sudo", "nmcli", "connection", "delete", con_name])
+
+    # Build the connection add command
+    cmd = [
+        "sudo", "nmcli", "connection", "add",
+        "type", "wifi",
+        "con-name", con_name,
+        "ssid", ssid,
+    ]
     if password:
-        cmd += ["password", password]
-        cmd += ["wifi-sec.key-mgmt", "wpa-psk"]
+        cmd += ["wifi-sec.key-mgmt", "wpa-psk", "wifi-sec.psk", password]
+
     code, out, err = _run(cmd)
-    return (code == 0, out or err or "Sin salida.")
+    if code != 0:
+        return False, err or out or "Error al crear perfil de conexión."
+
+    # Activate the connection
+    code2, out2, err2 = _run(["sudo", "nmcli", "connection", "up", con_name])
+    return (code2 == 0, out2 or err2 or "Sin salida.")
 
 
 def wifi_status() -> str:

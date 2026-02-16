@@ -2812,7 +2812,7 @@ class AdminWindow(QMainWindow):
         ip_row.setSpacing(8)
         ip_lbl = QLabel(i18n.t("public_ip") or "IP Pública:")
         ip_lbl.setStyleSheet("font-size: 11px;")
-        self.lbl_public_ip = QLabel(i18n.t("getting_ip") or "Obteniendo...")
+        self.lbl_public_ip = QLabel("—")
         self.lbl_public_ip.setStyleSheet("font-weight: 700; font-size: 14px;")
         self.lbl_public_ip.setProperty("role", "success")
         self.lbl_public_ip.setTextInteractionFlags(Qt.TextSelectableByMouse)
@@ -2879,7 +2879,6 @@ class AdminWindow(QMainWindow):
         main_layout.addLayout(bottom_container)
         
         self._load_gmail_config()
-        self._refresh_public_ip()
         
         return w
     
@@ -2983,13 +2982,8 @@ class AdminWindow(QMainWindow):
             )
 
             # Restart app (same mechanism as _exit_to_kiosk)
-            env = os.environ.copy()
-            cmd = [sys.executable, "-m", "cli", "run-kiosk"]
-            try:
-                subprocess.Popen(cmd, cwd=str(ROOT), env=env)
-            except Exception:
-                pass
-            QApplication.instance().quit()
+            # Restart app — close admin to return to kiosk
+            self.close()
 
         except Exception as exc:
             QMessageBox.critical(
@@ -3133,19 +3127,7 @@ class AdminWindow(QMainWindow):
             poweroff()
 
     def _exit_to_kiosk(self):
-        env = os.environ.copy()
-        cmd = [sys.executable, "-m", "cli", "run-kiosk"]
-        try:
-            subprocess.Popen(
-                cmd,
-                cwd=str(ROOT),
-                env=env,
-            )
-        except Exception as e:
-            QMessageBox.critical(self, "POS", f"No se pudo abrir caja:\n{e}")
-            return
-
-        QApplication.instance().quit()
+        self.close()
 
     # ---------- Language toggle ----------
     def _toggle_lang(self):
