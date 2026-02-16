@@ -3019,7 +3019,7 @@ class AdminWindow(QMainWindow):
             try:
                 # Set global socket timeout to cover DNS resolution too
                 socket.setdefaulttimeout(3)
-                with urllib.request.urlopen("https://api.ipify.org", timeout=3) as response:
+                with urllib.request.urlopen("http://api.ipify.org", timeout=3) as response:
                     ip = response.read().decode("utf-8").strip()
                     _set_ip(ip, "font-weight: 700; font-size: 14px;")
             except Exception:
