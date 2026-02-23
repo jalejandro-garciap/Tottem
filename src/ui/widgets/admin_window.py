@@ -1088,16 +1088,17 @@ class AdminWindow(QMainWindow):
         """)
         self.btn_close.clicked.connect(self._exit_to_kiosk)
 
-        top.addWidget(self.title_lbl)
-        top.addStretch(1)
-        top.addWidget(self.lang_btn)
-        top.addWidget(self.btn_close)
-
         # ─── Logo ─────────────────────────────────────────────────────────────────
         self.logo_lbl = QLabel()
         self.logo_lbl.setAlignment(Qt.AlignCenter)
         self.logo_lbl.setStyleSheet("background: transparent; border: none; padding: 4px 0;")
         self._update_logo()
+
+        top.addWidget(self.title_lbl)
+        top.addWidget(self.logo_lbl)
+        top.addStretch(1)
+        top.addWidget(self.lang_btn)
+        top.addWidget(self.btn_close)
 
         # ─── Tab Widget ───────────────────────────────────────────────────
         self.tabs = QTabWidget()
@@ -1120,7 +1121,6 @@ class AdminWindow(QMainWindow):
         lay.setContentsMargins(24, 24, 24, 24)
         lay.setSpacing(24)
         lay.addWidget(top_wrap)
-        lay.addWidget(self.logo_lbl)
         lay.addWidget(self.tabs)
         self.setCentralWidget(wrap)
         self.toast_mgr = ToastManager(self)
