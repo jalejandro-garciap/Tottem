@@ -1059,9 +1059,8 @@ class AdminWindow(QMainWindow):
         # ─── Header Bar ───────────────────────────────────────────────────
         top_wrap = QWidget()
         top_wrap.setStyleSheet("background: transparent;")
-        top = QHBoxLayout(top_wrap)
+        top = QGridLayout(top_wrap)
         top.setContentsMargins(24, 20, 24, 16)
-        top.setSpacing(16)
 
         from ui.icon_helper import get_icon_char
         self.title_lbl = QLabel(f"{get_icon_char('gear') or '⚙'}  " + (i18n.t("admin_title") or "Administración"))
@@ -1094,11 +1093,21 @@ class AdminWindow(QMainWindow):
         self.logo_lbl.setStyleSheet("background: transparent; border: none; padding: 4px 0;")
         self._update_logo()
 
-        top.addWidget(self.title_lbl)
-        top.addWidget(self.logo_lbl)
-        top.addStretch(1)
-        top.addWidget(self.lang_btn)
-        top.addWidget(self.btn_close)
+        # ─── Right Controls ───────────────────────────────────────────────────────
+        right_container = QWidget()
+        right_layout = QHBoxLayout(right_container)
+        right_layout.setContentsMargins(0, 0, 0, 0)
+        right_layout.setSpacing(16)
+        right_layout.addWidget(self.lang_btn)
+        right_layout.addWidget(self.btn_close)
+
+        top.addWidget(self.title_lbl, 0, 0, alignment=Qt.AlignLeft | Qt.AlignVCenter)
+        top.addWidget(self.logo_lbl, 0, 1, alignment=Qt.AlignCenter)
+        top.addWidget(right_container, 0, 2, alignment=Qt.AlignRight | Qt.AlignVCenter)
+
+        top.setColumnStretch(0, 1)
+        top.setColumnStretch(1, 0)
+        top.setColumnStretch(2, 1)
 
         # ─── Tab Widget ───────────────────────────────────────────────────
         self.tabs = QTabWidget()
