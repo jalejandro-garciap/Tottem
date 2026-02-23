@@ -4,7 +4,7 @@ from PySide6.QtWidgets import (
     QMessageBox, QSpinBox, QGridLayout, QTableWidget, QTableWidgetItem,
     QHeaderView, QAbstractItemView, QSizePolicy, QDialog, QTextEdit,
     QCheckBox, QFrame, QScrollArea, QListWidget, QListWidgetItem,
-    QDoubleSpinBox, QDateEdit, QApplication,
+    QDoubleSpinBox, QDateEdit, QApplication, QStackedLayout,
 )
 from PySide6.QtCore import Qt, QObject, QEvent, QTimer, QDate, QLocale, QSize
 from PySide6.QtGui import QPixmap, QImage, QPainter, QColor
