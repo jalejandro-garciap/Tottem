@@ -1169,8 +1169,20 @@ class AdminWindow(QMainWindow):
         luminance = 0.299 * c.redF() + 0.587 * c.greenF() + 0.114 * c.blueF()
 
         if luminance < 0.5:
-            # Dark theme: invert colors
-            img.invertPixels(QImage.InvertRgb)
+            # Dark theme: invert only dark/grayscale pixels to white/light-gray
+            # Preserving any other colors in the SVG
+            for y in range(img.height()):
+                for x in range(img.width()):
+                    pixel_color = img.pixelColor(x, y)
+                    if pixel_color.alpha() == 0:
+                        continue
+                    
+                    h, s, l, a = pixel_color.getHslF()
+                    # If it's a dark color and mostly grayscale
+                    if l < 0.5 and s < 0.25:
+                        # Invert lightness, keep alpha and hue
+                        pixel_color.setHslF(h, s, 1.0 - l, a)
+                        img.setPixelColor(x, y, pixel_color)
 
         pm = QPixmap.fromImage(img)
         self.logo_lbl.setPixmap(pm)
