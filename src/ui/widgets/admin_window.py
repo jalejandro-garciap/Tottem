@@ -3077,6 +3077,15 @@ class AdminWindow(QMainWindow):
 
             # Restart app (same mechanism as _exit_to_kiosk)
             # Restart app — close admin to return to kiosk
+            
+            # Clear UI for Products tab
+            if hasattr(self, "table_products"):
+                self.table_products.setRowCount(0)
+            if hasattr(self, "btn_category_toggle"):
+                self.btn_category_toggle.setEnabled(False)
+            if hasattr(self, "cat_combo"):
+                self.cat_combo.clear()
+            
             self.close()
 
         except Exception as exc:
