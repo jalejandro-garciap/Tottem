@@ -2,11 +2,13 @@ from PySide6.QtWidgets import (
     QMainWindow, QWidget, QTabWidget, QVBoxLayout, QFormLayout,
     QLineEdit, QPushButton, QLabel, QHBoxLayout, QComboBox,
     QMessageBox, QSpinBox, QGridLayout, QTableWidget, QTableWidgetItem,
-    QAbstractItemView, QCheckBox, QDialog, QListWidget, QListWidgetItem, QApplication,
-    QFrame, QStackedLayout, QTextEdit, QDateEdit,
-    QSizePolicy
+    QHeaderView, QAbstractItemView, QSizePolicy, QDialog, QTextEdit,
+    QCheckBox, QFrame, QScrollArea, QListWidget, QListWidgetItem,
+    QDoubleSpinBox, QDateEdit, QApplication,
 )
-from PySide6.QtCore import Qt, QObject, QEvent, QTimer, QDate, QLocale
+from PySide6.QtCore import Qt, QObject, QEvent, QTimer, QDate, QLocale, QSize
+from PySide6.QtGui import QPixmap, QImage, QPainter, QColor
+from PySide6.QtSvg import QSvgRenderer
 from pathlib import Path
 
 import sys
@@ -640,7 +642,7 @@ class TicketDetailDialog(QDialog):
         icon.setAlignment(Qt.AlignCenter)
         icon.setStyleSheet("font-size: 48px;")
 
-        title = QLabel("DETALLES DEL TICKET")
+        title = QLabel(i18n.t("ticket_details_title"))
         title.setAlignment(Qt.AlignCenter)
         title.setStyleSheet("""
             font-size: 12px;
@@ -668,12 +670,12 @@ class TicketDetailDialog(QDialog):
         row = QHBoxLayout()
         row.setSpacing(16)
 
-        btn_cancel = QPushButton("Cerrar")
+        btn_cancel = QPushButton(i18n.t("ticket_close"))
         btn_cancel.setMinimumHeight(60)
         btn_cancel.clicked.connect(self.reject)
 
         from ui.icon_helper import get_icon_char
-        btn_print = QPushButton(f"{get_icon_char('print') or '🖨'}  Reimprimir Ticket")
+        btn_print = QPushButton(f"{get_icon_char('print') or '🖨'}  {i18n.t('ticket_reprint')}")
         btn_print.setMinimumHeight(60)
         btn_print.setProperty("role", "primary")
         btn_print.setStyleSheet("font-size: 16px; font-weight: 700;")
@@ -694,19 +696,19 @@ class TicketDetailDialog(QDialog):
         self.ticket_details = get_ticket_details(ticket_id)
         
         if not self.ticket_details:
-            self.txt_details.setPlainText("Error: No se pudo cargar el ticket.")
+            self.txt_details.setPlainText(i18n.t("ticket_load_error"))
             return
         
         lines = []
         lines.append("═" * 50)
         lines.append(f"  Ticket: {self.ticket_details['id']}")
-        lines.append(f"  Cajero: {self.ticket_details['served_by'] or '—'}")
-        lines.append(f"  Fecha:  {self.ticket_details['ts']}")
+        lines.append(f"  {i18n.t('cashier_label')}: {self.ticket_details['served_by'] or '—'}")
+        lines.append(f"  {i18n.t('date_label')}:  {self.ticket_details['ts']}")
         if self.ticket_details['shift_id']:
             lines.append(f"  Turno:  #{self.ticket_details['shift_id']}")
         lines.append("═" * 50)
         lines.append("")
-        lines.append("PRODUCTOS:")
+        lines.append(i18n.t("products_label"))
         lines.append("")
         
         for item in self.ticket_details["items"]:
@@ -736,7 +738,7 @@ class TicketDetailDialog(QDialog):
     def _reprint_ticket(self):
         """Reimprimir el ticket actual."""
         if not self.ticket_details:
-            QMessageBox.warning(self, "Error", "No hay ticket cargado.")
+            QMessageBox.warning(self, i18n.t("print_error"), i18n.t("ticket_no_loaded"))
             return
         
         from drivers.printer_escpos import EscposPrinter
@@ -752,9 +754,9 @@ class TicketDetailDialog(QDialog):
         
         try:
             EscposPrinter().print_text(ticket_text)
-            QMessageBox.information(self, "Éxito", f"Ticket #{self.ticket_id} enviado a impresión.")
+            QMessageBox.information(self, i18n.t("print_success"), i18n.t("ticket_print_success").replace("{id}", str(self.ticket_id)))
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Error al imprimir: {e}")
+            QMessageBox.critical(self, i18n.t("print_error"), i18n.t("ticket_print_error").replace("{err}", str(e)))
 
 
 class ShiftPreviewDialog(QDialog):
@@ -782,7 +784,7 @@ class ShiftPreviewDialog(QDialog):
         icon.setAlignment(Qt.AlignCenter)
         icon.setStyleSheet("font-size: 48px;")
 
-        title = QLabel("VISTA PREVIA DEL TURNO")
+        title = QLabel(i18n.t("shift_preview_title"))
         title.setAlignment(Qt.AlignCenter)
         title.setStyleSheet("""
             font-size: 12px;
@@ -797,7 +799,7 @@ class ShiftPreviewDialog(QDialog):
             info_panel = self._build_info_panel()
             root.addWidget(info_panel)
 
-        lbl_tickets = QLabel("Tickets del turno:")
+        lbl_tickets = QLabel(i18n.t("shift_tickets_label"))
         lbl_tickets.setStyleSheet("font-weight: 600; font-size: 14px;")
         root.addWidget(lbl_tickets)
         
@@ -820,12 +822,12 @@ class ShiftPreviewDialog(QDialog):
         self.lst_tickets.itemDoubleClicked.connect(self._open_ticket_details)
         root.addWidget(self.lst_tickets, 1)
         
-        hint = QLabel("💡 Haz doble clic en un ticket para ver detalles y reimprimir")
+        hint = QLabel(i18n.t("shift_hint_click"))
         hint.setStyleSheet("font-size: 12px; font-style: italic;")
         hint.setAlignment(Qt.AlignCenter)
         root.addWidget(hint)
 
-        btn_close = QPushButton("Cerrar")
+        btn_close = QPushButton(i18n.t("ticket_close"))
         btn_close.setMinimumHeight(60)
         btn_close.clicked.connect(self.reject)
         root.addWidget(btn_close)
@@ -1091,6 +1093,12 @@ class AdminWindow(QMainWindow):
         top.addWidget(self.lang_btn)
         top.addWidget(self.btn_close)
 
+        # ─── Logo ─────────────────────────────────────────────────────────────────
+        self.logo_lbl = QLabel()
+        self.logo_lbl.setAlignment(Qt.AlignCenter)
+        self.logo_lbl.setStyleSheet("background: transparent; border: none; padding: 4px 0;")
+        self._update_logo()
+
         # ─── Tab Widget ───────────────────────────────────────────────────
         self.tabs = QTabWidget()
         self.tabs.setObjectName("AdminTabs")
@@ -1112,6 +1120,7 @@ class AdminWindow(QMainWindow):
         lay.setContentsMargins(24, 24, 24, 24)
         lay.setSpacing(24)
         lay.addWidget(top_wrap)
+        lay.addWidget(self.logo_lbl)
         lay.addWidget(self.tabs)
         self.setCentralWidget(wrap)
         self.toast_mgr = ToastManager(self)
@@ -1120,6 +1129,42 @@ class AdminWindow(QMainWindow):
     def resizeEvent(self, event):
         super().resizeEvent(event)
         self.toast_mgr.sync_geometry()
+
+    def _update_logo(self):
+        """Render the Tottem SVG logo with theme-aware color inversion."""
+        from services import themes as theme_svc
+
+        svg_path = str(Path(__file__).resolve().parent.parent / "assets" / "Tottem.svg")
+
+        renderer = QSvgRenderer(svg_path)
+        if not renderer.isValid():
+            self.logo_lbl.setText("TOTTEM")
+            return
+
+        # Render SVG to QImage
+        default_size = renderer.defaultSize()
+        target_h = 48
+        scale = target_h / max(default_size.height(), 1)
+        target_w = int(default_size.width() * scale)
+
+        img = QImage(target_w, target_h, QImage.Format_ARGB32_Premultiplied)
+        img.fill(QColor(0, 0, 0, 0))
+        painter = QPainter(img)
+        renderer.render(painter)
+        painter.end()
+
+        # Determine if theme needs inverted logo (dark background → white logo)
+        colors = theme_svc.get_theme(theme_svc.get_current_theme()) or {}
+        bg = colors.get("bg_deep", "#0a0a0f")
+        c = QColor(bg)
+        luminance = 0.299 * c.redF() + 0.587 * c.greenF() + 0.114 * c.blueF()
+
+        if luminance < 0.5:
+            # Dark theme: invert colors
+            img.invertPixels(QImage.InvertRgb)
+
+        pm = QPixmap.fromImage(img)
+        self.logo_lbl.setPixmap(pm)
 
     def _toast(self, message: str, *, level: str = "info", duration_ms: int = 3600):
         self.toast_mgr.show_toast(message, level=level, duration_ms=duration_ms)
@@ -2571,6 +2616,8 @@ class AdminWindow(QMainWindow):
         # Refresh current tab UI if needed (some objects might need manual refresh)
         self.style().unpolish(self)
         self.style().polish(self)
+        # Update logo colors to match the new theme
+        self._update_logo()
     
     def _new_theme(self):
         """Start creating a new custom theme based on current."""
@@ -2656,7 +2703,7 @@ class AdminWindow(QMainWindow):
         wifi_layout.setContentsMargins(12, 12, 12, 12)
         
         wifi_icon = get_icon_char("network-wired") or "🌐"
-        wifi_title = QLabel(f"{wifi_icon}  Configuración WiFi")
+        wifi_title = QLabel(f"{wifi_icon}  {i18n.t('sys_wifi_config')}")
         wifi_title.setObjectName("SectionTitleSmall")
         wifi_title.setStyleSheet("font-size: 13px; font-weight: 700;")
         wifi_layout.addWidget(wifi_title)
@@ -2666,9 +2713,9 @@ class AdminWindow(QMainWindow):
         ssid_row.setSpacing(6)
         self.ssid_combo = QComboBox()
         self.ssid_combo.setMinimumHeight(32)
-        btn_scan = QPushButton("Buscar")
+        btn_scan = QPushButton(i18n.t("sys_scan"))
         btn_scan.setMinimumSize(90, 32)
-        btn_scan.setToolTip("Escanear redes WiFi")
+        btn_scan.setToolTip(i18n.t("sys_scan_wifi_tooltip"))
         btn_scan.clicked.connect(self._scan_wifi)
         ssid_row.addWidget(self.ssid_combo, 1)
         ssid_row.addWidget(btn_scan)
@@ -2677,7 +2724,7 @@ class AdminWindow(QMainWindow):
         # Password
         self.wifi_pass = QLineEdit()
         self.wifi_pass.setEchoMode(QLineEdit.Password)
-        self.wifi_pass.setPlaceholderText("Contraseña de red")
+        self.wifi_pass.setPlaceholderText(i18n.t("sys_net_password"))
         self.wifi_pass.setMinimumHeight(32)
         wifi_layout.addWidget(self.wifi_pass)
         
@@ -2690,14 +2737,14 @@ class AdminWindow(QMainWindow):
         # Status row
         status_row = QHBoxLayout()
         status_row.setSpacing(6)
-        status_lbl = QLabel("Estado:")
+        status_lbl = QLabel(i18n.t("sys_status"))
         status_lbl.setStyleSheet("font-size: 11px;")
         self.wifi_state = QLabel("(—)")
         self.wifi_state.setStyleSheet("font-weight: 600; font-size: 11px;")
         self.wifi_state.setProperty("role", "success")
-        btn_state = QPushButton("Actualizar")
+        btn_state = QPushButton(i18n.t("sys_update"))
         btn_state.setMinimumSize(90, 28)
-        btn_state.setToolTip("Actualizar estado")
+        btn_state.setToolTip(i18n.t("sys_update_tooltip"))
         btn_state.clicked.connect(self._refresh_wifi)
         status_row.addWidget(status_lbl)
         status_row.addWidget(self.wifi_state, 1)
@@ -2707,10 +2754,10 @@ class AdminWindow(QMainWindow):
         # Power buttons row
         power_row = QHBoxLayout()
         power_row.setSpacing(6)
-        btn_reboot = QPushButton("Reiniciar")
+        btn_reboot = QPushButton(i18n.t("reboot") or "Reiniciar")
         btn_reboot.setMinimumHeight(28)
         btn_reboot.clicked.connect(self._confirm_reboot)
-        btn_power = QPushButton("Apagar")
+        btn_power = QPushButton(i18n.t("poweroff") or "Apagar")
         btn_power.setMinimumHeight(28)
         btn_power.clicked.connect(self._confirm_poweroff)
         power_row.addWidget(btn_reboot)
@@ -2734,41 +2781,41 @@ class AdminWindow(QMainWindow):
         email_layout.setContentsMargins(12, 12, 12, 12)
         
         email_icon = get_icon_char("envelope") or "📧"
-        email_title = QLabel(f"{email_icon}  Configuración Gmail")
+        email_title = QLabel(f"{email_icon}  {i18n.t('sys_gmail_config')}")
         email_title.setObjectName("SectionTitleSmall")
         email_title.setStyleSheet("font-size: 13px; font-weight: 700;")
         
         # Gmail user
-        user_lbl = QLabel("Cuenta Gmail:")
+        user_lbl = QLabel(i18n.t("sys_gmail_account"))
         user_lbl.setStyleSheet("font-size: 11px;")
         email_layout.addWidget(user_lbl)
         
         self.gmail_user = QLineEdit()
-        self.gmail_user.setPlaceholderText("tucuenta@gmail.com")
+        self.gmail_user.setPlaceholderText(i18n.t("sys_gmail_placeholder"))
         self.gmail_user.setMinimumHeight(32)
         email_layout.addWidget(self.gmail_user)
         
         # Gmail password
-        pass_lbl = QLabel("Contraseña de App:")
+        pass_lbl = QLabel(i18n.t("sys_gmail_app_pass"))
         pass_lbl.setStyleSheet("font-size: 11px;")
         email_layout.addWidget(pass_lbl)
         
         self.gmail_pass = QLineEdit()
         self.gmail_pass.setEchoMode(QLineEdit.Password)
-        self.gmail_pass.setPlaceholderText("Contraseña de aplicación")
+        self.gmail_pass.setPlaceholderText(i18n.t("sys_gmail_pass_placeholder"))
         self.gmail_pass.setMinimumHeight(32)
         email_layout.addWidget(self.gmail_pass)
         
         # Save button
         save_icon = get_icon_char("floppy-disk") or "💾"
-        btn_save_email = QPushButton(f"{save_icon} Guardar")
+        btn_save_email = QPushButton(f"{save_icon} {i18n.t('save')}")
         btn_save_email.setMinimumHeight(32)
         btn_save_email.setProperty("role", "primary")
         btn_save_email.clicked.connect(self._save_gmail_config)
         email_layout.addWidget(btn_save_email)
         
         # Note
-        note = QLabel("Usa contraseña de aplicación.\nmyaccount.google.com/apppasswords")
+        note = QLabel(i18n.t("sys_gmail_note"))
         note.setStyleSheet("font-size: 10px;")
         note.setWordWrap(True)
         email_layout.addWidget(note)
@@ -2803,7 +2850,7 @@ class AdminWindow(QMainWindow):
         ip_layout.setContentsMargins(12, 12, 12, 12)
         
         server_icon = get_icon_char("server") or "🖥"
-        ip_title = QLabel(f"{server_icon}  Conectividad & Soporte")
+        ip_title = QLabel(f"{server_icon}  {i18n.t('sys_connectivity')}")
         ip_title.setObjectName("SectionTitleSmall")
         ip_title.setStyleSheet("font-size: 13px; font-weight: 700;")
         ip_layout.addWidget(ip_title)
@@ -2849,7 +2896,7 @@ class AdminWindow(QMainWindow):
         reset_layout.setContentsMargins(12, 12, 12, 12)
         
         gear_icon = get_icon_char("gears") or "⚙️"
-        reset_title = QLabel(f"{gear_icon}  Sistema")
+        reset_title = QLabel(f"{gear_icon}  {i18n.t('sys_system')}")
         reset_title.setObjectName("SectionTitleSmall")
         reset_title.setStyleSheet("font-size: 13px; font-weight: 700;")
         reset_layout.addWidget(reset_title)
@@ -2880,7 +2927,32 @@ class AdminWindow(QMainWindow):
         main_layout.addLayout(bottom_container)
         
         self._load_gmail_config()
-        
+
+        # Version badge at the bottom
+        version_row = QHBoxLayout()
+        version_row.addStretch()
+        from services import themes as theme_svc
+        colors = theme_svc.get_theme(theme_svc.get_current_theme()) or {}
+        success_color = colors.get("success", "#10b981")
+        version_lbl = QLabel(i18n.t("version_beta"))
+        version_lbl.setObjectName("VersionBadge")
+        version_lbl.setAlignment(Qt.AlignCenter)
+        version_lbl.setStyleSheet(f"""
+            QLabel#VersionBadge {{
+                color: {success_color};
+                font-size: 12px;
+                font-weight: 700;
+                letter-spacing: 2px;
+                padding: 6px 18px;
+                border: 2px solid {success_color};
+                border-radius: 12px;
+                background: transparent;
+            }}
+        """)
+        version_row.addWidget(version_lbl)
+        version_row.addStretch()
+        main_layout.addLayout(version_row)
+
         return w
     
     def _confirm_factory_reset(self):

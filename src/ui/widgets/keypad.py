@@ -6,6 +6,7 @@ from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QGridLayout, QPushButton, QLineEdit, QHBoxLayout, QLabel, QFrame
 )
 from PySide6.QtCore import Qt
+from services import i18n
 
 
 class NumKeypad(QDialog):
@@ -112,12 +113,12 @@ class NumKeypad(QDialog):
         row = QHBoxLayout()
         row.setSpacing(12)
 
-        cancel = QPushButton("Cancelar")
+        cancel = QPushButton(i18n.t("keypad_cancel"))
         cancel.setMinimumHeight(64)
         cancel.clicked.connect(self.reject)
 
         from ui.icon_helper import get_icon_char
-        ok = QPushButton(f"{get_icon_char('arrow-right') or '→'}  Aceptar")
+        ok = QPushButton(f"{get_icon_char('arrow-right') or '→'}  {i18n.t('keypad_accept')}")
         ok.setMinimumHeight(64)
         ok.setProperty("role", "primary")
         ok.clicked.connect(self.accept)

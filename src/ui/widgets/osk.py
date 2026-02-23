@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
     QLineEdit, QSizePolicy, QWidget, QLabel, QFrame
 )
 from PySide6.QtCore import Qt, QSize
+from services import i18n
 
 KEY_ROWS_LOWER = [
     list("qwertyuiop"),
@@ -78,7 +79,7 @@ class OnScreenKeyboard(QDialog):
                 padding: 8px 0;
             }
         """)
-        self.ed.setPlaceholderText("Escriba aquí...")
+        self.ed.setPlaceholderText(i18n.t("osk_placeholder"))
         display_layout.addWidget(self.ed)
         root.addWidget(display_frame)
 
@@ -95,12 +96,12 @@ class OnScreenKeyboard(QDialog):
         self.btn_shift.setToolTip("Shift")
         self.btn_nums = QPushButton("123")
         self.btn_space = QPushButton("━━━━━━━━")
-        self.btn_space.setToolTip("Espacio")
+        self.btn_space.setToolTip(i18n.t("osk_space_tooltip"))
         self.btn_bsp = QPushButton("⌫")
-        self.btn_bsp.setToolTip("Borrar")
+        self.btn_bsp.setToolTip(i18n.t("osk_backspace_tooltip"))
         from ui.icon_helper import get_icon_char
         self.btn_clear = QPushButton(get_icon_char('xmark') or "✕")
-        self.btn_clear.setToolTip("Limpiar")
+        self.btn_clear.setToolTip(i18n.t("osk_clear_tooltip"))
         self.btn_clear.setProperty("role", "danger")
 
         for b in (self.btn_shift, self.btn_nums, self.btn_space, self.btn_bsp, self.btn_clear):
@@ -120,11 +121,11 @@ class OnScreenKeyboard(QDialog):
         actions = QHBoxLayout()
         actions.setSpacing(12)
 
-        self.btn_cancel = QPushButton("Cancelar")
+        self.btn_cancel = QPushButton(i18n.t("osk_cancel"))
         self.btn_cancel.setMinimumHeight(60)
 
         from ui.icon_helper import get_icon_char
-        self.btn_ok = QPushButton(f"{get_icon_char('arrow-right') or '→'}  Aceptar")
+        self.btn_ok = QPushButton(f"{get_icon_char('arrow-right') or '→'}  {i18n.t('osk_accept')}")
         self.btn_ok.setMinimumHeight(60)
         self.btn_ok.setProperty("role", "primary")
 
