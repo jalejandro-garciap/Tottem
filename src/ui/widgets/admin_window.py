@@ -3054,7 +3054,8 @@ class AdminWindow(QMainWindow):
         # --- Execute factory reset ---
         try:
             # 1. Delete custom themes
-            themes_dir = ROOT / "config" / "themes"
+            root_dir = Path(__file__).resolve().parent.parent.parent.parent
+            themes_dir = root_dir / "config" / "themes"
             if themes_dir.exists():
                 import shutil
                 shutil.rmtree(themes_dir, ignore_errors=True)
