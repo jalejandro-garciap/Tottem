@@ -3098,55 +3098,51 @@ class AdminWindow(QMainWindow):
     
     def _refresh_public_ip(self):
         """Gets and displays the system's public IP address (thread-safe)."""
+        from PySide6.QtCore import QThread, Signal
         import urllib.request
-        import threading
         import socket
+        import ssl
 
-        # Disable button during fetch
         if hasattr(self, "btn_refresh_ip"):
             self.btn_refresh_ip.setEnabled(False)
 
-        def _set_ip(text, style=None):
-            """Marshal widget update to the main Qt thread."""
-            def _update():
-                if hasattr(self, "lbl_public_ip"):
-                    self.lbl_public_ip.setText(text)
-                    if style:
-                        self.lbl_public_ip.setStyleSheet(style)
-                if hasattr(self, "btn_refresh_ip"):
-                    self.btn_refresh_ip.setEnabled(True)
-            
-            from PySide6.QtCore import QMetaObject, Qt
-            QMetaObject.invokeMethod(self, _update, Qt.QueuedConnection)
+        class IPFetcherThread(QThread):
+            finished = Signal(str, str)
 
-        def fetch_ip():
-            old_timeout = socket.getdefaulttimeout()
-            try:
-                # Set global socket timeout to cover DNS resolution too
-                socket.setdefaulttimeout(5)
-                # Create an SSL context that doesn't complain on missing certs for a simple IP fetch
-                import ssl
-                ctx = ssl.create_default_context()
-                ctx.check_hostname = False
-                ctx.verify_mode = ssl.CERT_NONE
-                
-                with urllib.request.urlopen("https://api.ipify.org", timeout=5, context=ctx) as response:
-                    ip = response.read().decode("utf-8").strip()
-                    _set_ip(ip, "font-weight: 700; font-size: 14px;")
-            except Exception as e:
-                _set_ip(
-                    i18n.t("ip_not_available") if i18n.t("ip_not_available") != "ip_not_available" else "Sin conexión",
-                    "color: #f87171; font-weight: 700; font-size: 14px;",
-                )
-            finally:
-                socket.setdefaulttimeout(old_timeout)
+            def run(self):
+                old_timeout = socket.getdefaulttimeout()
+                try:
+                    socket.setdefaulttimeout(5)
+                    ctx = ssl.create_default_context()
+                    ctx.check_hostname = False
+                    ctx.verify_mode = ssl.CERT_NONE
+                    
+                    with urllib.request.urlopen("https://api.ipify.org", timeout=5, context=ctx) as response:
+                        ip = response.read().decode("utf-8").strip()
+                        self.finished.emit(ip, "font-weight: 700; font-size: 14px;")
+                except Exception as e:
+                    self.finished.emit(
+                        i18n.t("ip_not_available") if i18n.t("ip_not_available") != "ip_not_available" else "Sin conexión",
+                        "color: #f87171; font-weight: 700; font-size: 14px;"
+                    )
+                finally:
+                    socket.setdefaulttimeout(old_timeout)
 
-        # Show loading state
+        def _on_ip_fetched(text, style):
+            if hasattr(self, "lbl_public_ip"):
+                self.lbl_public_ip.setText(text)
+                if style:
+                    self.lbl_public_ip.setStyleSheet(style)
+            if hasattr(self, "btn_refresh_ip"):
+                self.btn_refresh_ip.setEnabled(True)
+
         if hasattr(self, "lbl_public_ip"):
-            self.lbl_public_ip.setText(i18n.t("getting_ip") or "Obteniendo...")
+            self.lbl_public_ip.setText(i18n.t("getting_ip") if i18n.t("getting_ip") != "getting_ip" else "Obteniendo...")
             self.lbl_public_ip.setStyleSheet("color: #10b981; font-weight: 700; font-size: 14px;")
-        thread = threading.Thread(target=fetch_ip, daemon=True)
-        thread.start()
+
+        self._ip_thread = IPFetcherThread()
+        self._ip_thread.finished.connect(_on_ip_fetched)
+        self._ip_thread.start()
     
     def _load_gmail_config(self):
         """Carga la configuración de Gmail desde config.yaml"""
