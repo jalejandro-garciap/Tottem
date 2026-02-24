@@ -41,7 +41,7 @@ def set_categories_enabled(enabled: bool) -> None:
 
 # Default PIN 1234 hashed with argon2id
 _DEFAULT_PIN_HASH = (
-    "$argon2id$v=19$m=65536,t=3,p=4$c29tZXNhbHQ$RdescudvJCsgt3ub+b+dWRWJTmaaJObG"
+    "$argon2id$v=19$m=65536,t=3,p=4$JFE4XiXJTD9iEGWnQdnmuw$G9953rMEA4eGchNqHDFj6FhJZqTf2AlWlk38juIO7/w"
 )
 
 _DEFAULT_CONFIG: dict = {

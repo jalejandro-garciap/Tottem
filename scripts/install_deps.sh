@@ -249,7 +249,7 @@ hardware:
 
 security:
   # PIN por defecto: 1234 (cambiar en producción)
-  admin_pin_hash: "$argon2id$v=19$m=65536,t=3,p=4$c29tZXNhbHQ$RdescudvJCsgt3ub+b+dWRWJTmaaJObG"
+  admin_pin_hash: "$argon2id$v=19$m=65536,t=3,p=4$JFE4XiXJTD9iEGWnQdnmuw$G9953rMEA4eGchNqHDFj6FhJZqTf2AlWlk38juIO7/w"
 
 settings:
   categories_enabled: false
