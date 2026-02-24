@@ -3115,19 +3115,27 @@ class AdminWindow(QMainWindow):
                         self.lbl_public_ip.setStyleSheet(style)
                 if hasattr(self, "btn_refresh_ip"):
                     self.btn_refresh_ip.setEnabled(True)
-            QTimer.singleShot(0, _update)
+            
+            from PySide6.QtCore import QMetaObject, Qt
+            QMetaObject.invokeMethod(self, _update, Qt.QueuedConnection)
 
         def fetch_ip():
             old_timeout = socket.getdefaulttimeout()
             try:
                 # Set global socket timeout to cover DNS resolution too
                 socket.setdefaulttimeout(5)
-                with urllib.request.urlopen("https://api.ipify.org", timeout=5) as response:
+                # Create an SSL context that doesn't complain on missing certs for a simple IP fetch
+                import ssl
+                ctx = ssl.create_default_context()
+                ctx.check_hostname = False
+                ctx.verify_mode = ssl.CERT_NONE
+                
+                with urllib.request.urlopen("https://api.ipify.org", timeout=5, context=ctx) as response:
                     ip = response.read().decode("utf-8").strip()
                     _set_ip(ip, "font-weight: 700; font-size: 14px;")
-            except Exception:
+            except Exception as e:
                 _set_ip(
-                    i18n.t("ip_not_available") or "Sin conexión",
+                    i18n.t("ip_not_available") if i18n.t("ip_not_available") != "ip_not_available" else "Sin conexión",
                     "color: #f87171; font-weight: 700; font-size: 14px;",
                 )
             finally:
