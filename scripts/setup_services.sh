@@ -97,16 +97,12 @@ StandardInput=tty
 TTYVHangup=yes
 
 # Preparar la consola antes de iniciar
-ExecStartPre=-/bin/systemctl stop tottem-splash.service
 ExecStartPre=/bin/sh -lc 'echo 0 > /sys/class/graphics/fbcon/cursor_blink 2>/dev/null || true'
 ExecStartPre=/bin/sh -lc "printf '\\033[?25l' > /dev/tty1 || true"
 ExecStartPre=/bin/sh -lc 'chvt 1 && setterm -cursor off -blank 0 -powersave off -clear all </dev/tty1 2>/dev/null || true'
 
 # Iniciar el kiosk
 ExecStart=$APP_DIR/.venv/bin/pos run-kiosk
-
-# Al detener: iniciar animación de apagado
-ExecStopPost=-/bin/systemctl start tottem-splash-shutdown.service
 
 # Restaurar la consola al salir
 ExecStopPost=/bin/sh -lc "printf '\\033[?25h' > /dev/tty1 || true"
@@ -176,69 +172,8 @@ log_info "Habilitando servicio..."
 systemctl daemon-reload
 systemctl enable pos.service
 
-log_success "Servicio POS habilitado."
-
 # ─────────────────────────────────────────────────────────────────────────────
-# 5b. Configurar splash de arranque y apagado
-# ─────────────────────────────────────────────────────────────────────────────
-
-log_info "Configurando animaciones de arranque y apagado..."
-
-# Hacer splash.sh ejecutable
-chmod +x "$APP_DIR/system/splash.sh"
-
-# --- Servicio de boot splash ---
-cat > /etc/systemd/system/tottem-splash.service << EOF
-[Unit]
-Description=TOTTEM POS - Animación de Arranque
-DefaultDependencies=no
-After=local-fs.target
-Before=pos.service
-ConditionPathExists=$APP_DIR/system/tottem_turn_on.mp4
-
-[Service]
-Type=simple
-ExecStart=$APP_DIR/system/splash.sh boot
-TTYPath=/dev/tty1
-StandardInput=tty
-StandardOutput=null
-StandardError=null
-
-[Install]
-WantedBy=sysinit.target
-EOF
-
-# --- Servicio de shutdown splash ---
-cat > /etc/systemd/system/tottem-splash-shutdown.service << EOF
-[Unit]
-Description=TOTTEM POS - Animación de Apagado
-DefaultDependencies=no
-Before=systemd-reboot.service systemd-poweroff.service systemd-halt.service
-Before=umount.target
-ConditionPathExists=$APP_DIR/system/tottem_turn_off.mp4
-
-[Service]
-Type=simple
-ExecStart=$APP_DIR/system/splash.sh shutdown
-TTYPath=/dev/tty1
-StandardInput=tty
-StandardOutput=null
-StandardError=null
-TimeoutStartSec=30
-TimeoutStopSec=5
-
-[Install]
-WantedBy=reboot.target poweroff.target halt.target
-EOF
-
-systemctl daemon-reload
-systemctl enable tottem-splash.service
-systemctl enable tottem-splash-shutdown.service
-
-log_success "Animaciones de arranque y apagado configuradas."
-
-# ─────────────────────────────────────────────────────────────────────────────
-# 5c. Configurar dominio regulatorio WiFi (México)
+# 5b. Configurar dominio regulatorio WiFi (México)
 # ─────────────────────────────────────────────────────────────────────────────
 
 log_info "Configurando dominio regulatorio WiFi para México..."
