@@ -69,6 +69,16 @@ _DEFAULT_CONFIG: dict = {
         "admin_pin_hash": _DEFAULT_PIN_HASH,
     },
     "notifications": {
+        "email": {
+            "gmail_user": "tottem.reports@gmail.com",
+            "gmail_pass": "mfexwikphlncahve",
+            "smtp_host": "smtp.gmail.com",
+            "smtp_port": 587,
+            "use_tls": True,
+            "username": "tottem.reports@gmail.com",
+            "password": "mfexwikphlncahve",
+            "from_addr": "tottem.reports@gmail.com",
+        },
         "recent_emails": [],
     },
 }
