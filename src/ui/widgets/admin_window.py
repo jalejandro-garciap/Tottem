@@ -2374,7 +2374,7 @@ class AdminWindow(QMainWindow):
         self.cmb_shift_employee.clear()
         emps = [e for e in list_employees() if e.get("active")]
         if not emps:
-            self.cmb_shift_employee.addItem("(sin empleados)", "")
+            self.cmb_shift_employee.addItem(i18n.t("sys_no_employees") or "(sin empleados)", "")
             return
         for e in emps:
             label = f"{e['emp_no']} - {e['full_name']}"

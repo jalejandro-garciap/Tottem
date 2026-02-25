@@ -1,5 +1,0 @@
-config
-core
-drivers
-services
-ui

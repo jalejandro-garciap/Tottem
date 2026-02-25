@@ -158,28 +158,28 @@ Tottem/
 ```yaml
 store:
   name: "Mi Tienda"
-  ticket_header: |
-    MI TIENDA
-    Dirección de la tienda
-    Tel: (123) 456-7890
-  ticket_footer: |
-    ¡Gracias por su compra!
-    Vuelva pronto
+  rfc: "XAXX010101000"
+  ticket_header: "Mi Tienda\n\nRFC: XAXX010101000\n\n"
+  ticket_footer: "Gracias por su compra\n\n"
 
 hardware:
   printer:
     vendor_id: 0x0416    # ID del fabricante USB
     product_id: 0x5011   # ID del producto USB
     interface: 0
-    out_endpoint: 0x03
-    in_endpoint: 0x82
+    out_ep: 0x03         # USB endpoint OUT
+    in_ep: 0x82          # USB endpoint IN
+
+ui:
+  font_family: "Sans"
+  kiosk_fullscreen: true
+  categories_enabled: false
 
 security:
   admin_pin_hash: "..."  # Hash Argon2 del PIN
 
-settings:
-  categories_enabled: false
-  language: "es"
+notifications:
+  recent_emails: []
 ```
 
 ### Encontrar IDs USB de la impresora

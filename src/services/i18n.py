@@ -427,6 +427,7 @@ _STRINGS: Dict[str, Dict[str, str]] = {
         "no_last_ticket": "No previous tickets.",
         "quantity": "Quantity",
         "keyboard_title": "Keyboard",
+        "keypad_title": "Numeric Keypad",
         "connect_wifi": "Connect WiFi",
         "update_status": "Refresh status",
         "reboot": "Reboot",

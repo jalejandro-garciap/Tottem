@@ -1,25 +1,0 @@
-SQLite version 3.40.1 2022-12-28 14:03:47
-Enter ".help" for usage hints.
-Connected to a [1mtransient in-memory database[0m.
-Use ".open FILENAME" to reopen on a persistent database.
-[?2004hsqlite> > con = sqlite3.connect("data.db")
-[?2004l[?2004h   ...> > cur = con.cursor()
-[?2004l[?2004h   ...> > print("Columns in product:")
-[?2004l[?2004h   ...> > for col in cur.execute("PRAGMA table_info(product);"):
-[?2004l[?2004h   ...> >     print(col)
-[?2004l[?2004h   ...> > con.close()
-[?2004l[?2004h   ...> > PY
-[?2004l[?2004h   ...> Columns in product:
-[?2004l[?2004h   ...> (0, 'id', 'INTEGER', 0, None, 1)
-[?2004l[?2004h   ...> (1, 'name', 'TEXT', 1, None, 0)
-[?2004l[?2004h   ...> (2, 'price', 'INTEGER', 1, None, 0)
-[?2004l[?2004h   ...> (3, 'active', 'INTEGER', 1, '1', 0)
-[?2004l[?2004h   ...> (4, 'unit', 'TEXT', 0, "'pz'", 0)
-[?2004l[?2004h   ...> (5, 'allow_decimal', 'INTEGER', 1, '0', 0)
-[?2004l[?2004h   ...> (6, 'category', 'TEXT', 0, "'General'", 0)
-[?2004l[?2004h   ...> (.venv) user@pos:~/app$[K[K[K[K[K[K[K[K[K
-[?2004l[?2004h   ...> ^C[?2004l[?2004h[C[C[C[C[C[C[C[C^C[?2004l[?2004h
-[?2004l[?2004h   ...> 
-[?2004l[?2004h   ...> 
-[?2004l[?2004h   ...> 
-[?2004l[?2004h   ...> ^C[?2004l[?2004h[C[C[C[C[C[C[C[C^C[?2004l[?2004h[C[C[C[C[C[C[C[C^C[?2004l

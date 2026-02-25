@@ -1,3 +1,18 @@
 .venv/
 __pycache__/
 *.db
+*.sqlite3
+
+# Build / Distribution
+build/
+dist/
+*.egg-info/
+*.egg
+
+# IDEs
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db

@@ -16,13 +16,3 @@ ui:
   categories_enabled: true
 security:
   admin_pin_hash: $argon2id$v=19$m=65536,t=3,p=4$Zb2l836daerXuBldZXMeiw$SZhLMlxhGonA4r3wMI/4HGX+tfH+zFlBnUPUGWTf9hQ
-notifications:
-  email:
-    smtp_host: smtp.tu-proveedor.com
-    smtp_port: 587
-    use_tls: true
-    username: pos@tu-dominio.com
-    password: TU_PASSWORD
-    from_addr: pos@tu-dominio.com
-  recent_emails:
-  - admin@tu-dominio.com
