@@ -6,7 +6,7 @@ from PySide6.QtWidgets import (
     QCheckBox, QFrame, QScrollArea, QListWidget, QListWidgetItem,
     QDoubleSpinBox, QDateEdit, QApplication, QStackedLayout,
 )
-from PySide6.QtCore import Qt, QObject, QEvent, QTimer, QDate, QLocale, QSize
+from PySide6.QtCore import Qt, QObject, QEvent, QTimer, QDate, QLocale, QSize, QThread, Signal
 from PySide6.QtGui import QPixmap, QImage, QPainter, QColor
 from PySide6.QtSvg import QSvgRenderer
 from pathlib import Path
@@ -132,6 +132,38 @@ def _scan_usb_printers() -> list[dict]:
         seen.add(key)
         uniq.append(d)
     return uniq
+
+
+class _IPFetcherThread(QThread):
+    finished = Signal(str, str)
+
+    def run(self):
+        import socket
+        import ssl
+        import urllib.request
+        from services import i18n
+        
+        old_timeout = socket.getdefaulttimeout()
+        try:
+            socket.setdefaulttimeout(5)
+            ctx = ssl.create_default_context()
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+            
+            with urllib.request.urlopen("https://api.ipify.org", timeout=5, context=ctx) as response:
+                ip = response.read().decode("utf-8").strip()
+                self.finished.emit(ip, "font-weight: 700; font-size: 14px;")
+        except Exception as e:
+            msg = i18n.t("ip_not_available") if i18n.t("ip_not_available") != "ip_not_available" else "Sin conexión"
+            self.finished.emit(
+                msg,
+                "color: #f87171; font-weight: 700; font-size: 14px;"
+            )
+        finally:
+            if old_timeout is not None:
+                socket.setdefaulttimeout(old_timeout)
+            else:
+                socket.setdefaulttimeout(socket._GLOBAL_DEFAULT_TIMEOUT)
 
 
 class ToastManager(QObject):
@@ -1697,12 +1729,12 @@ class AdminWindow(QMainWindow):
         search_row = QHBoxLayout()
         search_row.setSpacing(12)
         self.ed_ticket_search = QLineEdit()
-        self.ed_ticket_search.setPlaceholderText("Buscar por número de ticket...")
+        self.ed_ticket_search.setPlaceholderText(i18n.t("tickets_search_placeholder") or "Buscar por número de ticket...")
         self.ed_ticket_search.setMinimumHeight(52)
-        btn_search = QPushButton("Buscar")
+        btn_search = QPushButton(i18n.t("tickets_btn_search") or "Buscar")
         btn_search.setMinimumHeight(52)
         btn_search.clicked.connect(self._tickets_search)
-        btn_clear = QPushButton("Limpiar")
+        btn_clear = QPushButton(i18n.t("tickets_btn_clear") or "Limpiar")
         btn_clear.setMinimumHeight(52)
         btn_clear.clicked.connect(self._tickets_clear_search)
         search_row.addWidget(self.ed_ticket_search, 1)
@@ -1714,7 +1746,11 @@ class AdminWindow(QMainWindow):
 
         self.tbl_tickets = QTableWidget(0, 5)
         self.tbl_tickets.setHorizontalHeaderLabels([
-            "Ticket", "Fecha", "Empleado", "Turno", "Total"
+            i18n.t("tickets_header_ticket") or "Ticket", 
+            i18n.t("tickets_header_date") or "Fecha", 
+            i18n.t("tickets_header_emp") or "Empleado", 
+            i18n.t("tickets_header_shift") or "Turno", 
+            i18n.t("tickets_header_total") or "Total"
         ])
         self.tbl_tickets.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.tbl_tickets.setSelectionMode(QAbstractItemView.SingleSelection)
@@ -1736,12 +1772,12 @@ class AdminWindow(QMainWindow):
         v.addWidget(self.tbl_tickets, 1)
 
         page_row = QHBoxLayout()
-        self.btn_tickets_prev = QPushButton("◀ Anterior")
+        self.btn_tickets_prev = QPushButton(i18n.t("tickets_btn_prev") or "◀ Anterior")
         self.btn_tickets_prev.setMinimumHeight(40)
         self.btn_tickets_prev.clicked.connect(self._tickets_prev_page)
-        self.lbl_tickets_page = QLabel("Página 1")
+        self.lbl_tickets_page = QLabel(i18n.t("tickets_page_fmt", num=1) or "Página 1")
         self.lbl_tickets_page.setAlignment(Qt.AlignCenter)
-        self.btn_tickets_next = QPushButton("Siguiente ▶")
+        self.btn_tickets_next = QPushButton(i18n.t("tickets_btn_next") or "Siguiente ▶")
         self.btn_tickets_next.setMinimumHeight(40)
         self.btn_tickets_next.clicked.connect(self._tickets_next_page)
         page_row.addWidget(self.btn_tickets_prev)
@@ -1749,7 +1785,7 @@ class AdminWindow(QMainWindow):
         page_row.addWidget(self.btn_tickets_next)
         v.addLayout(page_row)
 
-        hint_label = QLabel("💡 Haz doble clic en un ticket para ver detalles y reimprimir")
+        hint_label = QLabel(i18n.t("tickets_hint") or "💡 Haz doble clic en un ticket para ver detalles y reimprimir")
         hint_label.setStyleSheet("font-size: 12px; font-style: italic;")
         hint_label.setAlignment(Qt.AlignCenter)
         v.addWidget(hint_label)
@@ -1777,7 +1813,7 @@ class AdminWindow(QMainWindow):
             self.tbl_tickets.setItem(r, 4, QTableWidgetItem(f"$ {cents_to_money(t['total'])}"))
         
         page_num = (offset // self.tickets_page_size) + 1
-        self.lbl_tickets_page.setText(f"Página {page_num}")
+        self.lbl_tickets_page.setText(i18n.t("tickets_page_fmt", num=page_num) or f"Página {page_num}")
         
         self.btn_tickets_prev.setEnabled(offset > 0)
         self.btn_tickets_next.setEnabled(len(tickets) == self.tickets_page_size)
@@ -3098,35 +3134,8 @@ class AdminWindow(QMainWindow):
     
     def _refresh_public_ip(self):
         """Gets and displays the system's public IP address (thread-safe)."""
-        from PySide6.QtCore import QThread, Signal
-        import urllib.request
-        import socket
-        import ssl
-
         if hasattr(self, "btn_refresh_ip"):
             self.btn_refresh_ip.setEnabled(False)
-
-        class IPFetcherThread(QThread):
-            finished = Signal(str, str)
-
-            def run(self):
-                old_timeout = socket.getdefaulttimeout()
-                try:
-                    socket.setdefaulttimeout(5)
-                    ctx = ssl.create_default_context()
-                    ctx.check_hostname = False
-                    ctx.verify_mode = ssl.CERT_NONE
-                    
-                    with urllib.request.urlopen("https://api.ipify.org", timeout=5, context=ctx) as response:
-                        ip = response.read().decode("utf-8").strip()
-                        self.finished.emit(ip, "font-weight: 700; font-size: 14px;")
-                except Exception as e:
-                    self.finished.emit(
-                        i18n.t("ip_not_available") if i18n.t("ip_not_available") != "ip_not_available" else "Sin conexión",
-                        "color: #f87171; font-weight: 700; font-size: 14px;"
-                    )
-                finally:
-                    socket.setdefaulttimeout(old_timeout)
 
         def _on_ip_fetched(text, style):
             if hasattr(self, "lbl_public_ip"):
@@ -3140,7 +3149,7 @@ class AdminWindow(QMainWindow):
             self.lbl_public_ip.setText(i18n.t("getting_ip") if i18n.t("getting_ip") != "getting_ip" else "Obteniendo...")
             self.lbl_public_ip.setStyleSheet("color: #10b981; font-weight: 700; font-size: 14px;")
 
-        self._ip_thread = IPFetcherThread()
+        self._ip_thread = _IPFetcherThread(self)
         self._ip_thread.finished.connect(_on_ip_fetched)
         self._ip_thread.start()
     

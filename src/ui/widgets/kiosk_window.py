@@ -1137,9 +1137,28 @@ class POSWindow(QMainWindow):
 
         def _back_to_kiosk():
             self._admin_win = None
+            self._reload_products()
             self.showFullScreen()
 
         self._admin_win.destroyed.connect(lambda _obj=None: _back_to_kiosk())
+
+    def _reload_products(self):
+        """Reload products and categories from DB and refresh grid."""
+        self.products = get_active_products()
+        self.prod_meta.clear()
+        for p in self.products:
+            key = ("id", p["id"]) if p.get("id") is not None else ("name", p.get("name", ""))
+            self.prod_meta[key] = {
+                "allow_decimal": bool(p.get("allow_decimal", 0)),
+                "unit": (p.get("unit") or "pz").strip()
+            }
+        
+        self.categories_enabled = is_categories_enabled()
+        self.categories = self._extract_categories(self.products)
+        if self.current_category and self.current_category not in self.categories:
+            self.current_category = None
+            
+        self._populate_grid()
 
     # ═══════════════════════════════════════════════════════════════════════
     # LANGUAGE

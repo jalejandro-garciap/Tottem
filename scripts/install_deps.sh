@@ -248,7 +248,7 @@ hardware:
     in_endpoint: 0x82
 
 security:
-  # PIN por defecto: 1234 (cambiar en producción)
+  # PIN por defecto: 123 (cambiar en producción)
   admin_pin_hash: "$argon2id$v=19$m=65536,t=3,p=4$JFE4XiXJTD9iEGWnQdnmuw$G9953rMEA4eGchNqHDFj6FhJZqTf2AlWlk38juIO7/w"
 
 settings:
@@ -309,7 +309,7 @@ echo ""
 echo "Para instalar como servicio del sistema:"
 echo "  bash scripts/setup_services.sh"
 echo ""
-echo "PIN de administrador por defecto: 1234"
+echo "PIN de administrador por defecto: 123"
 echo "(Cámbielo desde el panel de administración)"
 echo ""
 log_warning "IMPORTANTE: Reinicie la sesión para aplicar permisos USB."

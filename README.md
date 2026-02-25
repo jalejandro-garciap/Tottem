@@ -263,7 +263,7 @@ pos z-report --closed-by "Juan" --closing-cash 150000
 3. Ingresar PIN actual y nuevo PIN
 4. Guardar cambios
 
-**PIN por defecto**: `1234`
+**PIN por defecto**: `123`
 
 ---
 
