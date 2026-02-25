@@ -1,25 +1,8 @@
 from __future__ import annotations
 import smtplib
 from email.message import EmailMessage
-from pathlib import Path
-import yaml
 from typing import List, Tuple, Optional
-
-ROOT = Path(__file__).resolve().parents[2]
-CONFIG_PATH = ROOT / "config" / "config.yaml"
-
-
-def _load_cfg() -> dict:
-    try:
-        return yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8")) or {}
-    except Exception:
-        return {}
-
-
-def _save_cfg(cfg):
-    """Save config.yaml dict back to disk."""
-    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
-        yaml.safe_dump(cfg, f, allow_unicode=True, sort_keys=False)
+from services.settings import load_config as _load_cfg, save_config as _save_cfg
 
 
 def _create_html_email_report(date_from: str, date_to: str, stats: dict) -> str:
@@ -132,8 +115,17 @@ def send_mail(subject: str, body: str, recipients: List[str],
     cfg = _load_cfg()
     email_cfg = (cfg.get("notifications", {}) or {}).get("email", {}) or {}
     
-    gmail_user = email_cfg.get("gmail_user", "").strip()
-    gmail_pass = email_cfg.get("gmail_pass", "").strip()
+    from services.settings import _DEFAULT_CONFIG
+    def_email_cfg = _DEFAULT_CONFIG.get("notifications", {}).get("email", {})
+    
+    def get_cfg_val(key, fallback=None):
+        val = email_cfg.get(key)
+        if val in (None, ""):
+            val = def_email_cfg.get(key)
+        return val if val not in (None, "") else fallback
+    
+    gmail_user = get_cfg_val("gmail_user", "").strip()
+    gmail_pass = get_cfg_val("gmail_pass", "").strip()
     
     if gmail_user and gmail_pass:
         try:
@@ -174,12 +166,17 @@ def send_mail(subject: str, body: str, recipients: List[str],
             return False, f"Error con Gmail/yagmail: {str(e)}"
     
     # Fallback a SMTP tradicional
-    host = email_cfg.get("smtp_host")
-    port = int(email_cfg.get("smtp_port", 587))
-    use_tls = bool(email_cfg.get("use_tls", True))
-    user = email_cfg.get("username")
-    pwd = email_cfg.get("password")
-    from_addr = email_cfg.get("from_addr") or user
+    host = get_cfg_val("smtp_host")
+    port = int(get_cfg_val("smtp_port", 587))
+    
+    v_tls = email_cfg.get("use_tls")
+    if v_tls is None:
+        v_tls = def_email_cfg.get("use_tls", True)
+    use_tls = bool(v_tls)
+    
+    user = get_cfg_val("username")
+    pwd = get_cfg_val("password")
+    from_addr = get_cfg_val("from_addr") or user
 
     if not host or not from_addr:
         return False, "Email no configurado. Configura Gmail en el tab Sistema o SMTP en config.yaml."

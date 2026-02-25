@@ -77,7 +77,7 @@ _DEFAULT_CONFIG: dict = {
             "use_tls": True,
             "username": "tottem.reports@gmail.com",
             "password": "mfexwikphlncahve",
-            "from_addr": "tottem.reports@gmail.com",
+            "from_addr": "Tottem Reports <tottem.reports@gmail.com>",
         },
         "recent_emails": [],
     },
