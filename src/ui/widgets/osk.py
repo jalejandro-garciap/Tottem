@@ -32,7 +32,7 @@ class OnScreenKeyboard(QDialog):
       - Optional password mode
     """
 
-    def __init__(self, title: str = "Teclado", initial_text: str = "",
+    def __init__(self, title: str = None, initial_text: str = "",
                  password_mode: bool = False, parent: QWidget | None = None):
         super().__init__(parent)
         self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
@@ -40,13 +40,15 @@ class OnScreenKeyboard(QDialog):
         self._shift = False
         self._symbols = False
 
+        title_text = title if title is not None else (i18n.t("keyboard_title") or "Teclado")
+
         root = QVBoxLayout(self)
         root.setContentsMargins(28, 28, 28, 28)
         root.setSpacing(16)
 
         # ─── Header ───────────────────────────────────────────────────────
         header = QHBoxLayout()
-        lbl = QLabel(title.upper())
+        lbl = QLabel(title_text.upper())
         lbl.setAlignment(Qt.AlignCenter)
         lbl.setStyleSheet("""
             font-size: 12px;

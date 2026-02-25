@@ -3159,19 +3159,9 @@ class AdminWindow(QMainWindow):
         email_cfg = cfg.get("notifications", {}).get("email", {})
         
         default_gmail_user = "tottem.reports@gmail.com"
-        default_gmail_pass = "mfexwikphlncahve"
         
-        gmail_user = email_cfg.get("gmail_user", default_gmail_user)
-        self.gmail_user.setText(gmail_user)
-        
-        if not email_cfg.get("gmail_user"):
-            if "notifications" not in cfg:
-                cfg["notifications"] = {}
-            if "email" not in cfg["notifications"]:
-                cfg["notifications"]["email"] = {}
-            cfg["notifications"]["email"]["gmail_user"] = default_gmail_user
-            cfg["notifications"]["email"]["gmail_pass"] = default_gmail_pass
-            save_config(cfg)
+        gmail_user = email_cfg.get("gmail_user", "")
+        self.gmail_user.setText(gmail_user or default_gmail_user)
     
     def _save_gmail_config(self):
         """Guarda la configuración de Gmail en config.yaml"""
@@ -3181,16 +3171,16 @@ class AdminWindow(QMainWindow):
         if gmail_user and not gmail_user.endswith("@gmail.com"):
             QMessageBox.warning(
                 self,
-                "Configuración de Email",
-                "Por favor ingresa una cuenta de Gmail válida (debe terminar en @gmail.com)"
+                i18n.t("email_config_title") or "Configuración de Email",
+                i18n.t("email_config_invalid") or "Por favor ingresa una cuenta de Gmail válida (debe terminar en @gmail.com)"
             )
             return
         
         if not gmail_user and gmail_pass:
             QMessageBox.warning(
                 self,
-                "Configuración de Email",
-                "Por favor ingresa una cuenta de Gmail"
+                i18n.t("email_config_title") or "Configuración de Email",
+                i18n.t("email_config_empty") or "Por favor ingresa una cuenta de Gmail"
             )
             return
         
@@ -3208,8 +3198,8 @@ class AdminWindow(QMainWindow):
         
         QMessageBox.information(
             self,
-            "Configuración de Email",
-            "Configuración de Gmail guardada correctamente."
+            i18n.t("email_config_title") or "Configuración de Email",
+            i18n.t("email_config_saved") or "Configuración de Gmail guardada correctamente."
         )
         
         self.gmail_pass.clear()

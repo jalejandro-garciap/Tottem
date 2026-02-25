@@ -20,11 +20,12 @@ class NumKeypad(QDialog):
             value = dlg.value_float()
     """
 
-    def __init__(self, title: str = "Cantidad", allow_decimal: bool = True):
+    def __init__(self, title: str = None, allow_decimal: bool = True):
         super().__init__()
         self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
         self.setModal(True)
-        self.setWindowTitle(title)
+        title_text = title if title is not None else (i18n.t("qty_mode_quantity") or "Cantidad")
+        self.setWindowTitle(title_text)
         self.setMinimumWidth(380)
         self.allow_decimal = bool(allow_decimal)
 
@@ -33,7 +34,7 @@ class NumKeypad(QDialog):
         root.setSpacing(24)
 
         # ─── Header ───────────────────────────────────────────────────────
-        title_lbl = QLabel(title.upper())
+        title_lbl = QLabel(title_text.upper())
         title_lbl.setAlignment(Qt.AlignCenter)
         title_lbl.setStyleSheet("""
             font-size: 12px;

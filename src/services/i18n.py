@@ -228,6 +228,10 @@ _STRINGS: Dict[str, Dict[str, str]] = {
         "sys_system": "Sistema",
         "sys_no_employees": "(sin empleados)",
         "sys_gmail_saved": "Configuración Gmail guardada.",
+        "email_config_title": "Configuración de Email",
+        "email_config_saved": "Configuración de Gmail guardada correctamente.",
+        "email_config_invalid": "Por favor ingresa una cuenta de Gmail válida (debe terminar en @gmail.com).",
+        "email_config_empty": "Por favor ingresa una cuenta de Gmail.",
 
         # OSK
         "osk_placeholder": "Escriba aquí...",
@@ -490,6 +494,10 @@ _STRINGS: Dict[str, Dict[str, str]] = {
         "sys_system": "System",
         "sys_no_employees": "(no employees)",
         "sys_gmail_saved": "Gmail configuration saved.",
+        "email_config_title": "Email Configuration",
+        "email_config_saved": "Gmail configuration saved successfully.",
+        "email_config_invalid": "Please enter a valid Gmail account (must end with @gmail.com).",
+        "email_config_empty": "Please enter a Gmail account.",
 
         # OSK
         "osk_placeholder": "Type here...",
