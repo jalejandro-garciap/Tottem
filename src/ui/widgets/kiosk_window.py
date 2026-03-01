@@ -1120,10 +1120,14 @@ class POSWindow(QMainWindow):
                     payment_method=payment_method
                 )
             self.printer.print_text(text)
-            if payment_method != "card":
-                self.printer.open_drawer()
         except Exception as e:
             print("Print error:", e)
+
+        if payment_method != "card":
+            try:
+                self.printer.open_drawer()
+            except Exception as e:
+                print("Drawer error:", e)
 
         self.cart.clear()
         self.list.clear()

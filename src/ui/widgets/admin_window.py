@@ -587,22 +587,24 @@ class ShiftCloseDialog(QDialog):
         form.setSpacing(16)
         form.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
 
-        self.ed_cash = QLineEdit()
-        self.ed_cash.setMinimumHeight(64)
-        self.ed_cash.setPlaceholderText("0.00")
-        self.ed_cash.setStyleSheet("""
-            QLineEdit {
+        self._closing_cash_cents = 0
+
+        self.btn_cash = QPushButton("$ 0.00")
+        self.btn_cash.setMinimumHeight(64)
+        self.btn_cash.setStyleSheet("""
+            QPushButton {
                 font-size: 28px;
                 font-weight: 700;
-                text-align: right;
+                text-align: center;
             }
         """)
+        self.btn_cash.clicked.connect(self._pick_cash)
 
         self.ed_closed_by = QLineEdit()
         self.ed_closed_by.setMinimumHeight(56)
         self.ed_closed_by.setPlaceholderText("Nombre del cajero")
 
-        form.addRow("Efectivo en caja $:", self.ed_cash)
+        form.addRow("Efectivo en caja $:", self.btn_cash)
         form.addRow("Cerrado por:", self.ed_closed_by)
 
         root.addLayout(form)
@@ -626,14 +628,21 @@ class ShiftCloseDialog(QDialog):
         row.addWidget(btn_close)
         root.addLayout(row)
 
-        # OSK
+        # OSK only for text field
         self._osk_filter = _OskFocusFilter(self)
-        self.ed_cash.installEventFilter(self._osk_filter)
         self.ed_closed_by.installEventFilter(self._osk_filter)
 
+    def _pick_cash(self):
+        dlg = NumKeypad(
+            title=i18n.t('closing_cash') or "Efectivo en caja ($)",
+            allow_decimal=True
+        )
+        if dlg.exec() == QDialog.Accepted:
+            self._closing_cash_cents = int(round(dlg.value_float() * 100))
+            self.btn_cash.setText(f"$ {cents_to_money(self._closing_cash_cents)}")
+
     def _validate_and_accept(self):
-        cash_text = self.ed_cash.text().strip()
-        if not cash_text:
+        if self._closing_cash_cents <= 0:
             QMessageBox.warning(
                 self,
                 "Corte de Caja",
@@ -643,14 +652,8 @@ class ShiftCloseDialog(QDialog):
         self.accept()
 
     def data(self) -> dict:
-        cash_text = self.ed_cash.text().strip().replace(",", "")
-        try:
-            cash_cents = money_to_cents(cash_text)
-        except (KeyError, TypeError, ValueError, IndexError):
-            cash_cents = 0
-        
         return {
-            "closing_cash": cash_cents,
+            "closing_cash": self._closing_cash_cents,
             "closed_by": self.ed_closed_by.text().strip(),
         }
 

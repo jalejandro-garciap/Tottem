@@ -285,6 +285,7 @@ _STRINGS: Dict[str, Dict[str, str]] = {
         "sales_card": "Ventas con tarjeta:",
         "total_sales": "Total ventas",
         "opening_cash": "Fondo inicial ($)",
+        "closing_cash": "Efectivo en caja ($)",
     },
     "en": {
         "title": "Local POS",
@@ -562,6 +563,7 @@ _STRINGS: Dict[str, Dict[str, str]] = {
         "sales_card": "Card sales:",
         "total_sales": "Total sales",
         "opening_cash": "Opening cash ($)",
+        "closing_cash": "Cash in drawer ($)",
     },
 }
 
