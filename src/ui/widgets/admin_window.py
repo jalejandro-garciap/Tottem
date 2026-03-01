@@ -2078,7 +2078,6 @@ class AdminWindow(QMainWindow):
             )
             return
 
-        from ui.widgets.num_keypad import NumKeypad
         dlg = NumKeypad(
             title=i18n.t('opening_cash') or "Fondo inicial ($)",
             allow_decimal=True
