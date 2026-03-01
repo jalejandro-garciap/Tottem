@@ -140,14 +140,15 @@ def render_shift_text(shift_id: int, detailed: bool = False) -> str:
                 out.append(f"  TOTAL: $ {cents_to_money(ticket['total'])}\n")
                 out.append("\n")
     else:
-        cur.execute("SELECT id, ts, total FROM ticket WHERE shift_id=? ORDER BY id;", (int(shift_id),))
+        cur.execute("SELECT id, ts, total, COALESCE(payment_method, 'cash') as payment_method FROM ticket WHERE shift_id=? ORDER BY id;", (int(shift_id),))
         tickets = cur.fetchall()
         if tickets:
             out.append("--------------------------------\n")
             out.append("      LISTA DE TICKETS\n")
             out.append("--------------------------------\n")
             for t in tickets:
-                out.append(f"  #{t[0]}  {t[1][-8:]}  $ {cents_to_money(int(t[2]))}\n")
+                pm_tag = " (T)" if t[3] == "card" else ""
+                out.append(f"  #{t[0]}  {t[1][-8:]}  $ {cents_to_money(int(t[2]))}{pm_tag}\n")
             out.append("\n")
     
     out.append("================================\n")
@@ -260,8 +261,9 @@ def render_shift_closure_report(shift_id: int, closing_cash: int = 0, closed_by:
                 out.append(f"  {qty_str}x {name}\n")
                 out.append(f"               ${cents_to_money(subtotal):>6}\n")
             
+            pm_tag = " (T)" if ticket.get('payment_method') == 'card' else ""
             out.append("--------------------------------\n")
-            out.append(f"  SUBTOTAL:    ${cents_to_money(ticket['total']):>6}\n")
+            out.append(f"  SUBTOTAL:    ${cents_to_money(ticket['total']):>6}{pm_tag}\n")
             out.append("\n")
     
     # Footer

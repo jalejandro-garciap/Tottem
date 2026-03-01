@@ -550,7 +550,7 @@ class ShiftCloseDialog(QDialog):
         if shift_info:
             sums = shift_totals(shift_info.get("id", 0))
             opening = shift_info.get("opening_cash", 0)
-            expected = opening + sums.get("total", 0)
+            expected = opening + sums.get("total_cash", sums.get("total", 0))
             
             info_frame = QFrame()
             info_frame.setStyleSheet("""
@@ -566,6 +566,11 @@ class ShiftCloseDialog(QDialog):
             info_layout.addWidget(QLabel(f"Turno #{shift_info.get('id', '?')}"))
             info_layout.addWidget(QLabel(f"Ventas: {sums.get('tickets', 0)} tickets"))
             info_layout.addWidget(QLabel(f"Total ventas: ${cents_to_money(sums.get('total', 0))}"))
+            if sums.get('total_card', 0) > 0:
+                info_layout.addWidget(QLabel(f"  Efectivo: ${cents_to_money(sums.get('total_cash', 0))}"))
+                info_layout.addWidget(QLabel(f"  Tarjeta:  ${cents_to_money(sums.get('total_card', 0))}"))
+            if opening > 0:
+                info_layout.addWidget(QLabel(f"Fondo inicial: ${cents_to_money(opening)}"))
             
             expected_lbl = QLabel(f"Efectivo esperado: ${cents_to_money(expected)}")
             expected_lbl.setStyleSheet("font-size: 18px; font-weight: 700;")
@@ -2073,7 +2078,16 @@ class AdminWindow(QMainWindow):
             )
             return
 
-        open_shift(opened_by=emp_code, opening_cash=0)
+        from ui.widgets.num_keypad import NumKeypad
+        dlg = NumKeypad(
+            title=i18n.t('opening_cash') or "Fondo inicial ($)",
+            allow_decimal=True
+        )
+        if dlg.exec() != QDialog.Accepted:
+            return
+        opening_cash_cents = int(round(dlg.value_float() * 100))
+
+        open_shift(opened_by=emp_code, opening_cash=opening_cash_cents)
 
         self.lbl_shift.setText(self._shift_label_text())
         if hasattr(self, "list_shifts"):
