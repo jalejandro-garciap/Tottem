@@ -24,7 +24,8 @@ def render_ticket(
     change_cents: Optional[int] = None,
     ticket_number: Optional[int] = None,
     timestamp: Optional[str] = None,
-    served_by: Optional[str] = None
+    served_by: Optional[str] = None,
+    payment_method: Optional[str] = None
 ) -> str:
     """
     Devuelve un bloque de texto listo para imprimir en ESC/POS.
@@ -61,10 +62,13 @@ def render_ticket(
     out.append("------------------------------\n")
     out.append(f"TOTAL: $ {cents_to_money(total)}\n")
 
-    if paid_cents is not None and paid_cents > 0:
-        out.append(f"Pago:  $ {cents_to_money(int(paid_cents))}\n")
-    if change_cents is not None and change_cents > 0:
-        out.append(f"Cambio:$ {cents_to_money(int(change_cents))}\n")
+    if payment_method == "card":
+        out.append("Método: Tarjeta\n")
+    else:
+        if paid_cents is not None and paid_cents > 0:
+            out.append(f"Pago:  $ {cents_to_money(int(paid_cents))}\n")
+        if change_cents is not None and change_cents > 0:
+            out.append(f"Cambio:$ {cents_to_money(int(change_cents))}\n")
 
     if foot:
         out.append("\n" + foot.rstrip() + "\n")

@@ -763,6 +763,9 @@ class TicketDetailDialog(QDialog):
             change_str = f"$ {cents_to_money(change_amt)}".rjust(12)
             lines.append(f"{'Cambio:'.ljust(38)}{change_str}")
         
+        pm = self.ticket_details.get('payment_method', 'cash')
+        pm_label = (i18n.t('payment_card') or 'Tarjeta') if pm == 'card' else (i18n.t('payment_cash') or 'Efectivo')
+        lines.append(f"{(i18n.t('payment_method') or 'Método de pago:').ljust(38)}{pm_label.rjust(12)}")
         lines.append("═" * 50)
         
         self.txt_details.setPlainText("\n".join(lines))
@@ -781,7 +784,8 @@ class TicketDetailDialog(QDialog):
             timestamp=self.ticket_details["ts"],
             served_by=self.ticket_details["served_by"],
             paid_cents=self.ticket_details.get('paid', 0),
-            change_cents=self.ticket_details.get('change_amount', 0)
+            change_cents=self.ticket_details.get('change_amount', 0),
+            payment_method=self.ticket_details.get('payment_method', 'cash')
         )
         
         try:
@@ -971,6 +975,22 @@ class ShiftPreviewDialog(QDialog):
         
         grid.addWidget(lbl_total, 5, 0)
         grid.addWidget(val_total, 5, 1, 1, 3)
+        
+        # Desglose efectivo / tarjeta
+        if self.shift_totals.get('total_card', 0) > 0:
+            lbl_cash = QLabel(i18n.t('sales_cash') or "Ventas en efectivo:")
+            lbl_cash.setStyleSheet("color: #94a3b8; font-weight: 600;")
+            val_cash = QLabel(f"$ {cents_to_money(self.shift_totals['total_cash'])}")
+            val_cash.setStyleSheet("color: #f8fafc; font-size: 14px;")
+            grid.addWidget(lbl_cash, 6, 0)
+            grid.addWidget(val_cash, 6, 1)
+            
+            lbl_card = QLabel(i18n.t('sales_card') or "Ventas con tarjeta:")
+            lbl_card.setStyleSheet("color: #94a3b8; font-weight: 600;")
+            val_card = QLabel(f"$ {cents_to_money(self.shift_totals['total_card'])}")
+            val_card.setStyleSheet("color: #818cf8; font-size: 14px;")
+            grid.addWidget(lbl_card, 6, 2)
+            grid.addWidget(val_card, 6, 3)
         
         return panel
 
@@ -1744,13 +1764,14 @@ class AdminWindow(QMainWindow):
 
         self.ed_ticket_search.installEventFilter(self._keypad_filter)
 
-        self.tbl_tickets = QTableWidget(0, 5)
+        self.tbl_tickets = QTableWidget(0, 6)
         self.tbl_tickets.setHorizontalHeaderLabels([
             i18n.t("tickets_header_ticket") or "Ticket", 
             i18n.t("tickets_header_date") or "Fecha", 
             i18n.t("tickets_header_emp") or "Empleado", 
             i18n.t("tickets_header_shift") or "Turno", 
-            i18n.t("tickets_header_total") or "Total"
+            i18n.t("tickets_header_total") or "Total",
+            i18n.t("payment_method") or "Método"
         ])
         self.tbl_tickets.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.tbl_tickets.setSelectionMode(QAbstractItemView.SingleSelection)
@@ -1768,6 +1789,7 @@ class AdminWindow(QMainWindow):
         header.setSectionResizeMode(2, QHeaderView.ResizeToContents)  # Empleado
         header.setSectionResizeMode(3, QHeaderView.ResizeToContents)  # Turno
         header.setSectionResizeMode(4, QHeaderView.ResizeToContents)  # Total
+        header.setSectionResizeMode(5, QHeaderView.ResizeToContents)  # Método
         
         v.addWidget(self.tbl_tickets, 1)
 
@@ -1811,6 +1833,9 @@ class AdminWindow(QMainWindow):
             self.tbl_tickets.setItem(r, 2, QTableWidgetItem(t["served_by"] or "—"))
             self.tbl_tickets.setItem(r, 3, QTableWidgetItem(f"{t['shift_id']}" if t['shift_id'] else "—"))
             self.tbl_tickets.setItem(r, 4, QTableWidgetItem(f"$ {cents_to_money(t['total'])}"))
+            pm = t.get('payment_method', 'cash')
+            pm_label = (i18n.t('payment_card') or 'Tarjeta') if pm == 'card' else (i18n.t('payment_cash') or 'Efectivo')
+            self.tbl_tickets.setItem(r, 5, QTableWidgetItem(pm_label))
         
         page_num = (offset // self.tickets_page_size) + 1
         self.lbl_tickets_page.setText(i18n.t("tickets_page_fmt", num=page_num) or f"Página {page_num}")
@@ -1844,6 +1869,9 @@ class AdminWindow(QMainWindow):
         self.tbl_tickets.setItem(0, 2, QTableWidgetItem(ticket["served_by"] or "—"))
         self.tbl_tickets.setItem(0, 3, QTableWidgetItem(f"{ticket['shift_id']}" if ticket['shift_id'] else "—"))
         self.tbl_tickets.setItem(0, 4, QTableWidgetItem(f"$ {cents_to_money(ticket['total'])}"))
+        pm = ticket.get('payment_method', 'cash')
+        pm_label = (i18n.t('payment_card') or 'Tarjeta') if pm == 'card' else (i18n.t('payment_cash') or 'Efectivo')
+        self.tbl_tickets.setItem(0, 5, QTableWidgetItem(pm_label))
         
         self.btn_tickets_prev.setEnabled(False)
         self.btn_tickets_next.setEnabled(False)
@@ -2190,6 +2218,26 @@ class AdminWindow(QMainWindow):
             'items': int(row[1] or 0),
             'total_cents': row[2] or 0
         }
+        
+        # Desglose efectivo/tarjeta para email
+        cur.execute("""
+            SELECT
+                COALESCE(payment_method, 'cash') as pm,
+                COALESCE(SUM(total), 0) as tot
+            FROM ticket
+            WHERE DATE(ts) BETWEEN DATE(?) AND DATE(?)
+            GROUP BY pm
+        """, (df, dt))
+        for pm_row in cur.fetchall():
+            pm = pm_row[0] or 'cash'
+            if pm == 'card':
+                stats['total_card_cents'] = int(pm_row[1] or 0)
+            else:
+                stats['total_cash_cents'] = int(pm_row[1] or 0)
+        if 'total_cash_cents' not in stats:
+            stats['total_cash_cents'] = stats['total_cents']
+        if 'total_card_cents' not in stats:
+            stats['total_card_cents'] = 0
         
         html_body = _create_html_email_report(df, dt, stats)
         plain_body = render_range_text(df, dt)

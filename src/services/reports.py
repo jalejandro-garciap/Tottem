@@ -16,7 +16,7 @@ def get_shift_tickets_detail(shift_id: int) -> List[dict]:
     cur = conn.cursor()
     
     cur.execute("""
-        SELECT id, ts, total 
+        SELECT id, ts, total, COALESCE(payment_method, 'cash') as payment_method
         FROM ticket 
         WHERE shift_id = ? 
         ORDER BY ts ASC
@@ -39,6 +39,7 @@ def get_shift_tickets_detail(shift_id: int) -> List[dict]:
             "id": ticket_id,
             "timestamp": ticket[1],
             "total": int(ticket[2]),
+            "payment_method": ticket[3] or "cash",
             "items": [
                 {
                     "name": item[0],
@@ -90,8 +91,11 @@ def render_shift_text(shift_id: int, detailed: bool = False) -> str:
     out.append(f"Articulos totales: {sums['items']}\n")
     out.append(f"Fondo inicial:     $ {cents_to_money(opening_cash)}\n")
     out.append(f"Total ventas:      $ {cents_to_money(sums['total'])}\n")
+    if sums.get('total_card', 0) > 0:
+        out.append(f"  Efectivo:        $ {cents_to_money(sums['total_cash'])}\n")
+        out.append(f"  Tarjeta:         $ {cents_to_money(sums['total_card'])}\n")
     
-    expected_cash = opening_cash + sums['total']
+    expected_cash = opening_cash + sums.get('total_cash', sums['total'])
     out.append(f"Efectivo esperado: $ {cents_to_money(expected_cash)}\n")
     
     if closing_cash is not None:
@@ -204,14 +208,17 @@ def render_shift_closure_report(shift_id: int, closing_cash: int = 0, closed_by:
     out.append(f"Transacciones:     {sums['tickets']:>10}\n")
     out.append(f"Articulos vendidos:{sums['items']:>10}\n")
     out.append(f"Total en ventas:   ${cents_to_money(sums['total']):>9}\n")
+    if sums.get('total_card', 0) > 0:
+        out.append(f"  Efectivo:        ${cents_to_money(sums['total_cash']):>9}\n")
+        out.append(f"  Tarjeta:         ${cents_to_money(sums['total_card']):>9}\n")
     out.append("\n")
     
     out.append("--------------------------------\n")
     out.append("CUADRE DE CAJA\n")
     out.append("--------------------------------\n")
     out.append(f"Fondo inicial:     ${cents_to_money(opening_cash_cents):>9}\n")
-    out.append(f"(+) Ventas:        ${cents_to_money(sums['total']):>9}\n")
-    expected = opening_cash_cents + sums['total']
+    out.append(f"(+) Ventas efvo:   ${cents_to_money(sums.get('total_cash', sums['total'])):>9}\n")
+    expected = opening_cash_cents + sums.get('total_cash', sums['total'])
     out.append(f"(=) Esperado:      ${cents_to_money(expected):>9}\n")
     out.append(f"Efectivo contado:  ${cents_to_money(closing_cash):>9}\n")
     
@@ -294,15 +301,15 @@ def csv_tickets_bytes(date_from: str, date_to: str) -> bytes:
     conn = connect()
     cur = conn.cursor()
     cur.execute(
-        "SELECT id, ts, shift_id, total FROM ticket WHERE DATE(ts) BETWEEN DATE(?) AND DATE(?) ORDER BY ts;",
+        "SELECT id, ts, shift_id, total, COALESCE(payment_method, 'cash') as payment_method FROM ticket WHERE DATE(ts) BETWEEN DATE(?) AND DATE(?) ORDER BY ts;",
         (date_from, date_to),
     )
     rows = cur.fetchall()
     buf = io.StringIO()
     w = csv.writer(buf)
-    w.writerow(["ticket_id", "timestamp", "shift_id", "total_cents"])
+    w.writerow(["ticket_id", "timestamp", "shift_id", "total_cents", "payment_method"])
     for r in rows:
-        w.writerow([r[0], r[1], r[2], r[3]])
+        w.writerow([r[0], r[1], r[2], r[3], r[4] if len(r) > 4 else "cash"])
     return buf.getvalue().encode("utf-8")
 
 
@@ -361,7 +368,8 @@ def csv_sales_detailed_bytes(date_from: str, date_to: str) -> bytes:
             ti.price as precio_cents,
             ti.quantity,
             COALESCE(ti.unit, 'pz') as unidad,
-            t.total as total_ticket_cents
+            t.total as total_ticket_cents,
+            COALESCE(t.payment_method, 'cash') as metodo_pago
         FROM ticket t
         JOIN ticket_item ti ON ti.ticket_id = t.id
         LEFT JOIN product p ON p.id = ti.product_id
@@ -386,7 +394,8 @@ def csv_sales_detailed_bytes(date_from: str, date_to: str) -> bytes:
         "cantidad",
         "unidad",
         "subtotal",
-        "total_ticket"
+        "total_ticket",
+        "metodo_pago"
     ])
     
     for r in rows:
@@ -408,6 +417,7 @@ def csv_sales_detailed_bytes(date_from: str, date_to: str) -> bytes:
         precio_unitario = f"{precio_cents / 100:.2f}"
         subtotal = f"{subtotal_cents / 100:.2f}"
         total_ticket = f"{total_ticket_cents / 100:.2f}"
+        metodo_pago = r[10] or "cash"
         
         w.writerow([
             ticket_id,
@@ -420,7 +430,8 @@ def csv_sales_detailed_bytes(date_from: str, date_to: str) -> bytes:
             cantidad,
             unidad,
             subtotal,
-            total_ticket
+            total_ticket,
+            metodo_pago
         ])
     
     return buf.getvalue().encode("utf-8")

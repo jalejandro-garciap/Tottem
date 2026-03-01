@@ -166,7 +166,8 @@ def save_ticket(
     items: List[CartItem], 
     shift_id: int | None = None,
     paid_cents: int = 0,
-    change_cents: int = 0
+    change_cents: int = 0,
+    payment_method: str = "cash"
 ) -> int:
     """Guardar ticket asociado a un turno.
     
@@ -175,6 +176,7 @@ def save_ticket(
         shift_id: ID del turno activo. Si es None, intenta obtener turno actual.
         paid_cents: Cantidad pagada en centavos
         change_cents: Cambio devuelto en centavos
+        payment_method: Método de pago ('cash' o 'card')
     
     Returns:
         ticket_id generado
@@ -189,9 +191,9 @@ def save_ticket(
     total_cents = int(round(sum(round(i.price * i.qty) for i in items)))
     with connect() as c:
         cur = c.execute("""
-            INSERT INTO ticket(ts, total, shift_id, paid, change_amount) 
-            VALUES(datetime('now'), ?, ?, ?, ?)
-        """, (total_cents, shift_id, paid_cents, change_cents))
+            INSERT INTO ticket(ts, total, shift_id, paid, change_amount, payment_method) 
+            VALUES(datetime('now'), ?, ?, ?, ?, ?)
+        """, (total_cents, shift_id, paid_cents, change_cents, payment_method))
         tid = int(cur.lastrowid)
         for it in items:
             c.execute("""
@@ -243,7 +245,8 @@ def list_tickets(limit: int = 50, offset: int = 0) -> List[Dict[str, Any]]:
                 t.ts,
                 t.total,
                 t.shift_id,
-                COALESCE(e.full_name, s.opened_by, '') as served_by
+                COALESCE(e.full_name, s.opened_by, '') as served_by,
+                COALESCE(t.payment_method, 'cash') as payment_method
             FROM ticket t
             LEFT JOIN shift s ON t.shift_id = s.id
             LEFT JOIN employee e ON s.opened_by = e.emp_no
@@ -258,7 +261,8 @@ def list_tickets(limit: int = 50, offset: int = 0) -> List[Dict[str, Any]]:
             "ts": r["ts"],
             "total": r["total"],
             "shift_id": r["shift_id"],
-            "served_by": r["served_by"] or ""
+            "served_by": r["served_by"] or "",
+            "payment_method": r["payment_method"] or "cash"
         })
     return tickets
 
@@ -281,7 +285,8 @@ def search_tickets_by_id(ticket_id: int) -> Optional[Dict[str, Any]]:
                 t.shift_id,
                 COALESCE(t.paid, 0) as paid,
                 COALESCE(t.change_amount, 0) as change_amount,
-                COALESCE(e.full_name, s.opened_by, '') as served_by
+                COALESCE(e.full_name, s.opened_by, '') as served_by,
+                COALESCE(t.payment_method, 'cash') as payment_method
             FROM ticket t
             LEFT JOIN shift s ON t.shift_id = s.id
             LEFT JOIN employee e ON s.opened_by = e.emp_no
@@ -298,7 +303,8 @@ def search_tickets_by_id(ticket_id: int) -> Optional[Dict[str, Any]]:
         "shift_id": row["shift_id"],
         "paid": row["paid"],
         "change_amount": row["change_amount"],
-        "served_by": row["served_by"] or ""
+        "served_by": row["served_by"] or "",
+        "payment_method": row["payment_method"] or "cash"
     }
 
 
@@ -325,6 +331,7 @@ def get_ticket_details(ticket_id: int) -> Optional[Dict[str, Any]]:
         "paid": ticket_info["paid"],
         "change_amount": ticket_info["change_amount"],
         "served_by": ticket_info["served_by"],
+        "payment_method": ticket_info.get("payment_method", "cash"),
         "items": items
     }
 

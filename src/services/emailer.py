@@ -17,6 +17,24 @@ def _create_html_email_report(date_from: str, date_to: str, stats: dict) -> str:
     fecha_from = dt_from.strftime("%d/%m/%Y")
     fecha_to = dt_to.strftime("%d/%m/%Y")
     
+    # Desglose efectivo/tarjeta (si aplica)
+    breakdown_html = ""
+    total_cash = stats.get('total_cash_cents', 0)
+    total_card = stats.get('total_card_cents', 0)
+    if total_card > 0:
+        cash_formatted = f"{total_cash / 100:,.2f}"
+        card_formatted = f"{total_card / 100:,.2f}"
+        breakdown_html = f"""
+            <tr style="border-bottom: 1px solid #eeeeee;">
+                <td style="padding: 6px 0; color: #888888; padding-left: 16px;">Efectivo:</td>
+                <td style="padding: 6px 0; text-align: right;">$ {cash_formatted}</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #eeeeee;">
+                <td style="padding: 6px 0; color: #888888; padding-left: 16px;">Tarjeta:</td>
+                <td style="padding: 6px 0; text-align: right;">$ {card_formatted}</td>
+            </tr>
+        """
+    
     html = f"""
 <!DOCTYPE html>
 <html lang="es">
@@ -50,6 +68,7 @@ def _create_html_email_report(date_from: str, date_to: str, stats: dict) -> str:
                     $ {total_formatted}
                 </td>
             </tr>
+            {breakdown_html}
         </table>
         
         <div style="margin-top: 20px; font-size: 12px; color: #9ca3af; text-align: center;">

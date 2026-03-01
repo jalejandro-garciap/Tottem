@@ -36,6 +36,7 @@ class PaymentDialog(QDialog):
         self.setMinimumWidth(520)
         self.total = int(total_cents)
         self.received = 0
+        self.payment_method = "cash"
 
         root = QVBoxLayout(self)
         root.setContentsMargins(48, 48, 48, 48)
@@ -155,7 +156,14 @@ class PaymentDialog(QDialog):
         btn_other.setMinimumHeight(64)
         btn_other.clicked.connect(self._other)
 
+        btn_card = QPushButton((
+            get_icon_char('credit-card') or '💳') + "  " + (i18n.t('pay_card') or "Tarjeta"))
+        btn_card.setMinimumHeight(64)
+        btn_card.setProperty("role", "primary")
+        btn_card.clicked.connect(self._card)
+
         quick_row.addWidget(btn_exact)
+        quick_row.addWidget(btn_card)
         quick_row.addWidget(btn_other)
         root.addLayout(quick_row)
 
@@ -222,6 +230,12 @@ class PaymentDialog(QDialog):
             self._refresh()
             self._auto_accept_if_enough()
 
+    def _card(self):
+        self.payment_method = "card"
+        self.received = self.total
+        self._refresh()
+        self.accept()
+
     def _try_accept(self):
         if self.received < self.total:
             QMessageBox.warning(self, i18n.t('charge') or "Cobro",
@@ -229,8 +243,8 @@ class PaymentDialog(QDialog):
             return
         self.accept()
 
-    def result_values(self) -> tuple[int, int]:
-        return self.received, max(0, self.received - self.total)
+    def result_values(self) -> tuple[int, int, str]:
+        return self.received, max(0, self.received - self.total), self.payment_method
 
 
 class AdminPinDialog(QDialog):
@@ -1077,18 +1091,27 @@ class POSWindow(QMainWindow):
         dlg = PaymentDialog(total_cents, self)
         if dlg.exec() != QDialog.Accepted:
             return
-        paid_cents, change_cents = dlg.result_values()
+        paid_cents, change_cents, payment_method = dlg.result_values()
 
-        save_ticket(self.cart, shift_id=sh["id"])
+        save_ticket(
+            self.cart, shift_id=sh["id"],
+            paid_cents=paid_cents, change_cents=change_cents,
+            payment_method=payment_method
+        )
         
         try:
             try:
                 from services.receipts import render_ticket
-                text = render_ticket(self.cart, paid_cents=paid_cents, change_cents=change_cents)
+                text = render_ticket(
+                    self.cart, paid_cents=paid_cents,
+                    change_cents=change_cents,
+                    payment_method=payment_method
+                )
                 self.printer.print_text(text)
             except Exception:
                 self.printer.print_cart(self.cart)
-            self.printer.open_drawer()
+            if payment_method != "card":
+                self.printer.open_drawer()
         except Exception as e:
             print("Print error:", e)
 

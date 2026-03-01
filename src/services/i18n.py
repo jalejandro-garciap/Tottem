@@ -183,7 +183,7 @@ _STRINGS: Dict[str, Dict[str, str]] = {
         "ssh_support_note": "Para soporte remoto, usa SSH con esta IP.",
         "factory_reset": "Restaurar de Fábrica",
         "factory_reset_warning": "⚠ Elimina todos los datos",
-        "factory_reset_confirm": "¿Estás seguro?\n\nEsta acción eliminará TODOS los datos:\n• Productos\n• Tickets y ventas\n• Turnos\n• Empleados\n• Configuración\n• Temas personalizados\n\nEl PIN se restablecerá a 123.",
+        "factory_reset_confirm": "¿Estás seguro?\n\nEsta acción eliminará TODOS los datos:\n• Productos\n• Tickets y ventas\n• Turnos\n• Empleados\n• Configuración\n• Temas personalizados\n\nEl PIN se restablecerá a 1234.",
         "factory_reset_type_confirm": "Escribe RESET para confirmar:",
         "factory_reset_success": "Restauración completada.\nLa aplicación se reiniciará.",
         "factory_reset_error": "Error durante la restauración: {err}",
@@ -275,6 +275,15 @@ _STRINGS: Dict[str, Dict[str, str]] = {
         "tickets_btn_next": "Siguiente ▶",
         "tickets_page_fmt": "Página {num}",
         "tickets_hint": "💡 Haz doble clic en un ticket para ver detalles y reimprimir",
+
+        # Payment methods
+        "payment_method": "Método de pago:",
+        "payment_cash": "Efectivo",
+        "payment_card": "Tarjeta",
+        "pay_card": "Tarjeta",
+        "sales_cash": "Ventas en efectivo:",
+        "sales_card": "Ventas con tarjeta:",
+        "total_sales": "Total ventas",
     },
     "en": {
         "title": "Local POS",
@@ -450,7 +459,7 @@ _STRINGS: Dict[str, Dict[str, str]] = {
         "ssh_support_note": "For remote support, use SSH with this IP.",
         "factory_reset": "Factory Reset",
         "factory_reset_warning": "⚠ Deletes all data",
-        "factory_reset_confirm": "Are you sure?\n\nThis action will delete ALL data:\n• Products\n• Tickets and sales\n• Shifts\n• Employees\n• Configuration\n• Custom themes\n\nThe PIN will be reset to 123.",
+        "factory_reset_confirm": "Are you sure?\n\nThis action will delete ALL data:\n• Products\n• Tickets and sales\n• Shifts\n• Employees\n• Configuration\n• Custom themes\n\nThe PIN will be reset to 1234.",
         "factory_reset_type_confirm": "Type RESET to confirm:",
         "factory_reset_success": "Factory reset completed.\nThe application will restart.",
         "factory_reset_error": "Error during factory reset: {err}",
@@ -542,6 +551,15 @@ _STRINGS: Dict[str, Dict[str, str]] = {
         "tickets_btn_next": "Next ▶",
         "tickets_page_fmt": "Page {num}",
         "tickets_hint": "💡 Double click a ticket to view details and reprint",
+
+        # Payment methods
+        "payment_method": "Payment method:",
+        "payment_cash": "Cash",
+        "payment_card": "Card",
+        "pay_card": "Card",
+        "sales_cash": "Cash sales:",
+        "sales_card": "Card sales:",
+        "total_sales": "Total sales",
     },
 }
 
