@@ -536,7 +536,7 @@ class ShiftCloseDialog(QDialog):
         icon.setAlignment(Qt.AlignCenter)
         icon.setStyleSheet("font-size: 48px;")
 
-        title = QLabel("CORTE DE CAJA")
+        title = QLabel(i18n.t("shift_close_title") or "CORTE DE CAJA")
         title.setAlignment(Qt.AlignCenter)
         title.setStyleSheet("""
             font-size: 12px;
@@ -564,15 +564,15 @@ class ShiftCloseDialog(QDialog):
             info_layout.setSpacing(8)
 
             info_layout.addWidget(QLabel(f"Turno #{shift_info.get('id', '?')}"))
-            info_layout.addWidget(QLabel(f"Ventas: {sums.get('tickets', 0)} tickets"))
-            info_layout.addWidget(QLabel(f"Total ventas: ${cents_to_money(sums.get('total', 0))}"))
+            info_layout.addWidget(QLabel(f"{i18n.t('shift_info_tickets', n=sums.get('tickets', 0))}"))
+            info_layout.addWidget(QLabel(f"{i18n.t('shift_info_total', total=cents_to_money(sums.get('total', 0)))}"))
             if sums.get('total_card', 0) > 0:
-                info_layout.addWidget(QLabel(f"  Efectivo: ${cents_to_money(sums.get('total_cash', 0))}"))
-                info_layout.addWidget(QLabel(f"  Tarjeta:  ${cents_to_money(sums.get('total_card', 0))}"))
+                info_layout.addWidget(QLabel(f"{i18n.t('shift_info_cash', total=cents_to_money(sums.get('total_cash', 0)))}"))
+                info_layout.addWidget(QLabel(f"{i18n.t('shift_info_card', total=cents_to_money(sums.get('total_card', 0)))}"))
             if opening > 0:
-                info_layout.addWidget(QLabel(f"Fondo inicial: ${cents_to_money(opening)}"))
+                info_layout.addWidget(QLabel(f"{i18n.t('shift_info_opening', total=cents_to_money(opening))}"))
             
-            expected_lbl = QLabel(f"Efectivo esperado: ${cents_to_money(expected)}")
+            expected_lbl = QLabel(f"{i18n.t('shift_info_expected', total=cents_to_money(expected))}")
             expected_lbl.setStyleSheet("font-size: 18px; font-weight: 700;")
             expected_lbl.setProperty("role", "success")
             info_layout.addWidget(expected_lbl)
@@ -602,10 +602,10 @@ class ShiftCloseDialog(QDialog):
 
         self.ed_closed_by = QLineEdit()
         self.ed_closed_by.setMinimumHeight(56)
-        self.ed_closed_by.setPlaceholderText("Nombre del cajero")
+        self.ed_closed_by.setPlaceholderText(i18n.t("shift_close_by_placeholder") or "Encargado")
 
-        form.addRow("Efectivo en caja $:", self.btn_cash)
-        form.addRow("Cerrado por:", self.ed_closed_by)
+        form.addRow(i18n.t("shift_close_cash_label") or "Efectivo en caja $:", self.btn_cash)
+        form.addRow(i18n.t("shift_close_by_label") or "Cerrado por:", self.ed_closed_by)
 
         root.addLayout(form)
 
@@ -618,7 +618,7 @@ class ShiftCloseDialog(QDialog):
         btn_cancel.clicked.connect(self.reject)
 
         from ui.icon_helper import get_icon_char
-        btn_close = QPushButton(f"{get_icon_char('arrow-right') or '→'}  Cerrar Turno")
+        btn_close = QPushButton(f"{get_icon_char('arrow-right') or '→'}  {i18n.t('shift_close_btn') or 'Cerrar Turno'}")
         btn_close.setMinimumHeight(60)
         btn_close.setProperty("role", "primary")
         btn_close.setStyleSheet("font-size: 16px; font-weight: 700;")
@@ -645,8 +645,8 @@ class ShiftCloseDialog(QDialog):
         if self._closing_cash_cents <= 0:
             QMessageBox.warning(
                 self,
-                "Corte de Caja",
-                "Debe ingresar el efectivo contado en caja."
+                i18n.t("shift_close_title") or "Corte de Caja",
+                i18n.t("shift_close_cash_required") or "Debe ingresar el efectivo contado en caja."
             )
             return
         self.accept()

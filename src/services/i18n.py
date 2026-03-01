@@ -286,6 +286,22 @@ _STRINGS: Dict[str, Dict[str, str]] = {
         "total_sales": "Total ventas",
         "opening_cash": "Fondo inicial ($)",
         "closing_cash": "Efectivo en caja ($)",
+
+        # Shift close dialog
+        "shift_close_title": "CORTE DE CAJA",
+        "shift_close_btn": "Cerrar Turno",
+        "shift_close_cash_label": "Efectivo en caja $:",
+        "shift_close_by_label": "Cerrado por:",
+        "shift_close_by_placeholder": "Encargado",
+        "shift_close_cash_required": "Debe ingresar el efectivo contado en caja.",
+        "shift_info_tickets": "Ventas: {n} tickets",
+        "shift_info_total": "Total ventas: ${total}",
+        "shift_info_cash": "  Efectivo: ${total}",
+        "shift_info_card": "  Tarjeta: ${total}",
+        "shift_info_opening": "Fondo inicial: ${total}",
+        "shift_info_expected": "Efectivo esperado: ${total}",
+        "no_active_shift_title": "Sin Turno Activo",
+        "no_active_shift_msg": "No hay un turno abierto.\n\nDebe abrir un turno desde el panel de administracion antes de realizar ventas.",
     },
     "en": {
         "title": "Local POS",
@@ -564,6 +580,22 @@ _STRINGS: Dict[str, Dict[str, str]] = {
         "total_sales": "Total sales",
         "opening_cash": "Opening cash ($)",
         "closing_cash": "Cash in drawer ($)",
+
+        # Shift close dialog
+        "shift_close_title": "CASH REGISTER CLOSE",
+        "shift_close_btn": "Close Shift",
+        "shift_close_cash_label": "Cash in drawer $:",
+        "shift_close_by_label": "Closed by:",
+        "shift_close_by_placeholder": "Manager",
+        "shift_close_cash_required": "You must enter the counted cash in the drawer.",
+        "shift_info_tickets": "Sales: {n} tickets",
+        "shift_info_total": "Total sales: ${total}",
+        "shift_info_cash": "  Cash: ${total}",
+        "shift_info_card": "  Card: ${total}",
+        "shift_info_opening": "Opening cash: ${total}",
+        "shift_info_expected": "Expected cash: ${total}",
+        "no_active_shift_title": "No Active Shift",
+        "no_active_shift_msg": "No shift is currently open.\n\nYou must open a shift from the admin panel before making sales.",
     },
 }
 

@@ -1080,9 +1080,9 @@ class POSWindow(QMainWindow):
         if not sh:
             QMessageBox.critical(
                 self,
-                "Sin Turno Activo",
-                "No hay un turno abierto.\n\n"
-                "Debe abrir un turno desde el panel de administración "
+                i18n.t("no_active_shift_title") or "Sin Turno Activo",
+                i18n.t("no_active_shift_msg") or "No hay un turno abierto.\n\n"
+                "Debe abrir un turno desde el panel de administracion "
                 "antes de realizar ventas."
             )
             return
