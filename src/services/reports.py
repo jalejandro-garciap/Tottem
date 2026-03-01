@@ -307,9 +307,11 @@ def csv_tickets_bytes(date_from: str, date_to: str) -> bytes:
     rows = cur.fetchall()
     buf = io.StringIO()
     w = csv.writer(buf)
-    w.writerow(["ticket_id", "timestamp", "shift_id", "total_cents", "payment_method"])
+    w.writerow(["ticket_id", "timestamp", "shift_id", "total_cents", "metodo_pago"])
+    _pm_es = {"cash": "efectivo", "card": "tarjeta"}
     for r in rows:
-        w.writerow([r[0], r[1], r[2], r[3], r[4] if len(r) > 4 else "cash"])
+        pm_raw = r[4] if len(r) > 4 else "cash"
+        w.writerow([r[0], r[1], r[2], r[3], _pm_es.get(pm_raw, pm_raw)])
     return buf.getvalue().encode("utf-8")
 
 
@@ -417,7 +419,8 @@ def csv_sales_detailed_bytes(date_from: str, date_to: str) -> bytes:
         precio_unitario = f"{precio_cents / 100:.2f}"
         subtotal = f"{subtotal_cents / 100:.2f}"
         total_ticket = f"{total_ticket_cents / 100:.2f}"
-        metodo_pago = r[10] or "cash"
+        metodo_pago_raw = r[10] or "cash"
+        metodo_pago = {"cash": "efectivo", "card": "tarjeta"}.get(metodo_pago_raw, metodo_pago_raw)
         
         w.writerow([
             ticket_id,

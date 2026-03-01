@@ -92,11 +92,11 @@ def test_render_ticket_cash_payment_shows_paid_and_change(monkeypatch, tmp_path)
 
     assert "Pago:  $ 20.00" in txt
     assert "Cambio:$ 5.00" in txt
-    assert "Método: Tarjeta" not in txt
+    assert "Metodo: Tarjeta" not in txt
 
 
 def test_render_ticket_card_payment_shows_method(monkeypatch, tmp_path):
-    """Card payment shows 'Método: Tarjeta' instead of Pago/Cambio."""
+    """Card payment shows 'Metodo: Tarjeta' instead of Pago/Cambio."""
     config_path = tmp_path / "config.yaml"
     _write_config(tmp_path, header="Test", footer=None)
     monkeypatch.setattr("services.receipts.CONFIG_PATH", config_path)
@@ -108,7 +108,7 @@ def test_render_ticket_card_payment_shows_method(monkeypatch, tmp_path):
         payment_method="card",
     )
 
-    assert "Método: Tarjeta" in txt
+    assert "Metodo: Tarjeta" in txt
     assert "Pago:" not in txt
     assert "Cambio:" not in txt
 
@@ -127,4 +127,4 @@ def test_render_ticket_no_method_defaults_to_cash(monkeypatch, tmp_path):
 
     assert "Pago:  $ 20.00" in txt
     assert "Cambio:$ 5.00" in txt
-    assert "Método: Tarjeta" not in txt
+    assert "Metodo: Tarjeta" not in txt

@@ -63,7 +63,7 @@ def render_ticket(
     out.append(f"TOTAL: $ {cents_to_money(total)}\n")
 
     if payment_method == "card":
-        out.append("Método: Tarjeta\n")
+        out.append("Metodo: Tarjeta\n")
     else:
         if paid_cents is not None and paid_cents > 0:
             out.append(f"Pago:  $ {cents_to_money(int(paid_cents))}\n")

@@ -1093,23 +1093,33 @@ class POSWindow(QMainWindow):
             return
         paid_cents, change_cents, payment_method = dlg.result_values()
 
-        save_ticket(
+        ticket_id = save_ticket(
             self.cart, shift_id=sh["id"],
             paid_cents=paid_cents, change_cents=change_cents,
             payment_method=payment_method
         )
         
         try:
-            try:
-                from services.receipts import render_ticket
+            from services.receipts import render_ticket
+            from services.sales import get_ticket_details
+            td = get_ticket_details(ticket_id)
+            if td:
+                text = render_ticket(
+                    td["items"],
+                    ticket_number=td["id"],
+                    timestamp=td["ts"],
+                    served_by=td.get("served_by", ""),
+                    paid_cents=td.get("paid", 0),
+                    change_cents=td.get("change_amount", 0),
+                    payment_method=td.get("payment_method", "cash")
+                )
+            else:
                 text = render_ticket(
                     self.cart, paid_cents=paid_cents,
                     change_cents=change_cents,
                     payment_method=payment_method
                 )
-                self.printer.print_text(text)
-            except Exception:
-                self.printer.print_cart(self.cart)
+            self.printer.print_text(text)
             if payment_method != "card":
                 self.printer.open_drawer()
         except Exception as e:
@@ -1126,11 +1136,26 @@ class POSWindow(QMainWindow):
         if not tid:
             QMessageBox.information(self, "Ticket", i18n.t("no_last_ticket") or "No hay tickets previos.")
             return
-        items = get_ticket_items(tid)
         self._reprint_in_progress = True
         self.btn_reprint.setEnabled(False)
         try:
-            self.printer.print_cart(items)
+            from services.receipts import render_ticket
+            from services.sales import get_ticket_details
+            td = get_ticket_details(tid)
+            if td:
+                text = render_ticket(
+                    td["items"],
+                    ticket_number=td["id"],
+                    timestamp=td["ts"],
+                    served_by=td.get("served_by", ""),
+                    paid_cents=td.get("paid", 0),
+                    change_cents=td.get("change_amount", 0),
+                    payment_method=td.get("payment_method", "cash")
+                )
+            else:
+                items = get_ticket_items(tid)
+                text = render_ticket(items)
+            self.printer.print_text(text)
         except Exception as e:
             print("Reprint error:", e)
             QMessageBox.critical(self, "Ticket", f"{i18n.t('reprint_error') or 'No se pudo reimprimir.'}\n{e}")

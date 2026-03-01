@@ -176,7 +176,7 @@ def save_ticket(
         shift_id: ID del turno activo. Si es None, intenta obtener turno actual.
         paid_cents: Cantidad pagada en centavos
         change_cents: Cambio devuelto en centavos
-        payment_method: Método de pago ('cash' o 'card')
+        payment_method: Metodo de pago ('cash' o 'card')
     
     Returns:
         ticket_id generado

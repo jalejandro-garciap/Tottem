@@ -277,7 +277,7 @@ _STRINGS: Dict[str, Dict[str, str]] = {
         "tickets_hint": "💡 Haz doble clic en un ticket para ver detalles y reimprimir",
 
         # Payment methods
-        "payment_method": "Método de pago:",
+        "payment_method": "Metodo de pago:",
         "payment_cash": "Efectivo",
         "payment_card": "Tarjeta",
         "pay_card": "Tarjeta",

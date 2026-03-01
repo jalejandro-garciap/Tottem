@@ -765,7 +765,7 @@ class TicketDetailDialog(QDialog):
         
         pm = self.ticket_details.get('payment_method', 'cash')
         pm_label = (i18n.t('payment_card') or 'Tarjeta') if pm == 'card' else (i18n.t('payment_cash') or 'Efectivo')
-        lines.append(f"{(i18n.t('payment_method') or 'Método de pago:').ljust(38)}{pm_label.rjust(12)}")
+        lines.append(f"{(i18n.t('payment_method') or 'Metodo de pago:').ljust(38)}{pm_label.rjust(12)}")
         lines.append("═" * 50)
         
         self.txt_details.setPlainText("\n".join(lines))
@@ -1771,7 +1771,7 @@ class AdminWindow(QMainWindow):
             i18n.t("tickets_header_emp") or "Empleado", 
             i18n.t("tickets_header_shift") or "Turno", 
             i18n.t("tickets_header_total") or "Total",
-            i18n.t("payment_method") or "Método"
+            i18n.t("payment_method") or "Metodo"
         ])
         self.tbl_tickets.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.tbl_tickets.setSelectionMode(QAbstractItemView.SingleSelection)
@@ -1789,7 +1789,7 @@ class AdminWindow(QMainWindow):
         header.setSectionResizeMode(2, QHeaderView.ResizeToContents)  # Empleado
         header.setSectionResizeMode(3, QHeaderView.ResizeToContents)  # Turno
         header.setSectionResizeMode(4, QHeaderView.ResizeToContents)  # Total
-        header.setSectionResizeMode(5, QHeaderView.ResizeToContents)  # Método
+        header.setSectionResizeMode(5, QHeaderView.ResizeToContents)  # Metodo
         
         v.addWidget(self.tbl_tickets, 1)
 
