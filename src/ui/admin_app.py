@@ -13,6 +13,16 @@ def run():
     os.environ.setdefault("QT_QPA_FB_FORCE_FULLSCREEN", "1")
     os.environ.setdefault("QT_LOGGING_RULES", "qt.qpa.input=false;qt.qpa.input.devices=false")
 
+    # ─── Anti-Clone: verify hardware binding ────────────────────────────
+    from core.hwid import verify as hwid_verify
+    if not hwid_verify():
+        print("ERROR: Hardware ID mismatch. This SD card is not authorized for this device.")
+        sys.exit(99)
+
+    # ─── Auto-migrate plain DB to encrypted if needed ─────────────────
+    from core.db import migrate_plain_to_encrypted
+    migrate_plain_to_encrypted()
+
     app = QApplication(sys.argv)
 
     qss_path = Path(__file__).resolve().parent / "theme.qss"

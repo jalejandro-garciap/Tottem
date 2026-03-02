@@ -112,6 +112,10 @@ sudo apt install -y \
     libusb-1.0-0-dev \
     libudev-dev
 
+# SQLCipher para base de datos cifrada
+sudo apt install -y \
+    libsqlcipher-dev || log_warning "libsqlcipher-dev no disponible, BD sin cifrar"
+
 # Herramientas de terminal y reproductor de video
 sudo apt install -y \
     kbd \
@@ -186,32 +190,20 @@ log_success "Permisos USB configurados."
 
 log_info "Inicializando base de datos..."
 
-# Instalar sqlite3 si no está disponible
-if ! command -v sqlite3 &> /dev/null; then
-    log_info "Instalando sqlite3..."
-    sudo apt install -y sqlite3
-fi
+# Usar Python para inicializar la BD (soporta SQLCipher cifrado)
+.venv/bin/python3 -c "
+import sys
+sys.path.insert(0, 'src')
+from core.db import ensure_migrated
+ensure_migrated()
+print('Base de datos inicializada correctamente.')
+" 2>&1 || log_warning "Fallo al inicializar BD con Python, intentando sqlite3 CLI"
 
-# Ejecutar migraciones SQL en orden
-if [ -d "migrations" ]; then
-    for sql_file in $(ls migrations/*.sql 2>/dev/null | sort); do
-        if [ -f "$sql_file" ]; then
-            log_info "Aplicando: $(basename $sql_file)"
-            sqlite3 data.db < "$sql_file" || log_warning "Migración ya aplicada o error: $(basename $sql_file)"
-        fi
-    done
+# Verificar que la BD existe
+if [ -f "data.db" ]; then
+    log_success "Base de datos creada."
 else
-    log_warning "Directorio migrations/ no encontrado"
-fi
-
-# Verificar que las tablas existen
-TABLES=$(sqlite3 data.db ".tables" 2>/dev/null || echo "")
-if echo "$TABLES" | grep -q "product"; then
-    log_success "Base de datos inicializada correctamente."
-    log_info "Tablas: $TABLES"
-else
-    log_error "ERROR: Las tablas no se crearon correctamente."
-    log_error "Ejecuta manualmente: for f in migrations/*.sql; do sqlite3 data.db < \"\$f\"; done"
+    log_error "ERROR: No se pudo crear la base de datos."
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────

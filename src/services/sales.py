@@ -1,5 +1,5 @@
 from __future__ import annotations
-import sqlite3
+from core.db import sqlite3
 from dataclasses import dataclass
 from typing import List, Optional, Dict, Any
 from pathlib import Path

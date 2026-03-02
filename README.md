@@ -266,7 +266,25 @@ pos z-report --closed-by "Juan" --closing-cash 150000
 
 ## 🔒 Seguridad
 
-- **PIN de administrador**: Acceso al panel de configuración
+### Protección Anti-Clonado
+
+TOTTEM POS incluye dos capas de protección contra clonado de la tarjeta SD:
+
+| Capa | Descripción |
+|------|-------------|
+| **Hardware Binding** | La app verifica el serial único del CPU del Raspberry Pi. Si la SD se mueve a otro Pi, la app no arranca. |
+| **SQLCipher** | La base de datos está cifrada con una clave derivada del serial del Pi. Sin el serial correcto, los datos son ilegibles. |
+
+**Flujo de protección:**
+1. Al instalar (`setup_services.sh`), se registra el serial del Pi en `config/.hwid`
+2. Al arrancar, la app verifica que el serial actual coincide con el registrado
+3. Si no coincide → la app muestra error y se cierra (exit code 99)
+4. La BD se cifra automáticamente en la primera ejecución con SQLCipher
+
+> En desarrollo (Windows/Mac), la verificación se omite y la BD queda sin cifrar.
+
+### PIN de Administrador
+
 - **Hash Argon2**: Almacenamiento seguro de credenciales
 - **Sin conexión a internet**: Datos 100% locales
 

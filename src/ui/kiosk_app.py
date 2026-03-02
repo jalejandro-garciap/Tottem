@@ -16,6 +16,16 @@ def run():
     QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
     QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
 
+    # ─── Anti-Clone: verify hardware binding ────────────────────────────
+    from core.hwid import verify as hwid_verify
+    if not hwid_verify():
+        print("ERROR: Hardware ID mismatch. This SD card is not authorized for this device.")
+        sys.exit(99)
+
+    # ─── Auto-migrate plain DB to encrypted if needed ─────────────────
+    from core.db import migrate_plain_to_encrypted
+    migrate_plain_to_encrypted()
+
     app = QApplication(sys.argv)
 
     # Load FontAwesome icons (before creating UI)

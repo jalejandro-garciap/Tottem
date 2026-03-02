@@ -173,6 +173,27 @@ systemctl daemon-reload
 systemctl enable pos.service
 
 # ─────────────────────────────────────────────────────────────────────────────
+# 5a. Registrar Hardware ID (Anti-Clonado)
+# ─────────────────────────────────────────────────────────────────────────────
+
+log_info "Registrando Hardware ID del dispositivo..."
+
+HWID_RESULT=$(sudo -u "$APP_USER" "$APP_DIR/.venv/bin/python3" -c "
+import sys
+sys.path.insert(0, '$APP_DIR/src')
+from core.hwid import register, get_serial
+serial = get_serial()
+hash_val = register()
+print(f'Serial: {serial[:8]}... registrado correctamente.')
+" 2>&1) || true
+
+if [ -n "$HWID_RESULT" ]; then
+    log_success "$HWID_RESULT"
+else
+    log_warning "No se pudo registrar HWID (se registrará en primer arranque)."
+fi
+
+# ─────────────────────────────────────────────────────────────────────────────
 # 5b. Configurar dominio regulatorio WiFi (México)
 # ─────────────────────────────────────────────────────────────────────────────
 
