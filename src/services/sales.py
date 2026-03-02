@@ -1,5 +1,5 @@
 from __future__ import annotations
-from core.db import sqlite3
+from core.db import sqlite3, connect as _db_connect
 from dataclasses import dataclass
 from typing import List, Optional, Dict, Any
 from pathlib import Path
@@ -8,8 +8,7 @@ ROOT = Path(__file__).resolve().parents[2]
 DB_PATH = ROOT / "data.db"
 
 def connect() -> sqlite3.Connection:
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    conn = _db_connect()  # handles PRAGMA key for SQLCipher
     conn.execute("PRAGMA journal_mode=WAL;")
     conn.execute("PRAGMA busy_timeout=5000;")
     return conn
