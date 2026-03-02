@@ -28,7 +28,9 @@ def run():
         if qss_path.exists():
             app.setStyleSheet(qss_path.read_text(encoding="utf-8"))
 
-    app.setOverrideCursor(QCursor(Qt.BlankCursor))
+    # Dynamic cursor: visible only when a USB mouse is connected
+    from ui.mouse_manager import MouseManager
+    mouse_mgr = MouseManager(app)
 
     w = AdminWindow()
     w.showFullScreen()

@@ -20,12 +20,15 @@ TOTTEM POS es un sistema de punto de venta diseñado para funcionar completament
 ### ✨ Características principales
 
 - 🖥️ **UI Fullscreen** - Interfaz táctil minimalista con PySide6
+- 📐 **Responsiva** - Adaptación automática para pantallas de 12" a 22" (1366×768 a 1920×1080)
 - 📴 **100% Offline** - Base de datos SQLite local, sin dependencias de red
 - 🖨️ **Impresión ESC/POS** - Soporte para impresoras térmicas de 80mm
 - 💰 **Cash Drawer** - Control de caja automático RJ-11
+- 🖱️ **Cursor Dinámico** - Muestra el cursor solo cuando se detecta un ratón USB conectado
 - 📊 **Reportes** - Cortes de caja (X/Z) con detalle de transacciones
 - 🔒 **Seguridad** - PIN de administrador con hash Argon2
 - 🌐 **Multiidioma** - Español e Inglés
+- 🎨 **Temas** - Temas predefinidos (Oscuro/Claro) y temas personalizados
 
 ---
 
@@ -35,7 +38,7 @@ TOTTEM POS es un sistema de punto de venta diseñado para funcionar completament
 |------------|----------------|
 | **SBC** | Raspberry Pi 3B+ o superior (64-bit recomendado) |
 | **OS** | Raspberry Pi OS Lite (sin escritorio) |
-| **Pantalla** | Monitor táctil HDMI (7" a 22") |
+| **Pantalla** | Monitor táctil HDMI (12" a 22", 1366×768 mín.) |
 | **Impresora** | Térmica 80mm ESC/POS (USB) |
 | **Caja** | Automática RJ-11 (conectada a impresora) |
 | **Almacenamiento** | microSD 16GB+ (Class 10) |
@@ -131,16 +134,27 @@ Tottem/
 │   │   ├── receipts.py      # Generación de tickets
 │   │   ├── reports.py       # Reportes y cortes
 │   │   ├── sales.py         # Lógica de ventas
-│   │   └── shifts.py        # Control de turnos
+│   │   ├── settings.py      # Configuración persistente
+│   │   ├── shifts.py        # Control de turnos
+│   │   └── themes.py        # Gestión de temas visuales
 │   └── ui/
 │       ├── kiosk_app.py     # Aplicación kiosk
 │       ├── admin_app.py     # Aplicación admin
-│       ├── theme.qss        # Estilos visuales
+│       ├── responsive.py    # Escalado responsive (12"–22")
+│       ├── mouse_manager.py # Detección dinámica de ratón USB
+│       ├── icon_helper.py   # Helper de iconos FA6
+│       ├── theme.qss        # Estilos visuales (fallback)
 │       └── widgets/
 │           ├── kiosk_window.py  # Ventana principal POS
 │           ├── admin_window.py  # Panel administración
 │           ├── keypad.py        # Teclado numérico
 │           └── osk.py           # Teclado en pantalla
+├── docs/
+│   ├── design_tokens.md     # Sistema de diseño
+│   └── kiosk_ux.md          # Flujo UX del kiosk
+├── tests/
+│   ├── test_db.py           # Tests de base de datos
+│   └── test_receipts.py     # Tests de tickets
 ├── system/
 │   ├── pos.service          # Archivo de servicio systemd
 │   └── sudoers.d/pos        # Permisos sudo
@@ -306,6 +320,32 @@ for f in migrations/*.sql; do sqlite3 data.db < "$f"; done
 ### Reiniciar servicio
 
 ```bash
+sudo systemctl restart pos.service
+```
+
+### La interfaz se ve muy grande/pequeña
+
+El sistema detecta automáticamente la resolución de pantalla y aplica un factor de escala (0.55–1.0). Si la interfaz no se ajusta correctamente:
+
+```bash
+# Verificar resolución detectada
+sudo journalctl -u pos.service | grep -i "screen\|resolution"
+
+# Forzar resolución en /boot/config.txt
+hdmi_group=2
+hdmi_mode=82  # 1920x1080 60Hz
+```
+
+### No aparece el cursor del ratón
+
+El cursor solo se muestra cuando se detecta un ratón USB conectado. Si conectó un ratón y no aparece:
+
+```bash
+# Verificar que el dispositivo está detectado
+ls -la /dev/input/event*
+cat /sys/class/input/event*/device/capabilities/rel
+
+# Reiniciar el servicio
 sudo systemctl restart pos.service
 ```
 

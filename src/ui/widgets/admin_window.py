@@ -19,6 +19,7 @@ from argon2 import PasswordHasher
 from services.osctl import wifi_list, wifi_connect, wifi_status, reboot, poweroff
 from drivers.printer_escpos import EscposPrinter
 from services import i18n
+from ui.responsive import s
 from services.products import (
     list_products, get_product, create_product, update_product,
     set_active, delete_product
@@ -307,7 +308,7 @@ class ProductDialog(QDialog):
         icon = QLabel(get_icon_char("box") or "📦")
         icon.setObjectName("IconLabel")
         icon.setAlignment(Qt.AlignCenter)
-        icon.setStyleSheet("font-size: 40px;")
+        icon.setStyleSheet(f"font-size: {s(40)}px;")
 
         title = QLabel("PRODUCTO")
         title.setAlignment(Qt.AlignCenter)
@@ -336,7 +337,7 @@ class ProductDialog(QDialog):
         # Icon selector
         from ui.icon_helper import ICON_MAP, get_icon_char
         self.combo_icon = QComboBox()
-        self.combo_icon.setMinimumHeight(64)  # Touch-friendly height
+        self.combo_icon.setMinimumHeight(s(64))  # Touch-friendly height
         self.combo_icon.setMaxVisibleItems(8)  # Reduce scroll, show 8 items at once
         
         # Touch-friendly settings
@@ -521,7 +522,7 @@ class ShiftCloseDialog(QDialog):
         super().__init__(parent)
         self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
         self.setModal(True)
-        self.setMinimumWidth(500)
+        self.setMinimumWidth(s(500))
         
         self.shift_info = shift_info or {}
 
@@ -590,18 +591,18 @@ class ShiftCloseDialog(QDialog):
         self._closing_cash_cents = 0
 
         self.btn_cash = QPushButton("$ 0.00")
-        self.btn_cash.setMinimumHeight(64)
-        self.btn_cash.setStyleSheet("""
-            QPushButton {
-                font-size: 28px;
+        self.btn_cash.setMinimumHeight(s(64))
+        self.btn_cash.setStyleSheet(f"""
+            QPushButton {{
+                font-size: {s(28)}px;
                 font-weight: 700;
                 text-align: center;
-            }
+            }}
         """)
         self.btn_cash.clicked.connect(self._pick_cash)
 
         self.ed_closed_by = QLineEdit()
-        self.ed_closed_by.setMinimumHeight(56)
+        self.ed_closed_by.setMinimumHeight(s(56))
         self.ed_closed_by.setPlaceholderText(i18n.t("shift_close_by_placeholder") or "Encargado")
 
         form.addRow(i18n.t("shift_close_cash_label") or "Efectivo en caja $:", self.btn_cash)
@@ -619,9 +620,9 @@ class ShiftCloseDialog(QDialog):
 
         from ui.icon_helper import get_icon_char
         btn_close = QPushButton(f"{get_icon_char('arrow-right') or '→'}  {i18n.t('shift_close_btn') or 'Cerrar Turno'}")
-        btn_close.setMinimumHeight(60)
+        btn_close.setMinimumHeight(s(60))
         btn_close.setProperty("role", "primary")
-        btn_close.setStyleSheet("font-size: 16px; font-weight: 700;")
+        btn_close.setStyleSheet(f"font-size: {s(16)}px; font-weight: 700;")
         btn_close.clicked.connect(self._validate_and_accept)
 
         row.addWidget(btn_cancel)
@@ -665,8 +666,8 @@ class TicketDetailDialog(QDialog):
         super().__init__(parent)
         self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
         self.setModal(True)
-        self.setMinimumWidth(550)
-        self.setMinimumHeight(600)
+        self.setMinimumWidth(s(550))
+        self.setMinimumHeight(s(600))
         
         self.ticket_id = ticket_id
         self.ticket_details = None
@@ -716,9 +717,9 @@ class TicketDetailDialog(QDialog):
 
         from ui.icon_helper import get_icon_char
         btn_print = QPushButton(f"{get_icon_char('print') or '🖨'}  {i18n.t('ticket_reprint')}")
-        btn_print.setMinimumHeight(60)
+        btn_print.setMinimumHeight(s(60))
         btn_print.setProperty("role", "primary")
-        btn_print.setStyleSheet("font-size: 16px; font-weight: 700;")
+        btn_print.setStyleSheet(f"font-size: {s(16)}px; font-weight: 700;")
         btn_print.clicked.connect(self._reprint_ticket)
 
         row.addWidget(btn_cancel)
@@ -810,8 +811,8 @@ class ShiftPreviewDialog(QDialog):
         super().__init__(parent)
         self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
         self.setModal(True)
-        self.setMinimumWidth(750)
-        self.setMinimumHeight(700)
+        self.setMinimumWidth(s(750))
+        self.setMinimumHeight(s(700))
         
         self.shift_id = shift_id
         self.shift_data = None
@@ -1120,24 +1121,24 @@ class AdminWindow(QMainWindow):
         top_wrap = QWidget()
         top_wrap.setStyleSheet("background: transparent;")
         top = QGridLayout(top_wrap)
-        top.setContentsMargins(24, 20, 24, 16)
+        top.setContentsMargins(s(24), s(20), s(24), s(16))
 
         from ui.icon_helper import get_icon_char
         self.title_lbl = QLabel(f"{get_icon_char('gear') or '⚙'}  " + (i18n.t("admin_title") or "Administración"))
         self.title_lbl.setObjectName("SectionTitle")
-        self.title_lbl.setStyleSheet("""
-            font-size: 26px;
+        self.title_lbl.setStyleSheet(f"""
+            font-size: {s(26)}px;
             font-weight: 700;
         """)
 
         self.lang_btn = QPushButton(i18n.lang_switch_label())
-        self.lang_btn.setMinimumSize(72, 48)
+        self.lang_btn.setMinimumSize(s(72), s(48))
         self.lang_btn.setProperty("role", "ghost")
         self.lang_btn.clicked.connect(self._toggle_lang)
 
         from ui.icon_helper import get_icon_char
         self.btn_close = QPushButton(f"{get_icon_char('arrow-left') or '←'}  " + (i18n.t("exit") or "Salir"))
-        self.btn_close.setMinimumHeight(52)
+        self.btn_close.setMinimumHeight(s(52))
         self.btn_close.setProperty("role", "danger")
         self.btn_close.setStyleSheet("""
             QPushButton {
@@ -1187,8 +1188,8 @@ class AdminWindow(QMainWindow):
         wrap = QWidget()
         wrap.setObjectName("GridPanel")
         lay = QVBoxLayout(wrap)
-        lay.setContentsMargins(24, 24, 24, 24)
-        lay.setSpacing(24)
+        lay.setContentsMargins(s(24), s(24), s(24), s(24))
+        lay.setSpacing(s(24))
         lay.addWidget(top_wrap)
         lay.addWidget(self.tabs)
         self.setCentralWidget(wrap)

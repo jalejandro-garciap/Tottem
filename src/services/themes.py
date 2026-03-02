@@ -13,6 +13,15 @@ ROOT = Path(__file__).resolve().parents[2]
 CONFIG_PATH = ROOT / "config" / "config.yaml"
 
 
+def _s(px):
+    """Lazy import of responsive scaler to avoid import cycles."""
+    try:
+        from ui.responsive import s
+        return s(px)
+    except Exception:
+        return int(px)
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # PREDEFINED THEMES
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -157,7 +166,7 @@ def generate_qss(colors: Dict[str, str]) -> str:
 
 QWidget {{
     font-family: "SF Pro Display", "Inter", "Segoe UI", -apple-system, sans-serif;
-    font-size: 15px;
+    font-size: {_s(15)}px;
     color: {colors["text_primary"]};
     /* Removed global background to prevent issues with overlays and inheritance */
 }}
@@ -169,7 +178,7 @@ QMainWindow, #POSWindow, #AdminWindow {{
 QDialog {{
     background: {colors["bg_mid"]};
     border: 1px solid {colors["border"]};
-    border-radius: 24px;
+    border-radius: {_s(24)}px;
 }}
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -177,7 +186,7 @@ QDialog {{
    ═══════════════════════════════════════════════════════════════════════════ */
 
 QLabel {{
-    font-size: 15px;
+    font-size: {_s(15)}px;
     font-weight: 500;
     color: {colors["text_secondary"]};
     background: transparent;
@@ -185,35 +194,35 @@ QLabel {{
 }}
 
 QLabel#SectionTitle {{
-    font-size: 24px;
+    font-size: {_s(24)}px;
     font-weight: 700;
     color: {colors["text_primary"]};
     letter-spacing: -0.5px;
 }}
 
 QLabel#TotalLabel {{
-    font-size: 42px;
+    font-size: {_s(42)}px;
     font-weight: 800;
     color: {colors["text_primary"]};
 }}
 
 QLabel#SubtotalLabel {{
-    font-size: 18px;
+    font-size: {_s(18)}px;
     font-weight: 600;
     color: {colors["text_secondary"]};
 }}
 
 QLabel#EmptyStateLabel {{
-    font-size: 16px;
+    font-size: {_s(16)}px;
     color: {colors["text_muted"]};
-    padding: 40px;
+    padding: {_s(40)}px;
     background: {colors["bg_mid"]};
     border: 2px dashed {colors["border"]};
-    border-radius: 20px;
+    border-radius: {_s(20)}px;
 }}
 
 QLabel#PriceTag {{
-    font-size: 20px;
+    font-size: {_s(20)}px;
     font-weight: 700;
     color: {colors["success"]};
 }}
@@ -247,11 +256,11 @@ QLabel#PriceTag {{
    ═══════════════════════════════════════════════════════════════════════════ */
 
 QPushButton {{
-    font-size: 15px;
+    font-size: {_s(15)}px;
     font-weight: 600;
-    padding: 16px 24px;
-    min-height: 56px;
-    border-radius: 16px;
+    padding: {_s(16)}px {_s(24)}px;
+    min-height: {_s(56)}px;
+    border-radius: {_s(16)}px;
     border: none;
     background: {colors["surface"]};
     color: {colors["text_primary"]};
@@ -319,12 +328,12 @@ QPushButton[role="outline"] {{
    ═══════════════════════════════════════════════════════════════════════════ */
 
 #ProductButton {{
-    font-size: 14px;
+    font-size: {_s(14)}px;
     font-weight: 600;
     background: {colors["surface"]};
     border: 1px solid {colors["border"]};
-    border-radius: 20px;
-    padding: 16px;
+    border-radius: {_s(20)}px;
+    padding: {_s(16)}px;
     color: {colors["text_primary"]};
 }}
 
@@ -334,11 +343,11 @@ QPushButton[role="outline"] {{
 }}
 
 #CategoryButton {{
-    font-size: 16px;
+    font-size: {_s(16)}px;
     font-weight: 700;
     background: {colors["surface_elevated"]};
     border: 1px solid {colors["border_hover"]};
-    border-radius: 20px;
+    border-radius: {_s(20)}px;
     color: {colors["text_primary"]};
 }}
 
@@ -351,11 +360,11 @@ QPushButton[role="outline"] {{
    ═══════════════════════════════════════════════════════════════════════════ */
 
 QLineEdit {{
-    font-size: 16px;
-    min-height: 56px;
-    padding: 14px 20px;
+    font-size: {_s(16)}px;
+    min-height: {_s(56)}px;
+    padding: {_s(14)}px {_s(20)}px;
     border: 2px solid {colors["border"]};
-    border-radius: 16px;
+    border-radius: {_s(16)}px;
     background: {colors["bg_mid"]};
     color: {colors["text_primary"]};
     selection-background-color: {colors["accent_primary"]};
@@ -371,12 +380,12 @@ QLineEdit:focus {{
 }}
 
 QComboBox {{
-    font-size: 16px;
-    min-height: 56px;
-    padding: 14px 20px;
-    padding-right: 50px;
+    font-size: {_s(16)}px;
+    min-height: {_s(56)}px;
+    padding: {_s(14)}px {_s(20)}px;
+    padding-right: {_s(50)}px;
     border: 2px solid {colors["border"]};
-    border-radius: 16px;
+    border-radius: {_s(16)}px;
     background: {colors["bg_mid"]};
     color: {colors["text_primary"]};
 }}
@@ -425,35 +434,35 @@ QComboBox QAbstractItemView::item {{
 }}
 
 QSpinBox, QDoubleSpinBox {{
-    font-size: 16px;
-    min-height: 56px;
-    padding: 14px 20px;
+    font-size: {_s(16)}px;
+    min-height: {_s(56)}px;
+    padding: {_s(14)}px {_s(20)}px;
     border: 2px solid {colors["border"]};
-    border-radius: 16px;
+    border-radius: {_s(16)}px;
     background: {colors["bg_mid"]};
     color: {colors["text_primary"]};
 }}
 
 QTextEdit, QPlainTextEdit {{
-    font-size: 15px;
-    padding: 16px;
+    font-size: {_s(15)}px;
+    padding: {_s(16)}px;
     border: 2px solid {colors["border"]};
-    border-radius: 16px;
+    border-radius: {_s(16)}px;
     background: {colors["bg_mid"]};
     color: {colors["text_primary"]};
 }}
 
 QCheckBox {{
-    font-size: 15px;
+    font-size: {_s(15)}px;
     color: {colors["text_secondary"]};
-    spacing: 14px;
+    spacing: {_s(14)}px;
 }}
 
 QCheckBox::indicator {{
-    width: 26px;
-    height: 26px;
+    width: {_s(26)}px;
+    height: {_s(26)}px;
     border: 2px solid {colors["border_hover"]};
-    border-radius: 8px;
+    border-radius: {_s(8)}px;
     background: {colors["bg_mid"]};
 }}
 
@@ -472,11 +481,11 @@ QListWidget {{
 }}
 
 QListWidget::item {{
-    font-size: 15px;
+    font-size: {_s(15)}px;
     background: {colors["surface"]};
-    border-radius: 14px;
-    margin: 6px 0;
-    padding: 18px 20px;
+    border-radius: {_s(14)}px;
+    margin: {_s(6)}px 0;
+    padding: {_s(18)}px {_s(20)}px;
     color: {colors["text_primary"]};
 }}
 
@@ -494,11 +503,11 @@ QListWidget::item:selected {{
    ═══════════════════════════════════════════════════════════════════════════ */
 
 QDateEdit {{
-    font-size: 16px;
-    min-height: 56px;
-    padding: 14px 20px;
+    font-size: {_s(16)}px;
+    min-height: {_s(56)}px;
+    padding: {_s(14)}px {_s(20)}px;
     border: 2px solid {colors["border"]};
-    border-radius: 16px;
+    border-radius: {_s(16)}px;
     background: {colors["bg_mid"]};
     color: {colors["text_primary"]};
 }}
@@ -557,22 +566,22 @@ QTableWidget {{
 }}
 
 QTableWidget::item {{
-    padding: 16px 20px;
+    padding: {_s(16)}px {_s(20)}px;
     color: {colors["text_primary"]};
     border-bottom: 1px solid {colors["surface"]};
 }}
 
 QHeaderView {{
     background-color: transparent;
-    border-radius: 18px;
+    border-radius: {_s(18)}px;
 }}
 
 QHeaderView::section {{
-    font-size: 13px;
+    font-size: {_s(13)}px;
     font-weight: 700;
     background: {colors["surface"]};
     color: {colors["text_muted"]};
-    padding: 18px 20px;
+    padding: {_s(18)}px {_s(20)}px;
     border: none;
     border-bottom: 2px solid {colors["border"]};
 }}
@@ -603,12 +612,12 @@ QTabWidget::pane {{
 }}
 
 QTabBar::tab {{
-    font-size: 14px;
+    font-size: {_s(14)}px;
     font-weight: 600;
     background: transparent;
     color: {colors["text_muted"]};
-    padding: 16px 28px;
-    border-radius: 12px;
+    padding: {_s(16)}px {_s(28)}px;
+    border-radius: {_s(12)}px;
 }}
 
 QTabBar::tab:hover {{
@@ -665,11 +674,11 @@ QScrollBar::handle:horizontal {{
    ═══════════════════════════════════════════════════════════════════════════ */
 
 #KeypadButton {{
-    font-size: 28px;
+    font-size: {_s(28)}px;
     font-weight: 700;
-    min-width: 80px;
-    min-height: 80px;
-    border-radius: 20px;
+    min-width: {_s(80)}px;
+    min-height: {_s(80)}px;
+    border-radius: {_s(20)}px;
     background: {colors["surface"]};
     border: 1px solid {colors["border"]};
     color: {colors["text_primary"]};
@@ -701,9 +710,9 @@ QScrollBar::handle:horizontal {{
 #ToastFrame {{
     background: {colors["surface_elevated"]};
     color: {colors["text_primary"]};
-    border-radius: 16px;
+    border-radius: {_s(16)}px;
     border: 1px solid {colors["border"]};
-    padding: 18px 28px;
+    padding: {_s(18)}px {_s(28)}px;
 }}
 
 #ToastFrame[toastLevel="success"] {{
@@ -726,13 +735,13 @@ QScrollBar::handle:horizontal {{
    ═══════════════════════════════════════════════════════════════════════════ */
 
 QGroupBox {{
-    font-size: 12px;
+    font-size: {_s(12)}px;
     font-weight: 700;
     color: {colors["text_muted"]};
     border: 1px solid {colors["surface_elevated"]};
-    border-radius: 20px;
-    margin-top: 24px;
-    padding: 24px 20px 20px 20px;
+    border-radius: {_s(20)}px;
+    margin-top: {_s(24)}px;
+    padding: {_s(24)}px {_s(20)}px {_s(20)}px {_s(20)}px;
     background: {colors["bg_mid"]};
 }}
 

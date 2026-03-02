@@ -3,6 +3,7 @@ TOTTEM POS · Kiosk Interface
 Premium Point of Sale Experience
 """
 import math
+from ui.responsive import s
 from pathlib import Path
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QLabel, QPushButton,
@@ -33,32 +34,32 @@ class PaymentDialog(QDialog):
         super().__init__(parent)
         self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
         self.setModal(True)
-        self.setMinimumWidth(520)
+        self.setMinimumWidth(s(520))
         self.total = int(total_cents)
         self.received = 0
         self.payment_method = "cash"
 
         root = QVBoxLayout(self)
-        root.setContentsMargins(48, 48, 48, 48)
-        root.setSpacing(32)
+        root.setContentsMargins(s(48), s(48), s(48), s(48))
+        root.setSpacing(s(32))
 
         # ─── Header ───────────────────────────────────────────────────────
         header = QVBoxLayout()
-        header.setSpacing(12)
+        header.setSpacing(s(12))
         header.setAlignment(Qt.AlignCenter)
 
         subtitle = QLabel(i18n.t('charge_total') or 'TOTAL A COBRAR')
         subtitle.setAlignment(Qt.AlignCenter)
-        subtitle.setStyleSheet("""
-            font-size: 12px;
+        subtitle.setStyleSheet(f"""
+            font-size: {s(12)}px;
             font-weight: 700;
-            letter-spacing: 3px;
+            letter-spacing: {s(3)}px;
         """)
 
         total_display = QLabel(f"${self._fmt(self.total)}")
         total_display.setAlignment(Qt.AlignCenter)
-        total_display.setStyleSheet("""
-            font-size: 56px;
+        total_display.setStyleSheet(f"""
+            font-size: {s(56)}px;
             font-weight: 800;
             letter-spacing: -2px;
         """)
@@ -69,26 +70,26 @@ class PaymentDialog(QDialog):
 
         # ─── Stats Display ────────────────────────────────────────────────
         stats_frame = QFrame()
-        stats_frame.setStyleSheet("""
-            QFrame {
+        stats_frame.setStyleSheet(f"""
+            QFrame {{
                 background: rgba(0, 0, 0, 0.2);
-                border-radius: 20px;
-                padding: 20px;
-            }
+                border-radius: {s(20)}px;
+                padding: {s(20)}px;
+            }}
         """)
         stats_layout = QHBoxLayout(stats_frame)
-        stats_layout.setContentsMargins(24, 20, 24, 20)
-        stats_layout.setSpacing(40)
+        stats_layout.setContentsMargins(s(24), s(20), s(24), s(20))
+        stats_layout.setSpacing(s(40))
 
         # Received
         rec_box = QVBoxLayout()
         rec_box.setSpacing(6)
         rec_title = QLabel(i18n.t('received') or 'Recibido')
-        rec_title.setStyleSheet("font-size: 13px; font-weight: 600;")
+        rec_title.setStyleSheet(f"font-size: {s(13)}px; font-weight: 600;")
         rec_title.setAlignment(Qt.AlignCenter)
         self.lbl_received = QLabel("$0.00")
-        self.lbl_received.setStyleSheet("""
-            font-size: 28px;
+        self.lbl_received.setStyleSheet(f"""
+            font-size: {s(28)}px;
             font-weight: 700;
             color: #10b981;
         """)
@@ -100,11 +101,11 @@ class PaymentDialog(QDialog):
         chg_box = QVBoxLayout()
         chg_box.setSpacing(6)
         chg_title = QLabel(i18n.t('change') or 'Cambio')
-        chg_title.setStyleSheet("font-size: 13px; font-weight: 600;")
+        chg_title.setStyleSheet(f"font-size: {s(13)}px; font-weight: 600;")
         chg_title.setAlignment(Qt.AlignCenter)
         self.lbl_change = QLabel("$0.00")
-        self.lbl_change.setStyleSheet("""
-            font-size: 28px;
+        self.lbl_change.setStyleSheet(f"""
+            font-size: {s(28)}px;
             font-weight: 700;
             color: #818cf8;
         """)
@@ -118,26 +119,26 @@ class PaymentDialog(QDialog):
 
         # ─── Bill Buttons ─────────────────────────────────────────────────
         bills_grid = QGridLayout()
-        bills_grid.setSpacing(12)
+        bills_grid.setSpacing(s(12))
         bills = [20, 50, 100, 200, 500, 1000]
         for idx, val in enumerate(bills):
             btn = QPushButton(f"${val}")
-            btn.setMinimumHeight(72)
-            btn.setStyleSheet("""
-                QPushButton {
-                    font-size: 20px;
+            btn.setMinimumHeight(s(72))
+            btn.setStyleSheet(f"""
+                QPushButton {{
+                    font-size: {s(20)}px;
                     font-weight: 700;
                     background: rgba(0, 0, 0, 0.1);
                     border: 1px solid palette(mid);
-                    border-radius: 16px;
-                }
-                QPushButton:hover {
+                    border-radius: {s(16)}px;
+                }}
+                QPushButton:hover {{
                     background: rgba(0, 0, 0, 0.2);
                     border-color: palette(highlight);
-                }
-                QPushButton:pressed {
+                }}
+                QPushButton:pressed {{
                     background: rgba(0, 0, 0, 0.3);
-                }
+                }}
             """)
             btn.clicked.connect(lambda _=None, v=val: self._add_bill(v))
             bills_grid.addWidget(btn, idx // 3, idx % 3)
@@ -145,20 +146,20 @@ class PaymentDialog(QDialog):
 
         # ─── Quick Actions ────────────────────────────────────────────────
         quick_row = QHBoxLayout()
-        quick_row.setSpacing(12)
+        quick_row.setSpacing(s(12))
 
         btn_exact = QPushButton((get_icon_char('check') or '✓') + "  " + (i18n.t('exact') or "Exacto"))
-        btn_exact.setMinimumHeight(64)
+        btn_exact.setMinimumHeight(s(64))
         btn_exact.setProperty("role", "success")
         btn_exact.clicked.connect(self._exact)
 
         btn_other = QPushButton((get_icon_char('keyboard') or '⌨') + "  " + (i18n.t('other_amount') or "Otro monto"))
-        btn_other.setMinimumHeight(64)
+        btn_other.setMinimumHeight(s(64))
         btn_other.clicked.connect(self._other)
 
         btn_card = QPushButton((
             get_icon_char('credit-card') or '💳') + "  " + (i18n.t('pay_card') or "Tarjeta"))
-        btn_card.setMinimumHeight(64)
+        btn_card.setMinimumHeight(s(64))
         btn_card.setProperty("role", "primary")
         btn_card.clicked.connect(self._card)
 
@@ -169,21 +170,21 @@ class PaymentDialog(QDialog):
 
         # ─── Action Buttons ───────────────────────────────────────────────
         action_row = QHBoxLayout()
-        action_row.setSpacing(16)
+        action_row.setSpacing(s(16))
 
         btn_cancel = QPushButton(i18n.t('cancel') or "Cancelar")
-        btn_cancel.setMinimumHeight(72)
+        btn_cancel.setMinimumHeight(s(72))
         btn_cancel.clicked.connect(self.reject)
 
         btn_charge = QPushButton((get_icon_char('arrow-right') or '→') + "  " + (i18n.t('charge') or "COBRAR"))
-        btn_charge.setMinimumHeight(72)
+        btn_charge.setMinimumHeight(s(72))
         btn_charge.setProperty("role", "primary")
-        btn_charge.setStyleSheet("""
-            QPushButton {
-                font-size: 18px;
+        btn_charge.setStyleSheet(f"""
+            QPushButton {{
+                font-size: {s(18)}px;
                 font-weight: 700;
                 letter-spacing: 1px;
-            }
+            }}
         """)
         btn_charge.clicked.connect(self._try_accept)
 
@@ -200,12 +201,12 @@ class PaymentDialog(QDialog):
         self.lbl_change.setText(f"${self._fmt(change)}")
         
         if self.received >= self.total:
-            self.lbl_received.setStyleSheet("""
-                font-size: 28px; font-weight: 700; color: #10b981;
+            self.lbl_received.setStyleSheet(f"""
+                font-size: {s(28)}px; font-weight: 700; color: #10b981;
             """)
         else:
-            self.lbl_received.setStyleSheet("""
-                font-size: 28px; font-weight: 700; color: #f59e0b;
+            self.lbl_received.setStyleSheet(f"""
+                font-size: {s(28)}px; font-weight: 700; color: #f59e0b;
             """)
 
     def _auto_accept_if_enough(self):
@@ -254,47 +255,47 @@ class AdminPinDialog(QDialog):
         super().__init__(parent)
         self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
         self.setModal(True)
-        self.setMinimumWidth(420)
+        self.setMinimumWidth(s(420))
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(48, 48, 48, 48)
-        layout.setSpacing(28)
+        layout.setContentsMargins(s(48), s(48), s(48), s(48))
+        layout.setSpacing(s(28))
 
         # Icon/Title
         from ui.icon_helper import get_icon_char
         icon_lbl = QLabel(get_icon_char("lock") or "🔐")
         icon_lbl.setObjectName("IconLabel")
         icon_lbl.setAlignment(Qt.AlignCenter)
-        icon_lbl.setStyleSheet("font-size: 48px;")
+        icon_lbl.setStyleSheet(f"font-size: {s(48)}px;")
 
         title = QLabel(i18n.t("admin_pin_prompt") or "Acceso Administrador")
         title.setObjectName("SectionTitle")
         title.setAlignment(Qt.AlignCenter)
-        title.setStyleSheet("font-size: 20px;")
+        title.setStyleSheet(f"font-size: {s(20)}px;")
 
         subtitle = QLabel(i18n.t("admin_pin_subtitle") or "Ingrese su PIN de seguridad")
         subtitle.setAlignment(Qt.AlignCenter)
-        subtitle.setStyleSheet("font-size: 14px;")
+        subtitle.setStyleSheet(f"font-size: {s(14)}px;")
 
         self.ed_pin = QLineEdit()
         self.ed_pin.setEchoMode(QLineEdit.Password)
         self.ed_pin.setMaxLength(16)
-        self.ed_pin.setMinimumHeight(72)
+        self.ed_pin.setMinimumHeight(s(72))
         self.ed_pin.setAlignment(Qt.AlignCenter)
-        self.ed_pin.setStyleSheet("""
-            QLineEdit {
-                font-size: 32px;
+        self.ed_pin.setStyleSheet(f"""
+            QLineEdit {{
+                font-size: {s(32)}px;
                 font-weight: 700;
-                letter-spacing: 8px;
+                letter-spacing: {s(8)}px;
                 background: rgba(0, 0, 0, 0.2);
                 border: 2px solid palette(mid);
-                border-radius: 18px;
-            }
+                border-radius: {s(18)}px;
+            }}
         """)
         self.ed_pin.setPlaceholderText("• • • •")
 
         keypad = QGridLayout()
-        keypad.setSpacing(8)
+        keypad.setSpacing(s(8))
 
         nums = [
             ("1", 0, 0), ("2", 0, 1), ("3", 0, 2),
@@ -303,36 +304,36 @@ class AdminPinDialog(QDialog):
         ]
         for txt, r, c in nums:
             b = QPushButton(txt)
-            b.setMinimumHeight(48)
+            b.setMinimumHeight(s(48))
             b.setObjectName("KeypadButton")
             b.clicked.connect(lambda _=None, t=txt: self._press_digit(t))
             keypad.addWidget(b, r, c)
 
         btn_clear = QPushButton("C")
-        btn_clear.setMinimumHeight(48)
+        btn_clear.setMinimumHeight(s(48))
         btn_clear.setProperty("role", "danger")
         btn_clear.setObjectName("KeypadButton")
         btn_clear.clicked.connect(self._clear_pin)
         keypad.addWidget(btn_clear, 3, 0)
 
         btn_zero = QPushButton("0")
-        btn_zero.setMinimumHeight(48)
+        btn_zero.setMinimumHeight(s(48))
         btn_zero.setObjectName("KeypadButton")
         btn_zero.clicked.connect(lambda _=None: self._press_digit("0"))
         keypad.addWidget(btn_zero, 3, 1)
 
         btn_back = QPushButton("⌫")
-        btn_back.setMinimumHeight(48)
+        btn_back.setMinimumHeight(s(48))
         btn_back.setObjectName("KeypadButton")
         btn_back.clicked.connect(self._backspace_pin)
         keypad.addWidget(btn_back, 3, 2)
 
         btn_row = QHBoxLayout()
-        btn_row.setSpacing(16)
+        btn_row.setSpacing(s(16))
         btn_cancel = QPushButton(i18n.t("cancel") or "Cancelar")
-        btn_cancel.setMinimumHeight(64)
+        btn_cancel.setMinimumHeight(s(64))
         btn_ok = QPushButton(f"→  {i18n.t('admin_access') or 'Acceder'}")
-        btn_ok.setMinimumHeight(64)
+        btn_ok.setMinimumHeight(s(64))
         btn_ok.setProperty("role", "primary")
         btn_cancel.clicked.connect(self.reject)
         btn_ok.clicked.connect(self._on_ok)
@@ -372,15 +373,15 @@ class AdminPinDialog(QDialog):
             self.accept()
         else:
             self.ed_pin.clear()
-            self.ed_pin.setStyleSheet("""
-                QLineEdit {
-                    font-size: 32px;
+            self.ed_pin.setStyleSheet(f"""
+                QLineEdit {{
+                    font-size: {s(32)}px;
                     font-weight: 700;
-                    letter-spacing: 8px;
+                    letter-spacing: {s(8)}px;
                     background: rgba(239, 68, 68, 0.1);
                     border: 2px solid palette(highlight);
-                    border-radius: 18px;
-                }
+                    border-radius: {s(18)}px;
+                }}
             """)
             QMessageBox.critical(self, i18n.t("admin_pin_title") or "PIN", i18n.t("pin_bad") or "PIN incorrecto.")
 
@@ -395,70 +396,70 @@ class QtyModeDialog(QDialog):
         super().__init__(parent)
         self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
         self.setModal(True)
-        self.setMinimumWidth(400)
+        self.setMinimumWidth(s(400))
         self.selected_mode = None
         
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(32, 32, 32, 32)
-        layout.setSpacing(20)
+        layout.setContentsMargins(s(32), s(32), s(32), s(32))
+        layout.setSpacing(s(20))
         
         # Title
         title = QLabel(i18n.t("qty_mode_title") or "¿Cómo desea agregar?")
         title.setAlignment(Qt.AlignCenter)
-        title.setStyleSheet("font-size: 18px; font-weight: 700;")
+        title.setStyleSheet(f"font-size: {s(18)}px; font-weight: 700;")
         layout.addWidget(title)
         
         # Product name
         prod_lbl = QLabel(product_name)
         prod_lbl.setAlignment(Qt.AlignCenter)
-        prod_lbl.setStyleSheet("font-size: 14px;")
+        prod_lbl.setStyleSheet(f"font-size: {s(14)}px;")
         prod_lbl.setWordWrap(True)
         layout.addWidget(prod_lbl)
         
         # Buttons row
         btn_row = QHBoxLayout()
-        btn_row.setSpacing(16)
+        btn_row.setSpacing(s(16))
         
         # Quantity button
         btn_qty = QPushButton(f"#  {i18n.t('qty_mode_quantity') or 'Cantidad'}\n({unit})")
-        btn_qty.setMinimumHeight(90)
-        btn_qty.setStyleSheet("""
-            QPushButton {
-                font-size: 16px;
+        btn_qty.setMinimumHeight(s(90))
+        btn_qty.setStyleSheet(f"""
+            QPushButton {{
+                font-size: {s(16)}px;
                 font-weight: 600;
                 background: rgba(0, 0, 0, 0.1);
                 border: 2px solid palette(mid);
-                border-radius: 16px;
-            }
-            QPushButton:hover {
+                border-radius: {s(16)}px;
+            }}
+            QPushButton:hover {{
                 background: rgba(0, 0, 0, 0.2);
                 border-color: palette(highlight);
-            }
-            QPushButton:pressed {
+            }}
+            QPushButton:pressed {{
                 background: #2a2a3a;
-            }
+            }}
         """)
         btn_qty.clicked.connect(self._select_qty)
         btn_row.addWidget(btn_qty)
         
         # Amount button
         btn_amt = QPushButton(f"$  {i18n.t('qty_mode_amount') or 'Monto'}\n{i18n.t('qty_mode_amount_currency') or '(pesos)'}")
-        btn_amt.setMinimumHeight(90)
-        btn_amt.setStyleSheet("""
-            QPushButton {
-                font-size: 16px;
+        btn_amt.setMinimumHeight(s(90))
+        btn_amt.setStyleSheet(f"""
+            QPushButton {{
+                font-size: {s(16)}px;
                 font-weight: 600;
                 background: rgba(0, 0, 0, 0.1);
                 border: 2px solid palette(mid);
-                border-radius: 16px;
-            }
-            QPushButton:hover {
+                border-radius: {s(16)}px;
+            }}
+            QPushButton:hover {{
                 background: rgba(0, 0, 0, 0.2);
                 border-color: palette(highlight);
-            }
-            QPushButton:pressed {
+            }}
+            QPushButton:pressed {{
                 background: #2a2a3a;
-            }
+            }}
         """)
         btn_amt.clicked.connect(self._select_amount)
         btn_row.addWidget(btn_amt)
@@ -467,7 +468,7 @@ class QtyModeDialog(QDialog):
         
         # Cancel button
         btn_cancel = QPushButton(i18n.t("cancel") or "Cancelar")
-        btn_cancel.setMinimumHeight(56)
+        btn_cancel.setMinimumHeight(s(56))
         btn_cancel.clicked.connect(self.reject)
         layout.addWidget(btn_cancel)
     
@@ -490,15 +491,14 @@ class POSWindow(QMainWindow):
         super().__init__()
         self._admin_win = None
         self.setWindowFlag(Qt.FramelessWindowHint, True)
-        self.setCursor(QCursor(Qt.BlankCursor))
         self.setWindowTitle(i18n.t("title"))
 
         # ─── Main Container ───────────────────────────────────────────────
         container = QWidget()
         container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         root = QHBoxLayout(container)
-        root.setContentsMargins(16, 16, 16, 16)
-        root.setSpacing(16)
+        root.setContentsMargins(s(16), s(16), s(16), s(16))
+        root.setSpacing(s(16))
 
         # ═══════════════════════════════════════════════════════════════════
         # LEFT PANEL - Products Grid
@@ -512,15 +512,15 @@ class POSWindow(QMainWindow):
         products_panel = QWidget()
         products_panel.setObjectName("GridPanel")
         self.grid_wrap = QVBoxLayout(products_panel)
-        self.grid_wrap.setContentsMargins(24, 24, 24, 24)
-        self.grid_wrap.setSpacing(20)
+        self.grid_wrap.setContentsMargins(s(24), s(24), s(24), s(24))
+        self.grid_wrap.setSpacing(s(20))
 
         # Header
         head = QHBoxLayout()
-        head.setSpacing(16)
+        head.setSpacing(s(16))
 
         self.btn_back = QPushButton("←  " + (i18n.t("back") or "Atrás"))
-        self.btn_back.setMinimumHeight(52)
+        self.btn_back.setMinimumHeight(s(52))
         self.btn_back.setProperty("role", "ghost")
         self.btn_back.clicked.connect(self._back_to_categories)
 
@@ -536,7 +536,7 @@ class POSWindow(QMainWindow):
         # Products Grid
         self.grid = QGridLayout()
         self.grid.setContentsMargins(0, 0, 0, 0)
-        self.grid.setSpacing(14)
+        self.grid.setSpacing(s(14))
         self.grid_wrap.addLayout(self.grid, 1)
 
         self.products_area.setWidget(products_panel)
@@ -548,30 +548,30 @@ class POSWindow(QMainWindow):
         self.right_wrap.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
         self.right_wrap.setObjectName("CartPanel")
         right = QVBoxLayout(self.right_wrap)
-        right.setContentsMargins(24, 24, 24, 24)
-        right.setSpacing(16)
+        right.setContentsMargins(s(24), s(24), s(24), s(24))
+        right.setSpacing(s(16))
 
         # ─── Top Bar ──────────────────────────────────────────────────────
         top_bar = QHBoxLayout()
-        top_bar.setContentsMargins(0, 0, 0, 12)
-        top_bar.setSpacing(12)
+        top_bar.setContentsMargins(0, 0, 0, s(12))
+        top_bar.setSpacing(s(12))
 
         self.title_lbl = QLabel(i18n.t("cart") or "Carrito")
         self.title_lbl.setObjectName("SectionTitle")
 
         self.lang_btn = QPushButton(i18n.lang_switch_label())
-        self.lang_btn.setMinimumSize(56, 48)
+        self.lang_btn.setMinimumSize(s(56), s(48))
         self.lang_btn.setProperty("role", "ghost")
         self.lang_btn.clicked.connect(self._toggle_lang)
 
         self.btn_reprint = QPushButton(get_icon_char('print') or '🖨')
-        self.btn_reprint.setMinimumSize(56, 48)
+        self.btn_reprint.setMinimumSize(s(56), s(48))
         self.btn_reprint.setProperty("role", "ghost")
         self.btn_reprint.setToolTip(i18n.t("reprint") or "Reimprimir")
         self.btn_reprint.clicked.connect(self._reprint_last)
 
         self.btn_admin = QPushButton(get_icon_char('gear') or '⚙')
-        self.btn_admin.setMinimumSize(56, 48)
+        self.btn_admin.setMinimumSize(s(56), s(48))
         self.btn_admin.setProperty("role", "ghost")
         self.btn_admin.setToolTip(i18n.t("admin") or "Admin")
         self.btn_admin.clicked.connect(self._go_admin)
@@ -589,7 +589,7 @@ class POSWindow(QMainWindow):
 
         # ─── Cart Controls ────────────────────────────────────────────────
         ctrls = QHBoxLayout()
-        ctrls.setSpacing(10)
+        ctrls.setSpacing(s(10))
 
         ctrl_buttons = [
             ("-", None, self._dec_qty),
@@ -601,9 +601,9 @@ class POSWindow(QMainWindow):
 
         for text, role, callback in ctrl_buttons:
             btn = QPushButton(text)
-            btn.setMinimumHeight(56)
+            btn.setMinimumHeight(s(56))
             if len(text) == 1:
-                btn.setStyleSheet("font-size: 22px; font-weight: 700;")
+                btn.setStyleSheet(f"font-size: {s(22)}px; font-weight: 700;")
             if role:
                 btn.setProperty("role", role)
             btn.clicked.connect(callback)
@@ -623,21 +623,21 @@ class POSWindow(QMainWindow):
 
         # ─── Total Display ────────────────────────────────────────────────
         total_frame = QFrame()
-        total_frame.setStyleSheet("""
-            QFrame {
-                border-radius: 18px;
-                padding: 16px;
-            }
+        total_frame.setStyleSheet(f"""
+            QFrame {{
+                border-radius: {s(18)}px;
+                padding: {s(16)}px;
+            }}
         """)
         total_layout = QVBoxLayout(total_frame)
-        total_layout.setContentsMargins(20, 16, 20, 16)
-        total_layout.setSpacing(4)
+        total_layout.setContentsMargins(s(20), s(16), s(20), s(16))
+        total_layout.setSpacing(s(4))
 
         total_label_title = QLabel("TOTAL")
-        total_label_title.setStyleSheet("""
-            font-size: 12px;
+        total_label_title.setStyleSheet(f"""
+            font-size: {s(12)}px;
             font-weight: 700;
-            letter-spacing: 2px;
+            letter-spacing: {s(2)}px;
         """)
         total_label_title.setAlignment(Qt.AlignRight)
 
@@ -650,15 +650,15 @@ class POSWindow(QMainWindow):
 
         # ─── Charge Button ────────────────────────────────────────────────
         self.btn_charge = QPushButton("→  " + (i18n.t("pay_print") or "COBRAR"))
-        self.btn_charge.setMinimumHeight(80)
+        self.btn_charge.setMinimumHeight(s(80))
         self.btn_charge.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.btn_charge.setProperty("role", "primary")
-        self.btn_charge.setStyleSheet("""
-            QPushButton {
-                font-size: 20px;
+        self.btn_charge.setStyleSheet(f"""
+            QPushButton {{
+                font-size: {s(20)}px;
                 font-weight: 700;
                 letter-spacing: 1px;
-            }
+            }}
         """)
         self.btn_charge.clicked.connect(self.charge)
 

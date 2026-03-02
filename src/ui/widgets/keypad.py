@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt
 from services import i18n
+from ui.responsive import s
 
 
 class NumKeypad(QDialog):
@@ -26,44 +27,44 @@ class NumKeypad(QDialog):
         self.setModal(True)
         title_text = title if title is not None else (i18n.t("qty_mode_quantity") or "Cantidad")
         self.setWindowTitle(title_text)
-        self.setMinimumWidth(380)
+        self.setMinimumWidth(s(380))
         self.allow_decimal = bool(allow_decimal)
 
         root = QVBoxLayout(self)
-        root.setContentsMargins(32, 32, 32, 32)
-        root.setSpacing(24)
+        root.setContentsMargins(s(32), s(32), s(32), s(32))
+        root.setSpacing(s(24))
 
         # ─── Header ───────────────────────────────────────────────────────
         title_lbl = QLabel(title_text.upper())
         title_lbl.setAlignment(Qt.AlignCenter)
-        title_lbl.setStyleSheet("""
-            font-size: 12px;
+        title_lbl.setStyleSheet(f"""
+            font-size: {s(12)}px;
             font-weight: 700;
-            letter-spacing: 3px;
+            letter-spacing: {s(3)}px;
         """)
         root.addWidget(title_lbl)
 
         # ─── Display ──────────────────────────────────────────────────────
         display_frame = QFrame()
-        display_frame.setStyleSheet("""
-            QFrame {
-                border-radius: 18px;
-            }
+        display_frame.setStyleSheet(f"""
+            QFrame {{
+                border-radius: {s(18)}px;
+            }}
         """)
         display_layout = QVBoxLayout(display_frame)
-        display_layout.setContentsMargins(24, 20, 24, 20)
+        display_layout.setContentsMargins(s(24), s(20), s(24), s(20))
 
         self.edit = QLineEdit()
         self.edit.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         self.edit.setReadOnly(True)
-        self.edit.setStyleSheet("""
-            QLineEdit {
-                font-size: 48px;
+        self.edit.setStyleSheet(f"""
+            QLineEdit {{
+                font-size: {s(48)}px;
                 font-weight: 700;
                 background: transparent;
                 border: none;
-                padding: 8px 0;
-            }
+                padding: {s(8)}px 0;
+            }}
         """)
         self.edit.setPlaceholderText("0")
         display_layout.addWidget(self.edit)
@@ -71,7 +72,7 @@ class NumKeypad(QDialog):
 
         # ─── Keypad Grid ──────────────────────────────────────────────────
         grid = QGridLayout()
-        grid.setSpacing(12)
+        grid.setSpacing(s(12))
 
         # Number buttons 1-9
         buttons = [
@@ -112,15 +113,15 @@ class NumKeypad(QDialog):
 
         # ─── Action Buttons ───────────────────────────────────────────────
         row = QHBoxLayout()
-        row.setSpacing(12)
+        row.setSpacing(s(12))
 
         cancel = QPushButton(i18n.t("keypad_cancel"))
-        cancel.setMinimumHeight(64)
+        cancel.setMinimumHeight(s(64))
         cancel.clicked.connect(self.reject)
 
         from ui.icon_helper import get_icon_char
         ok = QPushButton(f"{get_icon_char('arrow-right') or '→'}  {i18n.t('keypad_accept')}")
-        ok.setMinimumHeight(64)
+        ok.setMinimumHeight(s(64))
         ok.setProperty("role", "primary")
         ok.clicked.connect(self.accept)
 

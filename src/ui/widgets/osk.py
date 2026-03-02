@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, QSize
 from services import i18n
+from ui.responsive import s
 
 KEY_ROWS_LOWER = [
     list("qwertyuiop"),
@@ -43,43 +44,43 @@ class OnScreenKeyboard(QDialog):
         title_text = title if title is not None else (i18n.t("keyboard_title") or "Teclado")
 
         root = QVBoxLayout(self)
-        root.setContentsMargins(28, 28, 28, 28)
-        root.setSpacing(16)
+        root.setContentsMargins(s(28), s(28), s(28), s(28))
+        root.setSpacing(s(16))
 
         # ─── Header ───────────────────────────────────────────────────────
         header = QHBoxLayout()
         lbl = QLabel(title_text.upper())
         lbl.setAlignment(Qt.AlignCenter)
-        lbl.setStyleSheet("""
-            font-size: 12px;
+        lbl.setStyleSheet(f"""
+            font-size: {s(12)}px;
             font-weight: 700;
-            letter-spacing: 3px;
+            letter-spacing: {s(3)}px;
         """)
         header.addWidget(lbl)
         root.addLayout(header)
 
         # ─── Input Display ────────────────────────────────────────────────
         display_frame = QFrame()
-        display_frame.setStyleSheet("""
-            QFrame {
+        display_frame.setStyleSheet(f"""
+            QFrame {{
                 background: rgba(0, 0, 0, 0.2);
-                border-radius: 16px;
-            }
+                border-radius: {s(16)}px;
+            }}
         """)
         display_layout = QVBoxLayout(display_frame)
-        display_layout.setContentsMargins(20, 16, 20, 16)
+        display_layout.setContentsMargins(s(20), s(16), s(20), s(16))
 
         self.ed = QLineEdit(initial_text)
         if password_mode:
             self.ed.setEchoMode(QLineEdit.Password)
-        self.ed.setStyleSheet("""
-            QLineEdit {
-                font-size: 28px;
+        self.ed.setStyleSheet(f"""
+            QLineEdit {{
+                font-size: {s(28)}px;
                 font-weight: 600;
                 background: transparent;
                 border: none;
-                padding: 8px 0;
-            }
+                padding: {s(8)}px 0;
+            }}
         """)
         self.ed.setPlaceholderText(i18n.t("osk_placeholder"))
         display_layout.addWidget(self.ed)
@@ -87,12 +88,12 @@ class OnScreenKeyboard(QDialog):
 
         # ─── Key Grid ─────────────────────────────────────────────────────
         self.grid = QGridLayout()
-        self.grid.setSpacing(8)
+        self.grid.setSpacing(s(8))
         root.addLayout(self.grid)
 
         # ─── Control Row ──────────────────────────────────────────────────
         controls = QHBoxLayout()
-        controls.setSpacing(8)
+        controls.setSpacing(s(8))
 
         self.btn_shift = QPushButton("⇧")
         self.btn_shift.setToolTip("Shift")
@@ -107,10 +108,10 @@ class OnScreenKeyboard(QDialog):
         self.btn_clear.setProperty("role", "danger")
 
         for b in (self.btn_shift, self.btn_nums, self.btn_space, self.btn_bsp, self.btn_clear):
-            b.setMinimumHeight(56)
+            b.setMinimumHeight(s(56))
             b.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
-        self.btn_space.setMinimumWidth(200)
+        self.btn_space.setMinimumWidth(s(200))
 
         controls.addWidget(self.btn_shift)
         controls.addWidget(self.btn_nums)
@@ -121,14 +122,14 @@ class OnScreenKeyboard(QDialog):
 
         # ─── Action Buttons ───────────────────────────────────────────────
         actions = QHBoxLayout()
-        actions.setSpacing(12)
+        actions.setSpacing(s(12))
 
         self.btn_cancel = QPushButton(i18n.t("osk_cancel"))
-        self.btn_cancel.setMinimumHeight(60)
+        self.btn_cancel.setMinimumHeight(s(60))
 
         from ui.icon_helper import get_icon_char
         self.btn_ok = QPushButton(f"{get_icon_char('arrow-right') or '→'}  {i18n.t('osk_accept')}")
-        self.btn_ok.setMinimumHeight(60)
+        self.btn_ok.setMinimumHeight(s(60))
         self.btn_ok.setProperty("role", "primary")
 
         actions.addWidget(self.btn_cancel)
@@ -164,9 +165,9 @@ class OnScreenKeyboard(QDialog):
         for r, row in enumerate(rows):
             for c, ch in enumerate(row):
                 btn = QPushButton(ch)
-                btn.setMinimumSize(QSize(56, 56))
+                btn.setMinimumSize(QSize(s(56), s(56)))
                 btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-                btn.clicked.connect(lambda _=None, s=ch: self._append(s))
+                btn.clicked.connect(lambda _=None, ch_=ch: self._append(ch_))
                 btn.setObjectName("KeypadButton")
                 self.grid.addWidget(btn, r, c)
 

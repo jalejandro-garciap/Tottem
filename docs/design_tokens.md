@@ -9,8 +9,9 @@ Sistema de diseño premium para interfaces táctiles de punto de venta.
 El diseño Obsidian Edition prioriza:
 - **Contraste extremo** para legibilidad en cualquier condición de luz
 - **Jerarquía visual clara** mediante tipografía y espaciado
-- **Touch-first** con objetivos táctiles de mínimo 56px
+- **Touch-first** con objetivos táctiles de mínimo 56px (escalados)
 - **Retroalimentación visual inmediata** en todas las interacciones
+- **Adaptabilidad** para pantallas de 12" a 22"
 
 ---
 
@@ -44,7 +45,7 @@ El diseño Obsidian Edition prioriza:
 
 ## Tipografía
 
-### Jerarquía
+### Jerarquía (valores base @1920×1080)
 ```
 Hero Display    → 56px / 800 / -2px tracking
 Section Title   → 24px / 700 / -0.5px tracking
@@ -52,6 +53,8 @@ Body Large      → 16px / 500
 Body            → 15px / 500
 Label           → 12px / 700 / 3px tracking / UPPERCASE
 ```
+
+> **Nota**: Todos los valores se escalan dinámicamente con `s(px)` según la resolución de pantalla. Ver sección "Sistema Responsive" más abajo.
 
 ### Font Stack
 ```css
@@ -62,16 +65,67 @@ font-family: "SF Pro Display", "Inter", "Segoe UI", -apple-system, sans-serif;
 
 ## Espaciado
 
-### Contenedores
-- **Padding exterior**: 16-24px
-- **Padding interior**: 20-32px
-- **Gap entre elementos**: 12-16px
-- **Border radius**: 16-28px
+### Contenedores (valores base)
+- **Padding exterior**: 16–24px
+- **Padding interior**: 20–32px
+- **Gap entre elementos**: 12–16px
+- **Border radius**: 16–28px
 
 ### Botones
-- **Altura mínima**: 56px (controles), 72-80px (acciones principales)
-- **Padding horizontal**: 20-28px
-- **Border radius**: 16-20px
+- **Altura mínima**: 56px (controles), 72–80px (acciones principales)
+- **Padding horizontal**: 20–28px
+- **Border radius**: 16–20px
+
+---
+
+## Sistema Responsive
+
+### Módulo `ui/responsive.py`
+
+El sistema calcula un factor de escala único al arrancar la aplicación:
+
+```
+scale = min(screen_width / 1920, screen_height / 1080)
+piso  = 0.55  (≈ pantallas 12" @ 1366×768)
+techo = 1.0   (pantallas 22" @ 1920×1080 o mayor)
+```
+
+### Función `s(px)`
+
+Convierte cualquier valor en píxeles al tamaño adaptado:
+
+```python
+from ui.responsive import s
+
+widget.setMinimumHeight(s(56))   # → 56px en 22", 31px en 12"
+widget.setContentsMargins(s(24), s(24), s(24), s(24))
+```
+
+### Tabla de Escalado
+
+| Pantalla | Resolución | Factor | Botón 56px → | Título 24px → |
+|----------|-----------|--------|-------------|---------------|
+| 12" | 1366×768 | 0.71 | 40px | 17px |
+| 14" | 1600×900 | 0.83 | 47px | 20px |
+| 15.6" | 1920×1080 | 1.00 | 56px | 24px |
+| 22" | 1920×1080 | 1.00 | 56px | 24px |
+
+### Integración
+
+- **Código Python**: Todos los `setMinimumHeight`, `setContentsMargins`, `setSpacing` y `setStyleSheet` con `font-size` usan `s()`.
+- **QSS generado**: La función `generate_qss()` en `themes.py` usa `_s()` para escalar todos los tamaños en el stylesheet dinámico.
+- **QSS estático** (`theme.qss`): Sirve como fallback; los tamaños definidos en código Python tienen prioridad.
+
+---
+
+## Responsive Breakpoints
+
+| Pantalla | Ancho | Columnas Grid | Cart Width |
+|----------|-------|---------------|------------|
+| 12" | ≤1280px | 3–4 | ~280px |
+| 14" | ≤1600px | 4–5 | ~340px |
+| 15.6" | ≤1920px | 5–6 | ~400px |
+| 22"+ | >1920px | 5–8 | ~460px |
 
 ---
 
@@ -111,20 +165,20 @@ Qt no soporta transiciones CSS nativas, pero los estados visuales simulan fluide
 
 ---
 
-## Responsive Breakpoints
+## Cursor Dinámico
 
-| Pantalla | Ancho | Columnas Grid | Cart Width |
-|----------|-------|---------------|------------|
-| 7" | ≤800px | 2-3 | 280px |
-| 10" | ≤1024px | 3-4 | 340px |
-| 12" | ≤1280px | 4-5 | 400px |
-| 22"+ | >1280px | 5-8 | 460px |
+El cursor del ratón se gestiona dinámicamente por `ui/mouse_manager.py`:
+
+- **Sin ratón USB**: Cursor completamente oculto (`Qt.BlankCursor`). Ideal para operación táctil exclusiva.
+- **Con ratón USB**: Cursor estándar (`Qt.ArrowCursor`) visible automáticamente.
+- **Detección**: Polling cada 2 segundos de `/sys/class/input/event*/device/capabilities/rel`.
+- **Transición**: Al conectar/desconectar un ratón, el cambio es automático sin reiniciar la app.
 
 ---
 
 ## Iconografía
 
-Uso de emojis Unicode para máxima compatibilidad:
+Se usa Font Awesome 6 Free (Solid) con fallback a emojis Unicode:
 ```
 🔐 Seguridad     🖨 Impresora     🏪 Tienda
 📦 Productos     📊 Turnos        📈 Reportes
@@ -135,8 +189,13 @@ Uso de emojis Unicode para máxima compatibilidad:
 
 ## Archivos del Sistema
 
-- `src/ui/theme.qss` → Estilos globales QSS
-- `src/ui/widgets/kiosk_window.py` → Interfaz de venta
-- `src/ui/widgets/admin_window.py` → Panel de administración
-- `src/ui/widgets/keypad.py` → Teclado numérico
-- `src/ui/widgets/osk.py` → Teclado en pantalla
+| Archivo | Responsabilidad |
+|---------|----------------|
+| `src/ui/responsive.py` | Factor de escala y helpers `s()`, `font_css()` |
+| `src/ui/mouse_manager.py` | Detección de ratón USB y gestión de cursor |
+| `src/services/themes.py` | Generación de QSS escalado (`generate_qss()`) |
+| `src/ui/theme.qss` | Estilos QSS estáticos (fallback) |
+| `src/ui/widgets/kiosk_window.py` | Interfaz de venta |
+| `src/ui/widgets/admin_window.py` | Panel de administración |
+| `src/ui/widgets/keypad.py` | Teclado numérico |
+| `src/ui/widgets/osk.py` | Teclado en pantalla |
