@@ -11,8 +11,12 @@ try:
     import sqlcipher3 as sqlite3  # type: ignore[import-untyped]
     _HAS_SQLCIPHER = True
 except ImportError:
-    import sqlite3  # type: ignore[no-redef]
-    _HAS_SQLCIPHER = False
+    try:
+        from pysqlcipher3 import dbapi2 as sqlite3  # type: ignore[no-redef]
+        _HAS_SQLCIPHER = True
+    except ImportError:
+        import sqlite3  # type: ignore[no-redef]
+        _HAS_SQLCIPHER = False
 
 ROOT = Path(__file__).resolve().parents[2]
 DB_PATH = ROOT / "data.db"

@@ -23,7 +23,6 @@ dependencies = [
   "argon2-cffi>=21.0",
   "PyYAML>=6.0",
   "yagmail>=0.11",
-  "sqlcipher3-binary>=0.5.0",
 ]
 
 [project.scripts]
@@ -35,6 +34,9 @@ dev = [
   "pytest-cov",
   "black",
   "ruff",
+]
+security = [
+  "sqlcipher3>=0.5.0",
 ]
 
 [tool.setuptools]

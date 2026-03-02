@@ -151,6 +151,15 @@ log_info "Instalando dependencias de Python..."
 # Instalar el proyecto en modo editable
 .venv/bin/pip install -e .
 
+# Instalar SQLCipher para cifrado de BD (requiere libsqlcipher-dev)
+log_info "Instalando SQLCipher para cifrado de base de datos..."
+if .venv/bin/pip install sqlcipher3 2>&1; then
+    log_success "SQLCipher instalado correctamente."
+else
+    log_warning "No se pudo instalar sqlcipher3. La BD funcionará sin cifrado."
+    log_warning "Para cifrado, asegúrese de tener libsqlcipher-dev instalado."
+fi
+
 log_success "Dependencias de Python instaladas."
 
 # ─────────────────────────────────────────────────────────────────────────────
