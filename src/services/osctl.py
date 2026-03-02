@@ -19,7 +19,7 @@ def wifi_list() -> list[dict]:
     List available Wi-Fi networks via nmcli.
     Returns: [{'ssid': str, 'security': str, 'signal': str}, ...]
     """
-    code, out, err = _run(["nmcli", "-t", "-f", "SSID,SECURITY,SIGNAL", "dev", "wifi", "list"])
+    code, out, err = _run(["sudo", "nmcli", "-t", "-f", "SSID,SECURITY,SIGNAL", "dev", "wifi", "list", "--rescan", "yes"])
     if code != 0:
         return []
     nets: list[dict] = []
@@ -35,23 +35,47 @@ def wifi_list() -> list[dict]:
 
 def wifi_connect(ssid: str, password: str = "") -> tuple[bool, str]:
     """
-    Connect to a Wi-Fi SSID. If password is provided, pass it to nmcli.
+    Connect to a Wi-Fi SSID via nmcli connection profiles.
+    Uses 'connection add' + 'connection up' with psk-flags=0 so the
+    password is stored in the system connection file (not a keyring).
     Returns: (ok, message)
     """
     if not ssid:
         return False, "SSID vacío."
-    cmd = ["nmcli", "dev", "wifi", "connect", ssid]
+
+    con_name = f"tottem-{ssid}"
+
+    # Remove any previous profile with this name (ignore errors)
+    _run(["sudo", "nmcli", "connection", "delete", con_name])
+
+    # Build connection profile
+    cmd = [
+        "sudo", "nmcli", "connection", "add",
+        "type", "wifi",
+        "con-name", con_name,
+        "ssid", ssid,
+    ]
     if password:
-        cmd += ["password", password]
+        cmd += [
+            "wifi-sec.key-mgmt", "wpa-psk",
+            "wifi-sec.psk", password,
+            "wifi-sec.psk-flags", "0",
+        ]
+
     code, out, err = _run(cmd)
-    return (code == 0, out or err or "Sin salida.")
+    if code != 0:
+        return False, err or out or "Error al crear perfil de conexión."
+
+    # Activate
+    code2, out2, err2 = _run(["sudo", "nmcli", "connection", "up", con_name])
+    return (code2 == 0, out2 or err2 or "Sin salida.")
 
 
 def wifi_status() -> str:
     """
     Get a compact Wi-Fi status. Adjust interface if not wlan0 in your device.
     """
-    code, out, err = _run(["nmcli", "-t", "-f", "GENERAL.STATE,IP4.ADDRESS", "dev", "show", "wlan0"])
+    code, out, err = _run(["sudo", "nmcli", "-t", "-f", "GENERAL.STATE,IP4.ADDRESS", "dev", "show", "wlan0"])
     return out or err or ""
 
 

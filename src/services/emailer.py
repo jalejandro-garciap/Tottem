@@ -1,23 +1,85 @@
 from __future__ import annotations
 import smtplib
 from email.message import EmailMessage
-from pathlib import Path
-import yaml
 from typing import List, Tuple, Optional
-
-ROOT = Path(__file__).resolve().parents[2]
-CONFIG_PATH = ROOT / "config" / "config.yaml"
+from services.settings import load_config as _load_cfg, save_config as _save_cfg
 
 
-def _load_cfg() -> dict:
-    try:
-        return yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8")) or {}
-    except Exception:
-        return {}
-
-
-def _save_cfg(data: dict) -> None:
-    CONFIG_PATH.write_text(yaml.safe_dump(data, allow_unicode=True, sort_keys=False), encoding="utf-8")
+def _create_html_email_report(date_from: str, date_to: str, stats: dict) -> str:
+    """
+    Crea un email HTML compacto y adaptable.
+    """
+    total_formatted = f"{stats['total_cents'] / 100:,.2f}"
+    
+    from datetime import datetime
+    dt_from = datetime.strptime(date_from, "%Y-%m-%d")
+    dt_to = datetime.strptime(date_to, "%Y-%m-%d")
+    fecha_from = dt_from.strftime("%d/%m/%Y")
+    fecha_to = dt_to.strftime("%d/%m/%Y")
+    
+    # Desglose efectivo/tarjeta (si aplica)
+    breakdown_html = ""
+    total_cash = stats.get('total_cash_cents', 0)
+    total_card = stats.get('total_card_cents', 0)
+    if total_card > 0:
+        cash_formatted = f"{total_cash / 100:,.2f}"
+        card_formatted = f"{total_card / 100:,.2f}"
+        breakdown_html = f"""
+            <tr style="border-bottom: 1px solid #eeeeee;">
+                <td style="padding: 6px 0; color: #888888; padding-left: 16px;">Efectivo:</td>
+                <td style="padding: 6px 0; text-align: right;">$ {cash_formatted}</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #eeeeee;">
+                <td style="padding: 6px 0; color: #888888; padding-left: 16px;">Tarjeta:</td>
+                <td style="padding: 6px 0; text-align: right;">$ {card_formatted}</td>
+            </tr>
+        """
+    
+    html = f"""
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 20px 10px; font-family: sans-serif; background-color: #ffffff; color: #333333;">
+    <div style="max-width: 600px; margin: 0 auto; float:left">
+        
+        <h2 style="margin: 0 0 15px 0; font-size: 24px; color: #1a1a1a; border-bottom: 2px solid #6366f1; padding-bottom: 8px; text-transform: uppercase;">
+            Reporte de Ventas
+        </h2>
+        
+        <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse; font-size: 14px;">
+            <tr style="border-bottom: 1px solid #eeeeee;">
+                <td style="padding: 8px 0; color: #666666;">Período:</td>
+                <td style="padding: 8px 0; font-weight: bold; text-align: right;">{fecha_from} - {fecha_to}</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #eeeeee;">
+                <td style="padding: 8px 0; color: #666666;">Tickets:</td>
+                <td style="padding: 8px 0; font-weight: bold; text-align: right;">{stats['tickets']}</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #eeeeee;">
+                <td style="padding: 8px 0; color: #666666;">Artículos:</td>
+                <td style="padding: 8px 0; font-weight: bold; text-align: right;">{stats['items']}</td>
+            </tr>
+            <tr>
+                <td style="padding: 12px 0; color: #666666; font-size: 16px;">Total:</td>
+                <td style="padding: 12px 0; font-weight: bold; text-align: right; font-size: 20px; color: #10b981;">
+                    $ {total_formatted}
+                </td>
+            </tr>
+            {breakdown_html}
+        </table>
+        
+        <div style="margin-top: 20px; font-size: 12px; color: #9ca3af; text-align: center;">
+            <p style="margin: 0;">CSV adjunto con detalles</p>
+        </div>
+        
+    </div>
+</body>
+</html>
+    """
+    return html.strip()
 
 
 def recent_emails() -> List[str]:
@@ -37,12 +99,29 @@ def add_recent_emails(emails: List[str], max_keep: int = 10) -> None:
     _save_cfg(cfg)
 
 
+def remove_recent_email(email: str) -> None:
+    """Elimina un email de la lista de recientes."""
+    cfg = _load_cfg()
+    notif = cfg.get("notifications", {})
+    cur = list(notif.get("recent_emails", []) or [])
+    
+    if email in cur:
+        cur.remove(email)
+        notif["recent_emails"] = cur
+        cfg["notifications"] = notif
+        _save_cfg(cfg)
+
+
 def send_mail(subject: str, body: str, recipients: List[str],
-              attachments: Optional[List[Tuple[str, bytes]]] = None) -> Tuple[bool, str]:
+              attachments: Optional[List[Tuple[str, bytes]]] = None,
+              html_body: Optional[str] = None) -> Tuple[bool, str]:
     """
-    Send simple email using SMTP settings stored in config.yaml:
+    Send simple email using Gmail (yagmail) or SMTP settings stored in config.yaml:
       notifications:
         email:
+          gmail_user: "user@gmail.com"      # Para Gmail con yagmail
+          gmail_pass: "app_password"         # Contraseña de aplicación
+          
           smtp_host: "smtp.example.com"
           smtp_port: 587
           use_tls: true
@@ -50,24 +129,87 @@ def send_mail(subject: str, body: str, recipients: List[str],
           password: "pass"
           from_addr: "pos@example.com"
     attachments: list of (filename, bytes)
+    html_body: optional HTML version of the email body
     """
     cfg = _load_cfg()
     email_cfg = (cfg.get("notifications", {}) or {}).get("email", {}) or {}
-    host = email_cfg.get("smtp_host")
-    port = int(email_cfg.get("smtp_port", 587))
-    use_tls = bool(email_cfg.get("use_tls", True))
-    user = email_cfg.get("username")
-    pwd = email_cfg.get("password")
-    from_addr = email_cfg.get("from_addr") or user
+    
+    from services.settings import _DEFAULT_CONFIG
+    def_email_cfg = _DEFAULT_CONFIG.get("notifications", {}).get("email", {})
+    
+    def get_cfg_val(key, fallback=None):
+        val = email_cfg.get(key)
+        if val in (None, ""):
+            val = def_email_cfg.get(key)
+        return val if val not in (None, "") else fallback
+    
+    gmail_user = get_cfg_val("gmail_user", "").strip()
+    gmail_pass = get_cfg_val("gmail_pass", "").strip()
+    
+    if gmail_user and gmail_pass:
+        try:
+            import yagmail
+        except ImportError:
+            return False, "yagmail no está instalado. Instala con: pip install yagmail"
+        
+        try:
+            yag = yagmail.SMTP(gmail_user, gmail_pass)
+            
+            email_contents = html_body if html_body else body
+            
+            attachments_yagmail = []
+            if attachments:
+                import tempfile
+                import os
+                temp_files = []
+                for fname, data in attachments:
+                    fd, path = tempfile.mkstemp(suffix=f"_{fname}")
+                    os.write(fd, data)
+                    os.close(fd)
+                    temp_files.append(path)
+                    attachments_yagmail.append(path)
+                
+                yag.send(to=recipients, subject=subject, contents=email_contents, attachments=attachments_yagmail)
+                
+                for path in temp_files:
+                    try:
+                        os.remove(path)
+                    except OSError:
+                        pass
+            else:
+                yag.send(to=recipients, subject=subject, contents=email_contents)
+            
+            add_recent_emails(recipients)
+            return True, "OK"
+        except Exception as e:
+            return False, f"Error con Gmail/yagmail: {str(e)}"
+    
+    # Fallback a SMTP tradicional
+    host = get_cfg_val("smtp_host")
+    port = int(get_cfg_val("smtp_port", 587))
+    
+    v_tls = email_cfg.get("use_tls")
+    if v_tls is None:
+        v_tls = def_email_cfg.get("use_tls", True)
+    use_tls = bool(v_tls)
+    
+    user = get_cfg_val("username")
+    pwd = get_cfg_val("password")
+    from_addr = get_cfg_val("from_addr") or user
 
     if not host or not from_addr:
-        return False, "SMTP no configurado (notifications.email en config.yaml)."
+        return False, "Email no configurado. Configura Gmail en el tab Sistema o SMTP en config.yaml."
 
     msg = EmailMessage()
     msg["Subject"] = subject
     msg["From"] = from_addr
     msg["To"] = ", ".join(recipients)
-    msg.set_content(body)
+    
+    if html_body:
+        msg.set_content(body)  # Texto plano como fallback
+        msg.add_alternative(html_body, subtype='html')  # HTML como alternativa
+    else:
+        msg.set_content(body)
 
     if attachments:
         for fname, data in attachments:
@@ -92,4 +234,3 @@ def send_mail(subject: str, body: str, recipients: List[str],
         return True, "OK"
     except Exception as e:
         return False, str(e)
-

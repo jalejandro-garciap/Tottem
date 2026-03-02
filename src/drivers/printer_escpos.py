@@ -55,7 +55,6 @@ class EscposPrinter:
             if dev.is_kernel_driver_active(self.interface):
                 dev.detach_kernel_driver(self.interface)
         except Exception:
-            # En algunos sistemas no hay kernel driver activo
             pass
 
         dev.set_configuration()

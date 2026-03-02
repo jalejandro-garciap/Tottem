@@ -9,19 +9,38 @@ from ui.widgets.admin_window import AdminWindow
 
 
 def run():
+    os.environ.setdefault("QT_QPA_PLATFORM", "linuxfb")
+    os.environ.setdefault("QT_QPA_FB_FORCE_FULLSCREEN", "1")
+    os.environ.setdefault("QT_LOGGING_RULES", "qt.qpa.input=false;qt.qpa.input.devices=false")
 
-    os.environ["QT_QPA_PLATFORM"] = "linuxfb"
+    # ─── Anti-Clone: verify hardware binding ────────────────────────────
+    from core.hwid import verify as hwid_verify
+    if not hwid_verify():
+        print("ERROR: Hardware ID mismatch. This SD card is not authorized for this device.")
+        sys.exit(99)
 
-    os.environ["QT_QPA_FB_HIDPI"] = "1"
-    os.environ["QT_QPA_EVDEV_TOUCHSCREEN_PARAMETERS"] = "/dev/input/event0"
+    # ─── Auto-migrate plain DB to encrypted if needed ─────────────────
+    from core.db import migrate_plain_to_encrypted
+    migrate_plain_to_encrypted()
 
     app = QApplication(sys.argv)
 
     qss_path = Path(__file__).resolve().parent / "theme.qss"
-    if qss_path.exists():
-        app.setStyleSheet(qss_path.read_text(encoding="utf-8"))
+    
+    # Apply saved theme (default to dark if none saved)
+    try:
+        from services import themes as theme_svc
+        current_theme = theme_svc.get_current_theme() or "dark"
+        theme_svc.apply_theme(app, current_theme)
+    except Exception as e:
+        print(f"WARNING: Dynamic theme failed: {e}")
+        # absolute fallback
+        if qss_path.exists():
+            app.setStyleSheet(qss_path.read_text(encoding="utf-8"))
 
-    app.setOverrideCursor(QCursor(Qt.BlankCursor))
+    # Dynamic cursor: visible only when a USB mouse is connected
+    from ui.mouse_manager import MouseManager
+    mouse_mgr = MouseManager(app)
 
     w = AdminWindow()
     w.showFullScreen()

@@ -2,21 +2,24 @@ from PySide6.QtWidgets import (
     QMainWindow, QWidget, QTabWidget, QVBoxLayout, QFormLayout,
     QLineEdit, QPushButton, QLabel, QHBoxLayout, QComboBox,
     QMessageBox, QSpinBox, QGridLayout, QTableWidget, QTableWidgetItem,
-    QAbstractItemView, QCheckBox, QDialog, QListWidget, QApplication,
-    QFrame, QStackedLayout
+    QHeaderView, QAbstractItemView, QSizePolicy, QDialog, QTextEdit,
+    QCheckBox, QFrame, QScrollArea, QListWidget, QListWidgetItem,
+    QDoubleSpinBox, QDateEdit, QApplication, QStackedLayout,
 )
-from PySide6.QtCore import Qt, QObject, QEvent, QTimer
+from PySide6.QtCore import Qt, QObject, QEvent, QTimer, QDate, QLocale, QSize, QThread, Signal
+from PySide6.QtGui import QPixmap, QImage, QPainter, QColor
+from PySide6.QtSvg import QSvgRenderer
 from pathlib import Path
 
 import sys
 import subprocess
 import os
-import yaml
 
-from argon2 import PasswordHasher, exceptions as argon_exc
+from argon2 import PasswordHasher
 from services.osctl import wifi_list, wifi_connect, wifi_status, reboot, poweroff
 from drivers.printer_escpos import EscposPrinter
 from services import i18n
+from ui.responsive import s
 from services.products import (
     list_products, get_product, create_product, update_product,
     set_active, delete_product
@@ -25,21 +28,27 @@ from services.employees import (
     list_employees, get_employee, create_employee,
     update_employee, set_employee_active, delete_employee
 )
-from services.sales import money_to_cents, cents_to_money
+from services.sales import (
+    money_to_cents, cents_to_money, list_tickets,
+    search_tickets_by_id, get_ticket_details
+)
 from services.shifts import (
     open_shift,
     current_shift,
+    close_shift,
     list_shifts_since,
     shift_totals,
-    close_current_shift,
 )
 from services.reports import (
-    report_x, report_z, render_shift_text, render_range_text,
-    csv_tickets_bytes, csv_items_bytes
+    render_shift_text, render_range_text,
+    csv_sales_detailed_bytes
 )
+from services.receipts import render_ticket
 from services.emailer import send_mail, recent_emails
-from services.settings import is_categories_enabled, set_categories_enabled
+from services.settings import load_config, save_config, is_categories_enabled, set_categories_enabled, reset_config_to_defaults
+from ui.icon_helper import get_icon_char
 from ui.widgets.osk import OnScreenKeyboard
+from ui.widgets.keypad import NumKeypad
 from services.auth import check_admin_pin
 
 try:
@@ -53,18 +62,8 @@ ROOT = Path(__file__).resolve().parents[3]
 CONFIG_PATH = ROOT / "config" / "config.yaml"
 
 
-def _load_settings() -> dict:
-    try:
-        return yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8")) or {}
-    except Exception:
-        return {}
-
-
-def _save_settings(data: dict) -> None:
-    CONFIG_PATH.write_text(
-        yaml.safe_dump(data, allow_unicode=True, sort_keys=False),
-        encoding="utf-8"
-    )
+# Removed local _load_settings and _save_settings. 
+# Using load_config and save_config from services.settings instead.
 
 
 def _intval(s: str) -> int:
@@ -134,6 +133,38 @@ def _scan_usb_printers() -> list[dict]:
         seen.add(key)
         uniq.append(d)
     return uniq
+
+
+class _IPFetcherThread(QThread):
+    finished = Signal(str, str)
+
+    def run(self):
+        import socket
+        import ssl
+        import urllib.request
+        from services import i18n
+        
+        old_timeout = socket.getdefaulttimeout()
+        try:
+            socket.setdefaulttimeout(5)
+            ctx = ssl.create_default_context()
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+            
+            with urllib.request.urlopen("https://api.ipify.org", timeout=5, context=ctx) as response:
+                ip = response.read().decode("utf-8").strip()
+                self.finished.emit(ip, "font-weight: 700; font-size: 14px;")
+        except Exception as e:
+            msg = i18n.t("ip_not_available") if i18n.t("ip_not_available") != "ip_not_available" else "Sin conexión"
+            self.finished.emit(
+                msg,
+                "color: #f87171; font-weight: 700; font-size: 14px;"
+            )
+        finally:
+            if old_timeout is not None:
+                socket.setdefaulttimeout(old_timeout)
+            else:
+                socket.setdefaulttimeout(socket._GLOBAL_DEFAULT_TIMEOUT)
 
 
 class ToastManager(QObject):
@@ -234,14 +265,67 @@ class _OskFocusFilter(QObject):
         return False
 
 
+class _PinKeypadFocusFilter(QObject):
+    """Abre el keypad numérico cuando un QLineEdit de PIN recibe foco (sin OSK)."""
+
+    def __init__(self, parent_window):
+        super().__init__(parent_window)
+        self.win = parent_window
+
+    def eventFilter(self, obj, event):
+        if isinstance(obj, QLineEdit) and event.type() == QEvent.FocusIn:
+            if getattr(self.win, "_pinpad_guard", False):
+                return False
+            self.win._pinpad_guard = True
+            try:
+                dlg = NumKeypad(title=i18n.t("keypad_title") or "Teclado", allow_decimal=False)
+                if obj.text():
+                    dlg.edit.setText(obj.text())
+                if dlg.exec():
+                    obj.setText(dlg.value_text())
+                    obj.setCursorPosition(len(obj.text()))
+            finally:
+                self.win._pinpad_guard = False
+            return False
+        return False
+
+
 class ProductDialog(QDialog):
-    """Diálogo de producto con soporte de categoría y venta parcial."""
+    """Premium Product Editor"""
 
     def __init__(self, parent=None, *, product: dict | None = None):
         super().__init__(parent)
         self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
         self.setModal(True)
-        layout = QFormLayout(self)
+        self.setMinimumWidth(480)
+
+        root = QVBoxLayout(self)
+        root.setContentsMargins(40, 40, 40, 40)
+        root.setSpacing(28)
+
+        # Header
+        from ui.icon_helper import get_icon_char
+        icon = QLabel(get_icon_char("box") or "📦")
+        icon.setObjectName("IconLabel")
+        icon.setAlignment(Qt.AlignCenter)
+        icon.setStyleSheet(f"font-size: {s(40)}px;")
+
+        title = QLabel("PRODUCTO")
+        title.setAlignment(Qt.AlignCenter)
+        title.setStyleSheet("""
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 3px;
+        """)
+
+        root.addWidget(icon)
+        root.addWidget(title)
+
+        # Form
+        form = QFormLayout()
+        form.setSpacing(16)
+        form.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        form.setFormAlignment(Qt.AlignCenter)
 
         self.ed_name = QLineEdit(product["name"] if product else "")
         self.ed_price = QLineEdit(cents_to_money(product["price"]) if product else "")
@@ -249,32 +333,69 @@ class ProductDialog(QDialog):
         self.ed_category = QLineEdit(
             (product.get("category") if product else None) or "General"
         )
+        
+        # Icon selector
+        from ui.icon_helper import ICON_MAP, get_icon_char
+        self.combo_icon = QComboBox()
+        self.combo_icon.setMinimumHeight(s(64))  # Touch-friendly height
+        self.combo_icon.setMaxVisibleItems(8)  # Reduce scroll, show 8 items at once
+        
+        # Touch-friendly settings
+        self.combo_icon.setMinimumHeight(64)
+        self.combo_icon.setMaxVisibleItems(8)
+        
+        self.combo_icon.addItem("(Sin ícono)", "")
+        
+        # Add available icons sorted by name
+        for icon_name in sorted(ICON_MAP.keys()):
+            icon_char = get_icon_char(icon_name)
+            display_text = f"{icon_char}  {icon_name}"
+            self.combo_icon.addItem(display_text, icon_name)
+        
+        # Select current icon if exists
+        if product and product.get("icon"):
+            idx = self.combo_icon.findData(product.get("icon"))
+            if idx >= 0:
+                self.combo_icon.setCurrentIndex(idx)
 
         self.cb_active = QCheckBox(i18n.t("prod_active"))
         self.cb_active.setChecked(bool(product["active"]) if product else True)
         self.cb_partial = QCheckBox(i18n.t("prod_allow_partial"))
         self.cb_partial.setChecked(bool(product.get("allow_decimal")) if product else False)
 
-        self.ed_unit.setPlaceholderText(i18n.t("prod_hint_unit"))
-        self.ed_category.setPlaceholderText(i18n.t("category") or "Categoría")
+        for ed in (self.ed_name, self.ed_price, self.ed_unit, self.ed_category):
+            ed.setMinimumHeight(56)
 
-        layout.addRow(i18n.t("prod_name"), self.ed_name)
-        layout.addRow(i18n.t("prod_price"), self.ed_price)
-        layout.addRow(i18n.t("prod_unit"), self.ed_unit)
-        layout.addRow(i18n.t("category") or "Categoría", self.ed_category)
-        layout.addRow(self.cb_active)
-        layout.addRow(self.cb_partial)
+        form.addRow(i18n.t("prod_name"), self.ed_name)
+        form.addRow(i18n.t("prod_price"), self.ed_price)
+        form.addRow(i18n.t("prod_unit"), self.ed_unit)
+        form.addRow(i18n.t("category") or "Categoría", self.ed_category)
+        form.addRow("Ícono", self.combo_icon)
 
+        checks = QHBoxLayout()
+        checks.setSpacing(24)
+        checks.addWidget(self.cb_active)
+        checks.addWidget(self.cb_partial)
+        form.addRow(checks)
+
+        root.addLayout(form)
+
+        # Actions
         row = QHBoxLayout()
-        btn_cancel = QPushButton(i18n.t("cancel") or "Cancelar")
-        btn_ok = QPushButton(i18n.t("ok") or "OK")
+        row.setSpacing(16)
+        btn_cancel = QPushButton("Cancelar")
+        btn_cancel.setMinimumHeight(60)
+        from ui.icon_helper import get_icon_char
+        btn_ok = QPushButton(f"{get_icon_char('arrow-right') or '→'}  Guardar")
+        btn_ok.setMinimumHeight(60)
+        btn_ok.setProperty("role", "primary")
         btn_cancel.clicked.connect(self.reject)
         btn_ok.clicked.connect(self.accept)
         row.addWidget(btn_cancel)
         row.addWidget(btn_ok)
-        layout.addRow(row)
+        root.addLayout(row)
 
-        # OSK en los campos del diálogo
+        # OSK
         self._osk_filter = _OskFocusFilter(self)
         for w in (self.ed_name, self.ed_price, self.ed_unit, self.ed_category):
             w.installEventFilter(self._osk_filter)
@@ -291,6 +412,7 @@ class ProductDialog(QDialog):
             return None
         unit = (self.ed_unit.text() or "pz").strip() or "pz"
         category = (self.ed_category.text() or "General").strip() or "General"
+        icon = self.combo_icon.currentData() or ""
         return {
             "name": name,
             "price": cents,
@@ -298,17 +420,45 @@ class ProductDialog(QDialog):
             "unit": unit,
             "allow_decimal": self.cb_partial.isChecked(),
             "category": category,
+            "icon": icon,
         }
 
 
 class EmployeeDialog(QDialog):
-    """Diálogo para alta/edición de empleados."""
+    """Premium Employee Editor"""
 
     def __init__(self, parent=None, *, employee: dict | None = None):
         super().__init__(parent)
         self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
         self.setModal(True)
-        layout = QFormLayout(self)
+        self.setMinimumWidth(480)
+
+        root = QVBoxLayout(self)
+        root.setContentsMargins(40, 40, 40, 40)
+        root.setSpacing(28)
+
+        # Header
+        from ui.icon_helper import get_icon_char
+        icon = QLabel(get_icon_char("user") or "👤")
+        icon.setObjectName("IconLabel")
+        icon.setAlignment(Qt.AlignCenter)
+        icon.setStyleSheet("font-size: 40px;")
+
+        title = QLabel("EMPLEADO")
+        title.setAlignment(Qt.AlignCenter)
+        title.setStyleSheet("""
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 3px;
+        """)
+
+        root.addWidget(icon)
+        root.addWidget(title)
+
+        # Form
+        form = QFormLayout()
+        form.setSpacing(16)
+        form.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
 
         self.ed_emp_no = QLineEdit(employee["emp_no"] if employee else "")
         self.ed_full_name = QLineEdit(employee["full_name"] if employee else "")
@@ -316,21 +466,32 @@ class EmployeeDialog(QDialog):
         self.cb_active = QCheckBox(i18n.t("emp_active") or "Activo")
         self.cb_active.setChecked(bool(employee.get("active", 1)) if employee else True)
 
-        layout.addRow(i18n.t("emp_no") or "No. empleado", self.ed_emp_no)
-        layout.addRow(i18n.t("emp_name") or "Nombre completo", self.ed_full_name)
-        layout.addRow(i18n.t("emp_phone") or "Contacto", self.ed_phone)
-        layout.addRow(self.cb_active)
+        for ed in (self.ed_emp_no, self.ed_full_name, self.ed_phone):
+            ed.setMinimumHeight(56)
 
+        form.addRow(i18n.t("emp_no") or "No. empleado", self.ed_emp_no)
+        form.addRow(i18n.t("emp_name") or "Nombre completo", self.ed_full_name)
+        form.addRow(i18n.t("emp_phone") or "Contacto", self.ed_phone)
+        form.addRow(self.cb_active)
+
+        root.addLayout(form)
+
+        # Actions
         row = QHBoxLayout()
-        btn_cancel = QPushButton(i18n.t("cancel") or "Cancelar")
-        btn_ok = QPushButton(i18n.t("ok") or "OK")
+        row.setSpacing(16)
+        btn_cancel = QPushButton("Cancelar")
+        btn_cancel.setMinimumHeight(60)
+        from ui.icon_helper import get_icon_char
+        btn_ok = QPushButton(f"{get_icon_char('arrow-right') or '→'}  Guardar")
+        btn_ok.setMinimumHeight(60)
+        btn_ok.setProperty("role", "primary")
         btn_cancel.clicked.connect(self.reject)
         btn_ok.clicked.connect(self.accept)
         row.addWidget(btn_cancel)
         row.addWidget(btn_ok)
-        layout.addRow(row)
+        root.addLayout(row)
 
-        # OSK en campos de texto
+        # OSK
         self._osk_filter = _OskFocusFilter(self)
         for w in (self.ed_emp_no, self.ed_full_name, self.ed_phone):
             w.installEventFilter(self._osk_filter)
@@ -354,50 +515,738 @@ class EmployeeDialog(QDialog):
         }
 
 
+class ShiftCloseDialog(QDialog):
+    """Dialog for closing shift with cash count"""
+
+    def __init__(self, parent=None, shift_info: dict | None = None):
+        super().__init__(parent)
+        self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
+        self.setModal(True)
+        self.setMinimumWidth(s(500))
+        
+        self.shift_info = shift_info or {}
+
+        root = QVBoxLayout(self)
+        root.setContentsMargins(40, 40, 40, 40)
+        root.setSpacing(24)
+
+        # Header
+        from ui.icon_helper import get_icon_char
+        icon = QLabel(get_icon_char("chart-bar") or "📊")
+        icon.setObjectName("IconLabel")
+        icon.setAlignment(Qt.AlignCenter)
+        icon.setStyleSheet("font-size: 48px;")
+
+        title = QLabel(i18n.t("shift_close_title") or "CORTE DE CAJA")
+        title.setAlignment(Qt.AlignCenter)
+        title.setStyleSheet("""
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 3px;
+        """)
+
+        root.addWidget(icon)
+        root.addWidget(title)
+
+        if shift_info:
+            sums = shift_totals(shift_info.get("id", 0))
+            opening = shift_info.get("opening_cash", 0)
+            expected = opening + sums.get("total_cash", sums.get("total", 0))
+            
+            info_frame = QFrame()
+            info_frame.setStyleSheet("""
+                QFrame {
+                    background: #16161e;
+                    border-radius: 16px;
+                    padding: 16px;
+                }
+            """)
+            info_layout = QVBoxLayout(info_frame)
+            info_layout.setSpacing(8)
+
+            info_layout.addWidget(QLabel(f"Turno #{shift_info.get('id', '?')}"))
+            info_layout.addWidget(QLabel(f"{i18n.t('shift_info_tickets', n=sums.get('tickets', 0))}"))
+            info_layout.addWidget(QLabel(f"{i18n.t('shift_info_total', total=cents_to_money(sums.get('total', 0)))}"))
+            if sums.get('total_card', 0) > 0:
+                info_layout.addWidget(QLabel(f"{i18n.t('shift_info_cash', total=cents_to_money(sums.get('total_cash', 0)))}"))
+                info_layout.addWidget(QLabel(f"{i18n.t('shift_info_card', total=cents_to_money(sums.get('total_card', 0)))}"))
+            if opening > 0:
+                info_layout.addWidget(QLabel(f"{i18n.t('shift_info_opening', total=cents_to_money(opening))}"))
+            
+            expected_lbl = QLabel(f"{i18n.t('shift_info_expected', total=cents_to_money(expected))}")
+            expected_lbl.setStyleSheet("font-size: 18px; font-weight: 700;")
+            expected_lbl.setProperty("role", "success")
+            info_layout.addWidget(expected_lbl)
+            
+            root.addWidget(info_frame)
+            self._expected = expected
+        else:
+            self._expected = 0
+
+        # Form
+        form = QFormLayout()
+        form.setSpacing(16)
+        form.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
+
+        self._closing_cash_cents = 0
+
+        self.btn_cash = QPushButton("$ 0.00")
+        self.btn_cash.setMinimumHeight(s(64))
+        self.btn_cash.setStyleSheet(f"""
+            QPushButton {{
+                font-size: {s(28)}px;
+                font-weight: 700;
+                text-align: center;
+            }}
+        """)
+        self.btn_cash.clicked.connect(self._pick_cash)
+
+        self.ed_closed_by = QLineEdit()
+        self.ed_closed_by.setMinimumHeight(s(56))
+        self.ed_closed_by.setPlaceholderText(i18n.t("shift_close_by_placeholder") or "Encargado")
+
+        form.addRow(i18n.t("shift_close_cash_label") or "Efectivo en caja $:", self.btn_cash)
+        form.addRow(i18n.t("shift_close_by_label") or "Cerrado por:", self.ed_closed_by)
+
+        root.addLayout(form)
+
+        # Actions
+        row = QHBoxLayout()
+        row.setSpacing(16)
+
+        btn_cancel = QPushButton("Cancelar")
+        btn_cancel.setMinimumHeight(60)
+        btn_cancel.clicked.connect(self.reject)
+
+        from ui.icon_helper import get_icon_char
+        btn_close = QPushButton(f"{get_icon_char('arrow-right') or '→'}  {i18n.t('shift_close_btn') or 'Cerrar Turno'}")
+        btn_close.setMinimumHeight(s(60))
+        btn_close.setProperty("role", "primary")
+        btn_close.setStyleSheet(f"font-size: {s(16)}px; font-weight: 700;")
+        btn_close.clicked.connect(self._validate_and_accept)
+
+        row.addWidget(btn_cancel)
+        row.addWidget(btn_close)
+        root.addLayout(row)
+
+        # OSK only for text field
+        self._osk_filter = _OskFocusFilter(self)
+        self.ed_closed_by.installEventFilter(self._osk_filter)
+
+    def _pick_cash(self):
+        dlg = NumKeypad(
+            title=i18n.t('closing_cash') or "Efectivo en caja ($)",
+            allow_decimal=True
+        )
+        if dlg.exec() == QDialog.Accepted:
+            self._closing_cash_cents = int(round(dlg.value_float() * 100))
+            self.btn_cash.setText(f"$ {cents_to_money(self._closing_cash_cents)}")
+
+    def _validate_and_accept(self):
+        if self._closing_cash_cents <= 0:
+            QMessageBox.warning(
+                self,
+                i18n.t("shift_close_title") or "Corte de Caja",
+                i18n.t("shift_close_cash_required") or "Debe ingresar el efectivo contado en caja."
+            )
+            return
+        self.accept()
+
+    def data(self) -> dict:
+        return {
+            "closing_cash": self._closing_cash_cents,
+            "closed_by": self.ed_closed_by.text().strip(),
+        }
+
+
+class TicketDetailDialog(QDialog):
+    """Dialog reutilizable para mostrar detalles de ticket con opción de reimpresión."""
+
+    def __init__(self, parent=None, ticket_id: int | None = None):
+        super().__init__(parent)
+        self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
+        self.setModal(True)
+        self.setMinimumWidth(s(550))
+        self.setMinimumHeight(s(600))
+        
+        self.ticket_id = ticket_id
+        self.ticket_details = None
+        
+        root = QVBoxLayout(self)
+        root.setContentsMargins(40, 40, 40, 40)
+        root.setSpacing(24)
+
+        # Header
+        from ui.icon_helper import get_icon_char
+        icon = QLabel(get_icon_char('receipt') or '🧾')
+        icon.setObjectName("IconLabel")
+        icon.setAlignment(Qt.AlignCenter)
+        icon.setStyleSheet("font-size: 48px;")
+
+        title = QLabel(i18n.t("ticket_details_title"))
+        title.setAlignment(Qt.AlignCenter)
+        title.setStyleSheet("""
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 3px;
+        """)
+
+        root.addWidget(icon)
+        root.addWidget(title)
+
+        self.txt_details = QTextEdit()
+        self.txt_details.setReadOnly(True)
+        self.txt_details.setStyleSheet("""
+            QTextEdit {
+                border-radius: 12px;
+                padding: 16px;
+                font-family: 'Courier New', monospace;
+                font-size: 13px;
+                line-height: 1.5;
+            }
+        """)
+        root.addWidget(self.txt_details, 1)
+
+        # Actions
+        row = QHBoxLayout()
+        row.setSpacing(16)
+
+        btn_cancel = QPushButton(i18n.t("ticket_close"))
+        btn_cancel.setMinimumHeight(60)
+        btn_cancel.clicked.connect(self.reject)
+
+        from ui.icon_helper import get_icon_char
+        btn_print = QPushButton(f"{get_icon_char('print') or '🖨'}  {i18n.t('ticket_reprint')}")
+        btn_print.setMinimumHeight(s(60))
+        btn_print.setProperty("role", "primary")
+        btn_print.setStyleSheet(f"font-size: {s(16)}px; font-weight: 700;")
+        btn_print.clicked.connect(self._reprint_ticket)
+
+        row.addWidget(btn_cancel)
+        row.addWidget(btn_print)
+        root.addLayout(row)
+
+        if ticket_id:
+            self.load_ticket(ticket_id)
+
+    def load_ticket(self, ticket_id: int):
+        """Carga y muestra los detalles de un ticket."""
+        from services.sales import cents_to_money
+        
+        self.ticket_id = ticket_id
+        self.ticket_details = get_ticket_details(ticket_id)
+        
+        if not self.ticket_details:
+            self.txt_details.setPlainText(i18n.t("ticket_load_error"))
+            return
+        
+        lines = []
+        lines.append("═" * 50)
+        lines.append(f"  Ticket: {self.ticket_details['id']}")
+        lines.append(f"  {i18n.t('cashier_label')}: {self.ticket_details['served_by'] or '—'}")
+        lines.append(f"  {i18n.t('date_label')}:  {self.ticket_details['ts']}")
+        if self.ticket_details['shift_id']:
+            lines.append(f"  Turno:  #{self.ticket_details['shift_id']}")
+        lines.append("═" * 50)
+        lines.append("")
+        lines.append(i18n.t("products_label"))
+        lines.append("")
+        
+        for item in self.ticket_details["items"]:
+            qty_str = f"x{item.qty}".ljust(6)
+            price_str = f"$ {cents_to_money(item.price)}".rjust(12)
+            lines.append(f"{qty_str}{item.name}")
+            lines.append(f"      {price_str}")
+            lines.append("")
+        
+        lines.append("─" * 50)
+        total_str = f"$ {cents_to_money(self.ticket_details['total'])}".rjust(12)
+        lines.append(f"{'TOTAL:'.ljust(38)}{total_str}")
+        
+        paid = self.ticket_details.get('paid', 0)
+        change_amt = self.ticket_details.get('change_amount', 0)
+        if paid > 0:
+            paid_str = f"$ {cents_to_money(paid)}".rjust(12)
+            lines.append(f"{'Pago:'.ljust(38)}{paid_str}")
+        if change_amt > 0:
+            change_str = f"$ {cents_to_money(change_amt)}".rjust(12)
+            lines.append(f"{'Cambio:'.ljust(38)}{change_str}")
+        
+        pm = self.ticket_details.get('payment_method', 'cash')
+        pm_label = (i18n.t('payment_card') or 'Tarjeta') if pm == 'card' else (i18n.t('payment_cash') or 'Efectivo')
+        lines.append(f"{(i18n.t('payment_method') or 'Metodo de pago:').ljust(38)}{pm_label.rjust(12)}")
+        lines.append("═" * 50)
+        
+        self.txt_details.setPlainText("\n".join(lines))
+
+    def _reprint_ticket(self):
+        """Reimprimir el ticket actual."""
+        if not self.ticket_details:
+            QMessageBox.warning(self, i18n.t("print_error"), i18n.t("ticket_no_loaded"))
+            return
+        
+        from drivers.printer_escpos import EscposPrinter
+        
+        ticket_text = render_ticket(
+            self.ticket_details["items"],
+            ticket_number=self.ticket_details["id"],
+            timestamp=self.ticket_details["ts"],
+            served_by=self.ticket_details["served_by"],
+            paid_cents=self.ticket_details.get('paid', 0),
+            change_cents=self.ticket_details.get('change_amount', 0),
+            payment_method=self.ticket_details.get('payment_method', 'cash')
+        )
+        
+        try:
+            EscposPrinter().print_text(ticket_text)
+            QMessageBox.information(self, i18n.t("print_success"), i18n.t("ticket_print_success").replace("{id}", str(self.ticket_id)))
+        except Exception as e:
+            QMessageBox.critical(self, i18n.t("print_error"), i18n.t("ticket_print_error").replace("{err}", str(e)))
+
+
+class ShiftPreviewDialog(QDialog):
+    """Diálogo premium para vista previa de turno con lista de tickets clickeable."""
+
+    def __init__(self, parent=None, shift_id: int | None = None):
+        super().__init__(parent)
+        self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
+        self.setModal(True)
+        self.setMinimumWidth(s(750))
+        self.setMinimumHeight(s(700))
+        
+        self.shift_id = shift_id
+        self.shift_data = None
+        self.shift_totals = None
+        
+        root = QVBoxLayout(self)
+        root.setContentsMargins(40, 40, 40, 40)
+        root.setSpacing(24)
+
+        # Header
+        from ui.icon_helper import get_icon_char
+        icon = QLabel(get_icon_char('chart-bar') or '📊')
+        icon.setObjectName("IconLabel")
+        icon.setAlignment(Qt.AlignCenter)
+        icon.setStyleSheet("font-size: 48px;")
+
+        title = QLabel(i18n.t("shift_preview_title"))
+        title.setAlignment(Qt.AlignCenter)
+        title.setStyleSheet("""
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 3px;
+        """)
+
+        root.addWidget(icon)
+        root.addWidget(title)
+
+        if shift_id:
+            info_panel = self._build_info_panel()
+            root.addWidget(info_panel)
+
+        lbl_tickets = QLabel(i18n.t("shift_tickets_label"))
+        lbl_tickets.setStyleSheet("font-weight: 600; font-size: 14px;")
+        root.addWidget(lbl_tickets)
+        
+        self.lst_tickets = QListWidget()
+        self.lst_tickets.setStyleSheet("""
+            QListWidget {
+                border-radius: 12px;
+                padding: 8px;
+                font-family: 'Courier New', monospace;
+            }
+            QListWidget::item {
+                padding: 12px;
+                border-radius: 6px;
+                margin: 2px 0;
+            }
+            QListWidget::item:hover {
+                cursor: pointer;
+            }
+        """)
+        self.lst_tickets.itemDoubleClicked.connect(self._open_ticket_details)
+        root.addWidget(self.lst_tickets, 1)
+        
+        hint = QLabel(i18n.t("shift_hint_click"))
+        hint.setStyleSheet("font-size: 12px; font-style: italic;")
+        hint.setAlignment(Qt.AlignCenter)
+        root.addWidget(hint)
+
+        btn_close = QPushButton(i18n.t("ticket_close"))
+        btn_close.setMinimumHeight(60)
+        btn_close.clicked.connect(self.reject)
+        root.addWidget(btn_close)
+
+        if shift_id:
+            self._load_data()
+
+    def _build_info_panel(self) -> QWidget:
+        """Construye panel de información del turno."""
+        from services.shifts import shift_totals
+        from services.sales import cents_to_money
+        from core.db import connect
+        
+        conn = connect()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT id, opened_at, opened_by, closed_at, closed_by, opening_cash, closing_cash 
+            FROM shift WHERE id=?
+        """, (int(self.shift_id),))
+        sh = cur.fetchone()
+        
+        if not sh:
+            lbl = QLabel("Error: Turno no encontrado")
+            lbl.setStyleSheet("color: #ef4444;")
+            return lbl
+        
+        self.shift_data = sh
+        self.shift_totals = shift_totals(self.shift_id)
+        
+        
+        panel = QWidget()
+        
+        grid = QGridLayout(panel)
+        grid.setSpacing(12)
+        grid.setContentsMargins(16, 16, 16, 16)
+        
+        lbl_turno = QLabel("Turno #:")
+        lbl_turno.setStyleSheet("color: #94a3b8; font-weight: 600;")
+        val_turno = QLabel(str(sh[0]))
+        val_turno.setStyleSheet("color: #f8fafc; font-size: 14px;")
+        
+        estado = "CERRADO" if sh[3] else "EN CURSO"
+        color_estado = "#ef4444" if sh[3] else "#10b981"
+        lbl_estado = QLabel("Estado:")
+        lbl_estado.setStyleSheet("color: #94a3b8; font-weight: 600;")
+        val_estado = QLabel(estado)
+        val_estado.setStyleSheet(f"color: {color_estado}; font-weight: 700; font-size: 14px;")
+        
+        grid.addWidget(lbl_turno, 0, 0)
+        grid.addWidget(val_turno, 0, 1)
+        grid.addWidget(lbl_estado, 0, 2)
+        grid.addWidget(val_estado, 0, 3)
+        
+        lbl_apertura = QLabel("Apertura:")
+        lbl_apertura.setStyleSheet("color: #94a3b8; font-weight: 600;")
+        val_apertura = QLabel(sh[1] or "-")
+        val_apertura.setStyleSheet("color: #f8fafc;")
+        
+        lbl_cierre = QLabel("Cierre:")
+        lbl_cierre.setStyleSheet("color: #94a3b8; font-weight: 600;")
+        val_cierre = QLabel(sh[3] or "EN CURSO")
+        val_cierre.setStyleSheet("color: #f8fafc;")
+        
+        grid.addWidget(lbl_apertura, 1, 0)
+        grid.addWidget(val_apertura, 1, 1)
+        grid.addWidget(lbl_cierre, 1, 2)
+        grid.addWidget(val_cierre, 1, 3)
+        
+        if sh[2]:  # opened_by
+            lbl_abierto = QLabel("Abierto por:")
+            lbl_abierto.setStyleSheet("color: #94a3b8; font-weight: 600;")
+            val_abierto = QLabel(sh[2])
+            val_abierto.setStyleSheet("color: #f8fafc;")
+            grid.addWidget(lbl_abierto, 2, 0)
+            grid.addWidget(val_abierto, 2, 1)
+        
+        if sh[4]:  # closed_by
+            lbl_cerrado = QLabel("Cerrado por:")
+            lbl_cerrado.setStyleSheet("color: #94a3b8; font-weight: 600;")
+            val_cerrado = QLabel(sh[4])
+            val_cerrado.setStyleSheet("color: #f8fafc;")
+            grid.addWidget(lbl_cerrado, 2, 2)
+            grid.addWidget(val_cerrado, 2, 3)
+        
+        line = QFrame()
+        line.setFrameShape(QFrame.HLine)
+        line.setStyleSheet("background: #2a2a37;")
+        grid.addWidget(line, 3, 0, 1, 4)
+        
+        lbl_tickets = QLabel("Tickets:")
+        lbl_tickets.setStyleSheet("color: #94a3b8; font-weight: 600;")
+        val_tickets = QLabel(str(self.shift_totals['tickets']))
+        val_tickets.setStyleSheet("color: #f8fafc; font-size: 16px; font-weight: 700;")
+        
+        lbl_items = QLabel("Artículos:")
+        lbl_items.setStyleSheet("color: #94a3b8; font-weight: 600;")
+        val_items = QLabel(str(self.shift_totals['items']))
+        val_items.setStyleSheet("color: #f8fafc; font-size: 16px; font-weight: 700;")
+        
+        grid.addWidget(lbl_tickets, 4, 0)
+        grid.addWidget(val_tickets, 4, 1)
+        grid.addWidget(lbl_items, 4, 2)
+        grid.addWidget(val_items, 4, 3)
+        
+        lbl_total = QLabel("Total Ventas:")
+        lbl_total.setStyleSheet("color: #94a3b8; font-weight: 600;")
+        val_total = QLabel(f"$ {cents_to_money(self.shift_totals['total'])}")
+        val_total.setStyleSheet("color: #10b981; font-size: 18px; font-weight: 700;")
+        
+        grid.addWidget(lbl_total, 5, 0)
+        grid.addWidget(val_total, 5, 1, 1, 3)
+        
+        # Desglose efectivo / tarjeta
+        if self.shift_totals.get('total_card', 0) > 0:
+            lbl_cash = QLabel(i18n.t('sales_cash') or "Ventas en efectivo:")
+            lbl_cash.setStyleSheet("color: #94a3b8; font-weight: 600;")
+            val_cash = QLabel(f"$ {cents_to_money(self.shift_totals['total_cash'])}")
+            val_cash.setStyleSheet("color: #f8fafc; font-size: 14px;")
+            grid.addWidget(lbl_cash, 6, 0)
+            grid.addWidget(val_cash, 6, 1)
+            
+            lbl_card = QLabel(i18n.t('sales_card') or "Ventas con tarjeta:")
+            lbl_card.setStyleSheet("color: #94a3b8; font-weight: 600;")
+            val_card = QLabel(f"$ {cents_to_money(self.shift_totals['total_card'])}")
+            val_card.setStyleSheet("color: #818cf8; font-size: 14px;")
+            grid.addWidget(lbl_card, 6, 2)
+            grid.addWidget(val_card, 6, 3)
+        
+        return panel
+
+    def _load_data(self):
+        """Carga lista de tickets del turno."""
+        from core.db import connect
+        from services.sales import cents_to_money
+        
+        conn = connect()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT id, ts, total 
+            FROM ticket 
+            WHERE shift_id=? 
+            ORDER BY id
+        """, (int(self.shift_id),))
+        tickets = cur.fetchall()
+        
+        self.lst_tickets.clear()
+        
+        for t in tickets:
+            ticket_id = t[0]
+            timestamp = t[1]
+            total = t[2]
+            
+            try:
+                if " " in timestamp:
+                    hora = timestamp.split(" ")[1][:5]
+                elif "T" in timestamp:
+                    hora = timestamp.split("T")[1][:5]
+                else:
+                    hora = timestamp[-8:-3]
+            except (KeyError, TypeError, ValueError, IndexError):
+                hora = "??:??"
+            
+            text = f"#{ticket_id:<6} | {hora} | $ {cents_to_money(total):>10}"
+            
+            item = QListWidgetItem(text)
+            item.setData(Qt.UserRole, ticket_id)
+            self.lst_tickets.addItem(item)
+
+    def _open_ticket_details(self, item):
+        """Abre TicketDetailDialog para el ticket seleccionado."""
+        ticket_id = item.data(Qt.UserRole)
+        if ticket_id:
+            dlg = TicketDetailDialog(self, ticket_id=ticket_id)
+            dlg.exec()
+
+
+
+
+# --- Loading Overlay ---
+class LoadingOverlay(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setObjectName("LoadingOverlay")
+        self.setAttribute(Qt.WA_TransparentForMouseEvents, False)
+        self.hide()
+        
+        layout = QVBoxLayout(self)
+        layout.setAlignment(Qt.AlignCenter)
+        
+        container = QFrame()
+        container.setObjectName("LoadingContainer")
+        container.setFixedSize(280, 160)
+        container.setStyleSheet("""
+            QFrame#LoadingContainer {
+                background: palette(window);
+                border: 2px solid palette(highlight);
+                border-radius: 24px;
+            }
+        """)
+        
+        c_layout = QVBoxLayout(container)
+        c_layout.setContentsMargins(24, 24, 24, 24)
+        c_layout.setSpacing(16)
+        
+        from ui.icon_helper import get_icon_char
+        icon = QLabel(get_icon_char("spinner") or "⏳")
+        icon.setStyleSheet("font-size: 32px; color: palette(highlight);")
+        icon.setAlignment(Qt.AlignCenter)
+        
+        msg = QLabel("Aplicando tema...")
+        msg.setStyleSheet("font-weight: 700; font-size: 16px;")
+        msg.setAlignment(Qt.AlignCenter)
+        
+        c_layout.addWidget(icon)
+        c_layout.addWidget(msg)
+        layout.addWidget(container)
+
+    def paintEvent(self, event):
+        from PySide6.QtGui import QPainter, QColor
+        painter = QPainter(self)
+        painter.fillRect(self.rect(), QColor(0, 0, 0, 140))
+
+    def show_event(self):
+        if not self.parent():
+            return
+        self.setGeometry(self.parent().rect())
+        self.show()
+        self.raise_()
+
 class AdminWindow(QMainWindow):
+    """Premium Administration Interface"""
+    
     def __init__(self):
         super().__init__()
+        self.setAttribute(Qt.WA_DeleteOnClose, True)
         self.setWindowFlag(Qt.FramelessWindowHint, True)
         self.setWindowTitle(i18n.t("admin_title"))
-        self._osk_guard = False  # evita reentrancia del OSK
-        self._osk_filter = _OskFocusFilter(self)  # <-- crear ANTES de addTab
+        self._osk_guard = False
+        self._osk_filter = _OskFocusFilter(self)
+        self._pinpad_guard = False
+        self._keypad_filter = _PinKeypadFocusFilter(self)
+        self._prod_dialog_open = False
+        self._prod_save_in_progress = False
 
+        # ─── Header Bar ───────────────────────────────────────────────────
         top_wrap = QWidget()
-        top = QHBoxLayout(top_wrap)
-        top.setContentsMargins(12, 12, 12, 6)
-        top.setSpacing(12)
-        self.lang_btn = QPushButton(i18n.t("lang"))
-        self.lang_btn.setFixedWidth(72)
-        self.lang_btn.setMinimumHeight(52)
+        top_wrap.setStyleSheet("background: transparent;")
+        top = QGridLayout(top_wrap)
+        top.setContentsMargins(s(24), s(20), s(24), s(16))
+
+        from ui.icon_helper import get_icon_char
+        self.title_lbl = QLabel(f"{get_icon_char('gear') or '⚙'}  " + (i18n.t("admin_title") or "Administración"))
+        self.title_lbl.setObjectName("SectionTitle")
+        self.title_lbl.setStyleSheet(f"""
+            font-size: {s(26)}px;
+            font-weight: 700;
+        """)
+
+        self.lang_btn = QPushButton(i18n.lang_switch_label())
+        self.lang_btn.setMinimumSize(s(72), s(48))
+        self.lang_btn.setProperty("role", "ghost")
         self.lang_btn.clicked.connect(self._toggle_lang)
-        btn_close = QPushButton(i18n.t("exit"))
-        btn_close.setMinimumHeight(52)
-        btn_close.clicked.connect(self._exit_to_kiosk)
-        top.addStretch(1)
-        top.addWidget(self.lang_btn)
-        top.addWidget(btn_close)
 
+        from ui.icon_helper import get_icon_char
+        self.btn_close = QPushButton(f"{get_icon_char('arrow-left') or '←'}  " + (i18n.t("exit") or "Salir"))
+        self.btn_close.setMinimumHeight(s(52))
+        self.btn_close.setProperty("role", "danger")
+        self.btn_close.setStyleSheet("""
+            QPushButton {
+                padding-left: 20px;
+                padding-right: 20px;
+            }
+        """)
+        self.btn_close.clicked.connect(self._exit_to_kiosk)
+
+        # ─── Logo ─────────────────────────────────────────────────────────────────
+        self.logo_lbl = QLabel()
+        self.logo_lbl.setAlignment(Qt.AlignCenter)
+        self.logo_lbl.setStyleSheet("background: transparent; border: none; padding: 4px 0;")
+        self._update_logo()
+
+        # ─── Right Controls ───────────────────────────────────────────────────────
+        right_container = QWidget()
+        right_layout = QHBoxLayout(right_container)
+        right_layout.setContentsMargins(0, 0, 0, 0)
+        right_layout.setSpacing(16)
+        right_layout.addWidget(self.lang_btn)
+        right_layout.addWidget(self.btn_close)
+
+        top.addWidget(self.title_lbl, 0, 0, alignment=Qt.AlignLeft | Qt.AlignVCenter)
+        top.addWidget(self.logo_lbl, 0, 1, alignment=Qt.AlignCenter)
+        top.addWidget(right_container, 0, 2, alignment=Qt.AlignRight | Qt.AlignVCenter)
+
+        top.setColumnStretch(0, 1)
+        top.setColumnStretch(1, 0)
+        top.setColumnStretch(2, 1)
+
+        # ─── Tab Widget ───────────────────────────────────────────────────
         self.tabs = QTabWidget()
-        self.tabs.addTab(self._tab_security(), i18n.t("tab_security"))
-        self.tabs.addTab(self._tab_devices(), i18n.t("tab_devices"))
-        self.tabs.addTab(self._tab_store(), i18n.t("tab_store"))
-        self.tabs.addTab(self._tab_products(), i18n.t("tab_products"))
-        self.tabs.addTab(self._tab_shifts(), i18n.t("tab_shifts") or "Turnos")
-        self.tabs.addTab(self._tab_reports(), i18n.t("tab_reports"))
-        self.tabs.addTab(self._tab_system(), i18n.t("tab_system"))
+        self.tabs.setObjectName("AdminTabs")
+        from ui.icon_helper import get_icon_char
+        self.tabs.addTab(self._tab_security(), f"{get_icon_char('lock') or '🔐'}  " + i18n.t("tab_security"))
+        self.tabs.addTab(self._tab_devices(), f"{get_icon_char('print') or '🖨'}  " + i18n.t("tab_devices"))
+        self.tabs.addTab(self._tab_store(), f"{get_icon_char('store') or '🏪'}  " + i18n.t("tab_store"))
+        self.tabs.addTab(self._tab_products(), f"{get_icon_char('box') or '📦'}  " + i18n.t("tab_products"))
+        self.tabs.addTab(self._tab_shifts(), f"{get_icon_char('chart-bar') or '📊'}  " + (i18n.t("tab_shifts") or "Turnos"))
+        self.tabs.addTab(self._tab_tickets(), f"{get_icon_char('receipt') or '🧾'}  " + (i18n.t("tickets") if i18n.t("tickets") != "tickets" else "Tickets"))
+        self.tabs.addTab(self._tab_reports(), f"{get_icon_char('chart-line') or '📈'}  " + i18n.t("tab_reports"))
+        self.tabs.addTab(self._tab_themes(), f"{get_icon_char('palette') or '🎨'}  " + i18n.t("tab_themes"))
+        self.tabs.addTab(self._tab_system(), f"{get_icon_char('computer') or '💻'}  " + i18n.t("tab_system"))
 
+        # ─── Main Container ───────────────────────────────────────────────
         wrap = QWidget()
+        wrap.setObjectName("GridPanel")
         lay = QVBoxLayout(wrap)
-        lay.setContentsMargins(8, 8, 8, 8)
-        lay.setSpacing(10)
+        lay.setContentsMargins(s(24), s(24), s(24), s(24))
+        lay.setSpacing(s(24))
         lay.addWidget(top_wrap)
         lay.addWidget(self.tabs)
         self.setCentralWidget(wrap)
         self.toast_mgr = ToastManager(self)
+        self.loading_overlay = LoadingOverlay(self)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
         self.toast_mgr.sync_geometry()
+
+    def _update_logo(self):
+        """Render the Tottem SVG logo with theme-aware color inversion."""
+        from services import themes as theme_svc
+
+        svg_path = str(Path(__file__).resolve().parent.parent / "assets" / "Tottem.svg")
+
+        renderer = QSvgRenderer(svg_path)
+        if not renderer.isValid():
+            self.logo_lbl.setText("TOTTEM")
+            return
+
+        # Render SVG to QImage
+        default_size = renderer.defaultSize()
+        target_h = 48
+        scale = target_h / max(default_size.height(), 1)
+        target_w = int(default_size.width() * scale)
+
+        img = QImage(target_w, target_h, QImage.Format_ARGB32_Premultiplied)
+        img.fill(QColor(0, 0, 0, 0))
+        painter = QPainter(img)
+        renderer.render(painter)
+        painter.end()
+
+        # Determine if theme needs inverted logo (dark background → white logo)
+        colors = theme_svc.get_theme(theme_svc.get_current_theme()) or {}
+        bg = colors.get("bg_deep", "#0a0a0f")
+        c = QColor(bg)
+        luminance = 0.299 * c.redF() + 0.587 * c.greenF() + 0.114 * c.blueF()
+
+        if luminance < 0.5:
+            # Dark theme: invert only dark/grayscale pixels to white/light-gray
+            # Preserving any other colors in the SVG
+            for y in range(img.height()):
+                for x in range(img.width()):
+                    pixel_color = img.pixelColor(x, y)
+                    if pixel_color.alpha() == 0:
+                        continue
+                    
+                    h, s, l, a = pixel_color.getHslF()
+                    # If it's a dark color and mostly grayscale
+                    if l < 0.5 and s < 0.25:
+                        # Invert lightness, keep alpha and hue
+                        pixel_color.setHslF(h, s, 1.0 - l, a)
+                        img.setPixelColor(x, y, pixel_color)
+
+        pm = QPixmap.fromImage(img)
+        self.logo_lbl.setPixmap(pm)
 
     def _toast(self, message: str, *, level: str = "info", duration_ms: int = 3600):
         self.toast_mgr.show_toast(message, level=level, duration_ms=duration_ms)
@@ -429,7 +1278,7 @@ class AdminWindow(QMainWindow):
         f.addRow(btn_set)
 
         for wle in (self.pin_in, self.pin_new, self.pin_new2):
-            wle.installEventFilter(self._osk_filter)
+            wle.installEventFilter(self._keypad_filter)
         return w
 
     def _check_pin(self):
@@ -445,9 +1294,9 @@ class AdminWindow(QMainWindow):
             return
         ph = PasswordHasher()
         h = ph.hash(new1)
-        data = _load_settings()
+        data = load_config()
         data.setdefault("security", {})["admin_pin_hash"] = h
-        _save_settings(data)
+        save_config(data)
         QMessageBox.information(self, "PIN", i18n.t("pin_saved"))
 
     # ---------- Devices
@@ -489,7 +1338,7 @@ class AdminWindow(QMainWindow):
         self.iface_spin.setRange(0, 9)
         self.out_ep = QLineEdit()
         self.in_ep = QLineEdit()
-        cur = _load_settings()
+        cur = load_config()
         pr = cur.get("hardware", {}).get("printer", {})
         self.vendor_id.setText(_fmt_hex(pr.get("vendor_id")))
         self.product_id.setText(_fmt_hex(pr.get("product_id")))
@@ -532,7 +1381,7 @@ class AdminWindow(QMainWindow):
         if not items:
             QMessageBox.warning(self, i18n.t("devices"), i18n.t("no_printers"))
             return
-        cur = _load_settings().get("hardware", {}).get("printer", {})
+        cur = load_config().get("hardware", {}).get("printer", {})
         self._prefill_printer_combo_from_config(cur)
         for d in items:
             vendor = d.get("manufacturer") or "USB"
@@ -560,14 +1409,14 @@ class AdminWindow(QMainWindow):
         if not d:
             QMessageBox.warning(self, i18n.t("devices"), i18n.t("select_valid_printer"))
             return
-        data = _load_settings()
+        data = load_config()
         pr = data.setdefault("hardware", {}).setdefault("printer", {})
         pr["vendor_id"] = _intval(d.get("vid", "0"))
         pr["product_id"] = _intval(d.get("pid", "0"))
         pr["interface"] = int(d.get("interface", 0))
         pr["out_ep"] = int(d["eps_out"][0]) if d.get("eps_out") else None
         pr["in_ep"] = int(d["eps_in"][0]) if d.get("eps_in") else None
-        _save_settings(data)
+        save_config(data)
         self.vendor_id.setText(_fmt_hex(pr["vendor_id"]))
         self.product_id.setText(_fmt_hex(pr["product_id"]))
         self.iface_spin.setValue(int(pr["interface"]))
@@ -576,7 +1425,7 @@ class AdminWindow(QMainWindow):
         QMessageBox.information(self, i18n.t("devices"), i18n.t("saved_ok"))
 
     def _save_printer_advanced(self):
-        data = _load_settings()
+        data = load_config()
         pr = data.setdefault("hardware", {}).setdefault("printer", {})
         pr["vendor_id"] = _intval(self.vendor_id.text())
         pr["product_id"] = _intval(self.product_id.text())
@@ -585,7 +1434,7 @@ class AdminWindow(QMainWindow):
         in_txt = (self.in_ep.text() or "").strip()
         pr["out_ep"] = _intval(out_txt) if out_txt else None
         pr["in_ep"] = _intval(in_txt) if in_txt else None
-        _save_settings(data)
+        save_config(data)
         QMessageBox.information(self, i18n.t("devices"), i18n.t("saved_adv_ok"))
 
     def _test_print(self):
@@ -606,7 +1455,7 @@ class AdminWindow(QMainWindow):
     def _tab_store(self) -> QWidget:
         w = QWidget()
         f = QFormLayout(w)
-        s = _load_settings()
+        s = load_config()
         st = s.get("store", {})
         self.name = QLineEdit(st.get("name", ""))
         self.rfc = QLineEdit(st.get("rfc", ""))
@@ -625,24 +1474,23 @@ class AdminWindow(QMainWindow):
         return w
 
     def _save_store(self):
-        data = _load_settings()
+        data = load_config()
         data["store"] = {
             "name": self.name.text(),
             "rfc": self.rfc.text(),
             "ticket_header": self.header.text(),
             "ticket_footer": self.footer.text(),
         }
-        _save_settings(data)
+        save_config(data)
         QMessageBox.information(self, i18n.t("tab_store"), i18n.t("store_saved"))
 
-    # ---------- Products (con Categoría + filtros)
+    # ---------- Products (category + filters)
     def _tab_products(self) -> QWidget:
         w = QWidget()
         v = QVBoxLayout(w)
         v.setContentsMargins(10, 10, 10, 10)
         v.setSpacing(8)
 
-        # Filtros: categoría + búsqueda
         fl = QHBoxLayout()
         self.cmb_cat = QComboBox()
         self.cmb_cat.addItem(i18n.t("all") or "Todas", "_ALL_")
@@ -659,7 +1507,6 @@ class AdminWindow(QMainWindow):
         fl.addWidget(btn_refresh)
         self.prod_search.installEventFilter(self._osk_filter)
 
-        # Tabla: agregamos columna de Categoría
         self.tbl = QTableWidget(0, 7)
         self.tbl.setHorizontalHeaderLabels(
             [
@@ -676,6 +1523,19 @@ class AdminWindow(QMainWindow):
         self.tbl.setSelectionMode(QAbstractItemView.SingleSelection)
         self.tbl.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.tbl.verticalHeader().setVisible(False)
+        
+        # Configure responsive columns for 22" display
+        from PySide6.QtWidgets import QHeaderView
+        header = self.tbl.horizontalHeader()
+        header.setStretchLastSection(False)
+        header.setSectionResizeMode(0, QHeaderView.ResizeToContents)  # ID: auto-size
+        header.setSectionResizeMode(1, QHeaderView.Stretch)           # Nombre: espacio restante
+        header.setSectionResizeMode(2, QHeaderView.ResizeToContents)  # Precio: auto-size
+        header.setSectionResizeMode(3, QHeaderView.ResizeToContents)  # Activo: auto-size
+        header.setSectionResizeMode(4, QHeaderView.ResizeToContents)  # Unidad: auto-size
+        header.setSectionResizeMode(5, QHeaderView.ResizeToContents)  # Decimal: auto-size
+        header.setSectionResizeMode(6, QHeaderView.Interactive)       # Categoría: ajustable
+
         self.tbl.setColumnWidth(0, 60)
         self.tbl.setColumnWidth(2, 100)
         self.tbl.setColumnWidth(3, 90)
@@ -740,7 +1600,6 @@ class AdminWindow(QMainWindow):
             self.tbl.setItem(r, 5, QTableWidgetItem("Sí" if p.get("allow_decimal") else "No"))
             self.tbl.setItem(r, 6, QTableWidgetItem(cat))
 
-        # reconstruye categorías disponibles desde TODOS los productos (no solo filtrados)
         try:
             all_items = list_products(q="", include_inactive=True)
         except Exception:
@@ -752,7 +1611,6 @@ class AdminWindow(QMainWindow):
         self.cmb_cat.addItem(i18n.t("all") or "Todas", "_ALL_")
         for c in cats:
             self.cmb_cat.addItem(c, c)
-        # intentar restaurar selección previa
         if cur_data is not None:
             idx = max(
                 0,
@@ -787,22 +1645,35 @@ class AdminWindow(QMainWindow):
         self._fill_table(items)
 
     def _prod_new(self):
-        dlg = ProductDialog(self)
-        if dlg.exec():
-            data = dlg.data()
-            if not data:
-                return
-            # create_product(*, name, price_money, unit, allow_decimal, active, category)
-            create_product(
-                name=data["name"],
-                price_money=data["price"],  # ya está en centavos; el wrapper acepta int/float/str
-                unit=data["unit"],
-                allow_decimal=data["allow_decimal"],
-                active=data["active"],
-                category=data["category"],
-            )
-            QMessageBox.information(self, i18n.t("tab_products"), i18n.t("prod_saved"))
-            self._prod_refresh()
+        if self._prod_dialog_open:
+            return
+        self._prod_dialog_open = True
+        try:
+            dlg = ProductDialog(self)
+            if dlg.exec():
+                data = dlg.data()
+                if not data:
+                    return
+                if self._prod_save_in_progress:
+                    return
+                self._prod_save_in_progress = True
+                try:
+                    # create_product(*, name, price_money, unit, allow_decimal, active, category, icon)
+                    create_product(
+                        name=data["name"],
+                        price_money=data["price"],  # ya está en centavos; el wrapper acepta int/float/str
+                        unit=data["unit"],
+                        allow_decimal=data["allow_decimal"],
+                        active=data["active"],
+                        category=data["category"],
+                        icon=data.get("icon", ""),
+                    )
+                finally:
+                    self._prod_save_in_progress = False
+                QMessageBox.information(self, i18n.t("tab_products"), i18n.t("prod_saved"))
+                self._prod_refresh()
+        finally:
+            self._prod_dialog_open = False
 
     def _prod_edit(self):
         pid = self._current_prod_id()
@@ -818,7 +1689,7 @@ class AdminWindow(QMainWindow):
             data = dlg.data()
             if not data:
                 return
-            # update_product(product_id, *, name, price_money, unit, allow_decimal, active, category)
+            # update_product(product_id, *, name, price_money, unit, allow_decimal, active, category, icon)
             update_product(
                 product_id=pid,
                 name=data["name"],
@@ -827,6 +1698,7 @@ class AdminWindow(QMainWindow):
                 allow_decimal=data["allow_decimal"],
                 active=data["active"],
                 category=data["category"],
+                icon=data.get("icon", ""),
             )
             QMessageBox.information(self, i18n.t("tab_products"), i18n.t("prod_saved"))
             self._prod_refresh()
@@ -875,66 +1747,288 @@ class AdminWindow(QMainWindow):
                 i18n.t("categories_disabled") or "Categorías deshabilitadas. El kiosko mostrará un solo menú de productos.",
             )
 
-    # ---------- Reports (solo rango de fechas + correo)
+    # ---------- Tickets
+    def _tab_tickets(self) -> QWidget:
+        """Tab para visualizar, buscar y reimprimir tickets de venta."""
+        w = QWidget()
+        v = QVBoxLayout(w)
+        v.setContentsMargins(10, 10, 10, 10)
+        v.setSpacing(10)
+
+        search_row = QHBoxLayout()
+        search_row.setSpacing(12)
+        self.ed_ticket_search = QLineEdit()
+        self.ed_ticket_search.setPlaceholderText(i18n.t("tickets_search_placeholder") or "Buscar por número de ticket...")
+        self.ed_ticket_search.setMinimumHeight(52)
+        btn_search = QPushButton(i18n.t("tickets_btn_search") or "Buscar")
+        btn_search.setMinimumHeight(52)
+        btn_search.clicked.connect(self._tickets_search)
+        btn_clear = QPushButton(i18n.t("tickets_btn_clear") or "Limpiar")
+        btn_clear.setMinimumHeight(52)
+        btn_clear.clicked.connect(self._tickets_clear_search)
+        search_row.addWidget(self.ed_ticket_search, 1)
+        search_row.addWidget(btn_search)
+        search_row.addWidget(btn_clear)
+        v.addLayout(search_row)
+
+        self.ed_ticket_search.installEventFilter(self._keypad_filter)
+
+        self.tbl_tickets = QTableWidget(0, 6)
+        self.tbl_tickets.setHorizontalHeaderLabels([
+            i18n.t("tickets_header_ticket") or "Ticket", 
+            i18n.t("tickets_header_date") or "Fecha", 
+            i18n.t("tickets_header_emp") or "Empleado", 
+            i18n.t("tickets_header_shift") or "Turno", 
+            i18n.t("tickets_header_total") or "Total",
+            i18n.t("payment_method") or "Metodo"
+        ])
+        self.tbl_tickets.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.tbl_tickets.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.tbl_tickets.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.tbl_tickets.verticalHeader().setVisible(False)
+        self.tbl_tickets.setAlternatingRowColors(False)
+        
+        self.tbl_tickets.itemDoubleClicked.connect(self._tickets_show_details_dialog)
+        
+        from PySide6.QtWidgets import QHeaderView
+        header = self.tbl_tickets.horizontalHeader()
+        header.setStretchLastSection(False)
+        header.setSectionResizeMode(0, QHeaderView.ResizeToContents)  # Ticket
+        header.setSectionResizeMode(1, QHeaderView.Stretch)           # Fecha
+        header.setSectionResizeMode(2, QHeaderView.ResizeToContents)  # Empleado
+        header.setSectionResizeMode(3, QHeaderView.ResizeToContents)  # Turno
+        header.setSectionResizeMode(4, QHeaderView.ResizeToContents)  # Total
+        header.setSectionResizeMode(5, QHeaderView.ResizeToContents)  # Metodo
+        
+        v.addWidget(self.tbl_tickets, 1)
+
+        page_row = QHBoxLayout()
+        self.btn_tickets_prev = QPushButton(i18n.t("tickets_btn_prev") or "◀ Anterior")
+        self.btn_tickets_prev.setMinimumHeight(40)
+        self.btn_tickets_prev.clicked.connect(self._tickets_prev_page)
+        self.lbl_tickets_page = QLabel(i18n.t("tickets_page_fmt", num=1) or "Página 1")
+        self.lbl_tickets_page.setAlignment(Qt.AlignCenter)
+        self.btn_tickets_next = QPushButton(i18n.t("tickets_btn_next") or "Siguiente ▶")
+        self.btn_tickets_next.setMinimumHeight(40)
+        self.btn_tickets_next.clicked.connect(self._tickets_next_page)
+        page_row.addWidget(self.btn_tickets_prev)
+        page_row.addWidget(self.lbl_tickets_page, 1)
+        page_row.addWidget(self.btn_tickets_next)
+        v.addLayout(page_row)
+
+        hint_label = QLabel(i18n.t("tickets_hint") or "💡 Haz doble clic en un ticket para ver detalles y reimprimir")
+        hint_label.setStyleSheet("font-size: 12px; font-style: italic;")
+        hint_label.setAlignment(Qt.AlignCenter)
+        v.addWidget(hint_label)
+
+        self.tickets_offset = 0
+        self.tickets_page_size = 15
+
+        self._tickets_refresh()
+
+        return w
+
+    def _tickets_refresh(self, offset: int = 0):
+        """Carga tickets desde la BD y llena la tabla."""
+        self.tickets_offset = offset
+        tickets = list_tickets(limit=self.tickets_page_size, offset=offset)
+        
+        self.tbl_tickets.setRowCount(0)
+        for t in tickets:
+            r = self.tbl_tickets.rowCount()
+            self.tbl_tickets.insertRow(r)
+            self.tbl_tickets.setItem(r, 0, QTableWidgetItem(str(t["id"])))
+            self.tbl_tickets.setItem(r, 1, QTableWidgetItem(t["ts"] or ""))
+            self.tbl_tickets.setItem(r, 2, QTableWidgetItem(t["served_by"] or "—"))
+            self.tbl_tickets.setItem(r, 3, QTableWidgetItem(f"{t['shift_id']}" if t['shift_id'] else "—"))
+            self.tbl_tickets.setItem(r, 4, QTableWidgetItem(f"$ {cents_to_money(t['total'])}"))
+            pm = t.get('payment_method', 'cash')
+            pm_label = (i18n.t('payment_card') or 'Tarjeta') if pm == 'card' else (i18n.t('payment_cash') or 'Efectivo')
+            self.tbl_tickets.setItem(r, 5, QTableWidgetItem(pm_label))
+        
+        page_num = (offset // self.tickets_page_size) + 1
+        self.lbl_tickets_page.setText(i18n.t("tickets_page_fmt", num=page_num) or f"Página {page_num}")
+        
+        self.btn_tickets_prev.setEnabled(offset > 0)
+        self.btn_tickets_next.setEnabled(len(tickets) == self.tickets_page_size)
+
+    def _tickets_search(self):
+        """Busca ticket específico por número ingresado."""
+        search_text = self.ed_ticket_search.text().strip()
+        if not search_text:
+            self._toast("Ingresa un número de ticket para buscar.", level="error")
+            return
+        
+        try:
+            ticket_id = int(search_text)
+        except ValueError:
+            self._toast("El número de ticket debe ser un número válido.", level="error")
+            return
+        
+        ticket = search_tickets_by_id(ticket_id)
+        if not ticket:
+            self._toast(f"No se encontró el ticket #{ticket_id}.", level="error")
+            self.tbl_tickets.setRowCount(0)
+            return
+        
+        self.tbl_tickets.setRowCount(0)
+        self.tbl_tickets.insertRow(0)
+        self.tbl_tickets.setItem(0, 0, QTableWidgetItem(str(ticket["id"])))
+        self.tbl_tickets.setItem(0, 1, QTableWidgetItem(ticket["ts"] or ""))
+        self.tbl_tickets.setItem(0, 2, QTableWidgetItem(ticket["served_by"] or "—"))
+        self.tbl_tickets.setItem(0, 3, QTableWidgetItem(f"{ticket['shift_id']}" if ticket['shift_id'] else "—"))
+        self.tbl_tickets.setItem(0, 4, QTableWidgetItem(f"$ {cents_to_money(ticket['total'])}"))
+        pm = ticket.get('payment_method', 'cash')
+        pm_label = (i18n.t('payment_card') or 'Tarjeta') if pm == 'card' else (i18n.t('payment_cash') or 'Efectivo')
+        self.tbl_tickets.setItem(0, 5, QTableWidgetItem(pm_label))
+        
+        self.btn_tickets_prev.setEnabled(False)
+        self.btn_tickets_next.setEnabled(False)
+        self.lbl_tickets_page.setText("Búsqueda")
+
+    def _tickets_clear_search(self):
+        """Limpia la búsqueda y regresa a mostrar todos los tickets."""
+        self.ed_ticket_search.clear()
+        self._tickets_refresh(0)
+
+    def _tickets_show_details_dialog(self):
+        """Muestra el diálogo de detalles del ticket seleccionado."""
+        row = self.tbl_tickets.currentRow()
+        if row < 0:
+            return
+        
+        ticket_id_item = self.tbl_tickets.item(row, 0)
+        if not ticket_id_item:
+            return
+        
+        try:
+            ticket_id = int(ticket_id_item.text())
+        except ValueError:
+            return
+        
+        dlg = TicketDetailDialog(self, ticket_id=ticket_id)
+        dlg.exec()
+
+    def _tickets_next_page(self):
+        """Navegar a la siguiente página de tickets."""
+        new_offset = self.tickets_offset + self.tickets_page_size
+        self._tickets_refresh(new_offset)
+
+    def _tickets_prev_page(self):
+        """Navegar a la página anterior de tickets."""
+        new_offset = max(0, self.tickets_offset - self.tickets_page_size)
+        self._tickets_refresh(new_offset)
+
+
+    # ---------- Reports (date range + email)
     def _tab_reports(self) -> QWidget:
         w = QWidget()
         v = QVBoxLayout(w)
         v.setContentsMargins(10, 10, 10, 10)
         v.setSpacing(14)
 
-        # --- Enviar reporte por correo (rango de fechas) ---
-        v.addWidget(QLabel(i18n.t("send_mail") or "Enviar reporte por correo"))
+        v.addWidget(QLabel(i18n.t("send_mail") or "Enviar reporte"))
 
-        mail_row1 = QHBoxLayout()
-        mail_row1.setSpacing(12)
-        self.date_from = QLineEdit()
-        self.date_from.setMinimumWidth(170)
-        self.date_from.setPlaceholderText("YYYY-MM-DD")
-        self.date_to = QLineEdit()
-        self.date_to.setMinimumWidth(170)
-        self.date_to.setPlaceholderText("YYYY-MM-DD")
-        mail_row1.addWidget(QLabel(i18n.t("dates_from") or "Desde"))
-        mail_row1.addWidget(self.date_from)
-        mail_row1.addWidget(QLabel(i18n.t("dates_to") or "Hasta"))
-        mail_row1.addWidget(self.date_to)
-        v.addLayout(mail_row1)
+        # Main Layout: Left (Inputs) | Right (Action)
+        main_layout = QHBoxLayout()
+        main_layout.setSpacing(16)
 
+        left_col = QVBoxLayout()
+        left_col.setSpacing(12)
+
+        # Row 1: Dates
+        loc = QLocale(QLocale.Spanish) if i18n.current_lang() == "es" else QLocale(QLocale.English)
+        
+        dates_row = QHBoxLayout()
+        self.date_from = QDateEdit()
+        self.date_from.setLocale(loc)
+        self.date_from.setMinimumHeight(56)
+        self.date_from.setCalendarPopup(True)
+        self.date_from.setDisplayFormat("yyyy-MM-dd")
+        self.date_from.setDate(QDate.currentDate().addDays(-7))
+        self.date_from.removeEventFilter(self._osk_filter)
+
+        self.date_to = QDateEdit()
+        self.date_to.setLocale(loc)
+        self.date_to.setMinimumHeight(56)
+        self.date_to.setCalendarPopup(True)
+        self.date_to.setDisplayFormat("yyyy-MM-dd")
+        self.date_to.setDate(QDate.currentDate())
+        self.date_to.removeEventFilter(self._osk_filter)
+
+        dates_row.addWidget(QLabel(i18n.t("dates_from") or "Desde"))
+        dates_row.addWidget(self.date_from, 1)
+        dates_row.addWidget(QLabel(i18n.t("dates_to") or "Hasta"))
+        dates_row.addWidget(self.date_to, 1)
+        
+        left_col.addLayout(dates_row)
+
+        # Row 2: Emails + Recent ComboBox
         mail_row2 = QHBoxLayout()
-        mail_row2.setSpacing(12)
+        mail_row2.setSpacing(8)
+        
         self.ed_emails = QLineEdit()
-        self.ed_emails.setPlaceholderText(
-            i18n.t("emails_placeholder")
-            or "correo1@ejemplo.com, correo2@ejemplo.com"
-        )
+        self.ed_emails.setPlaceholderText(i18n.t("emails_placeholder") or "usuario@gmail.com, usuario2@gmail.com, usuario3@gmail.com, ...")
+        self.ed_emails.setMinimumHeight(42)
+        
+        lbl_recent = QLabel(i18n.t("recent_emails") or "Recientes")
+        lbl_recent.setStyleSheet("font-weight: 600;")
+        
         self.cb_recent = QComboBox()
-        self.cb_recent.setMinimumHeight(52)
-        self.cb_recent.addItem("")
-        for e in recent_emails():
-            self.cb_recent.addItem(e)
-        btn_add_recent = QPushButton(i18n.t("add") or "Agregar")
-        btn_add_recent.clicked.connect(self._add_recent_email)
-        btn_send = QPushButton(i18n.t("send_mail") or "Enviar reporte")
-        btn_send.clicked.connect(self._send_mail)
-        for b in (btn_add_recent, btn_send):
-            b.setMinimumHeight(38)
-        mail_row2.addWidget(self.ed_emails, 1)
-        mail_row2.addWidget(QLabel(i18n.t("recent_emails") or "Correos recientes"))
+        self.cb_recent.setMinimumHeight(42)
+        self.cb_recent.setMinimumWidth(180)
+        
+        btn_add_recent = QPushButton("+")
+        btn_add_recent.setFixedSize(60, 40)
+        btn_add_recent.setToolTip("Agregar seleccionado")
+        btn_add_recent.setProperty("role", "primary")
+        btn_add_recent.setStyleSheet("font-weight: bold; border-radius: 6px;")
+        btn_add_recent.clicked.connect(self._add_recent_email_from_combo)
+        
+        btn_del_recent = QPushButton("x")
+        btn_del_recent.setFixedSize(60, 40)
+        btn_del_recent.setToolTip("Eliminar seleccionado")
+        btn_del_recent.setProperty("role", "danger")
+        btn_del_recent.setStyleSheet("font-weight: bold; border-radius: 6px;")
+        btn_del_recent.clicked.connect(self._remove_recent_email_from_combo)
+
+        mail_row2.addWidget(self.ed_emails, 1) # Stretch
+        mail_row2.addWidget(lbl_recent)
         mail_row2.addWidget(self.cb_recent)
         mail_row2.addWidget(btn_add_recent)
-        mail_row2.addWidget(btn_send)
-        v.addLayout(mail_row2)
+        mail_row2.addWidget(btn_del_recent)
+        
+        left_col.addLayout(mail_row2)
+        main_layout.addLayout(left_col, 3) # Take 3/4 space
 
-        for wle in (self.date_from, self.date_to, self.ed_emails):
-            wle.installEventFilter(self._osk_filter)
+        icon_char = get_icon_char("envelope") or "📧"
+        btn_send = QPushButton(f" {icon_char} \n{i18n.t('send_mail') or 'Enviar'}")
+        btn_send.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
+        btn_send.setMaximumWidth(180)
+        btn_send.setProperty("role", "primary")
+        btn_send.setStyleSheet("""
+            QPushButton {
+                font-size: 16px;
+                font-weight: 700;
+                border-radius: 12px;
+                padding: 10px;
+                text-align: center;
+            }
+        """)
+        btn_send.clicked.connect(self._send_mail)
+        
+        main_layout.addWidget(btn_send, 1) # Take 1/4 space
 
-        # --- Turnos de la semana + impresión de reporte de turno ---
-        v.addWidget(
-            QLabel(i18n.t("print_shift_report") or "Imprimir reporte de turno")
-        )
+        v.addLayout(main_layout)
+
+        self._reload_recent_combo()
+
+        self.ed_emails.installEventFilter(self._osk_filter)
+
+        v.addWidget(QLabel(i18n.t("print_shift_report") or "Imprimir reporte de turno"))
 
         self.list_shifts = QListWidget()
         self.list_shifts.setObjectName("ShiftList")
-        self.list_shifts.setAlternatingRowColors(True)
         self.list_shifts.setSpacing(6)
         self.list_shifts.setUniformItemSizes(True)
         v.addWidget(QLabel(i18n.t("week_shifts") or "Turnos de la semana"))
@@ -956,7 +2050,6 @@ class AdminWindow(QMainWindow):
         self.btn_print.clicked.connect(self._print_selected_shift)
         v.addWidget(self.btn_print)
 
-        # Cargar los turnos de los últimos 7 días
         self._reload_week_shifts()
 
         return w
@@ -979,7 +2072,6 @@ class AdminWindow(QMainWindow):
         return base
 
     def _open_shift(self):
-        # Tomar empleado seleccionado
         emp_code = None
         if hasattr(self, "cmb_shift_employee"):
             emp_code = self.cmb_shift_employee.currentData() or None
@@ -990,8 +2082,15 @@ class AdminWindow(QMainWindow):
             )
             return
 
-        # opening_cash en centavos; por ahora 0
-        open_shift(opened_by=emp_code, opening_cash=0)
+        dlg = NumKeypad(
+            title=i18n.t('opening_cash') or "Fondo inicial ($)",
+            allow_decimal=True
+        )
+        if dlg.exec() != QDialog.Accepted:
+            return
+        opening_cash_cents = int(round(dlg.value_float() * 100))
+
+        open_shift(opened_by=emp_code, opening_cash=opening_cash_cents)
 
         self.lbl_shift.setText(self._shift_label_text())
         if hasattr(self, "list_shifts"):
@@ -999,23 +2098,35 @@ class AdminWindow(QMainWindow):
         self._toast("Turno abierto.", level="success")
 
     def _do_preview(self):
-        txt, _ = report_x()
-        QMessageBox.information(self, i18n.t("tab_shifts") or "Turnos", txt)
+        """Muestra vista previa del turno actual con lista de tickets clickeable."""
+        sh = current_shift()
+        if not sh:
+            self._toast("No hay turno abierto.", level="error")
+            return
+        
+        dlg = ShiftPreviewDialog(self, shift_id=sh["id"])
+        dlg.exec()
 
     def _do_close(self):
         """
-        Cierra el turno actual usando report_z() (que ya llama close_shift internamente),
-        imprime el reporte y refresca el estado.
+        Cierra el turno actual con diálogo de conteo de efectivo,
+        genera reporte resumido e imprime.
         """
-        # Comprobamos que haya turno abierto antes de intentar cerrar
         sh = current_shift()
         if not sh:
             self._toast("No hay turno abierto.", level="error")
             return
 
-        # Genera reporte Z (incluye close_shift() por dentro)
+        dlg = ShiftCloseDialog(self, shift_info=sh)
+        if dlg.exec() != QDialog.Accepted:
+            return
+        
+        close_data = dlg.data()
+        closing_cash = close_data.get("closing_cash", 0)
+        closed_by = close_data.get("closed_by", "")
+
         try:
-            txt = report_z()
+            close_shift(closed_by=closed_by, closing_cash=closing_cash)
         except Exception as e:
             QMessageBox.critical(
                 self,
@@ -1024,76 +2135,153 @@ class AdminWindow(QMainWindow):
             )
             return
 
-        # Intentar imprimir el reporte del turno que acabamos de cerrar
+        txt = render_shift_text(sh["id"], detailed=False)
+
         try:
             EscposPrinter().print_text(txt)
             self._toast(
                 f"Turno #{sh['id']} cerrado e impreso.", level="success"
             )
         except Exception as e:
+            QMessageBox.information(
+                self,
+                "Reporte de Turno",
+                txt[:2000] + ("..." if len(txt) > 2000 else "")
+            )
             self._toast(
-                f"Turno cerrado pero error al imprimir: {e}", level="error"
+                f"Turno cerrado. Error al imprimir: {e}", level="error"
             )
 
-        # Actualizar etiqueta (ya no debe haber turno abierto)
         self.lbl_shift.setText(self._shift_label_text())
 
-        # Refrescar lista de turnos en pestaña de reportes, si existe
         if hasattr(self, "list_shifts"):
             self._reload_week_shifts()
 
-    def _add_recent_email(self):
-        e = self.cb_recent.currentText().strip()
-        if not e:
+    def _reload_recent_combo(self):
+        """Recarga el combobox de correos recientes."""
+        self.cb_recent.clear()
+        self.cb_recent.addItem("") # Opción vacía inicial
+        for e in recent_emails():
+            self.cb_recent.addItem(e)
+
+    def _add_recent_email_from_combo(self):
+        """Agrega el email seleccionado en el combo al campo de texto."""
+        email = self.cb_recent.currentText().strip()
+        if not email:
             return
-        exists = [
-            x.strip()
-            for x in (self.ed_emails.text() or "").split(",")
-            if x.strip()
-        ]
-        if e not in exists:
-            exists.append(e)
-            self.ed_emails.setText(", ".join(exists))
+
+        current = self.ed_emails.text().strip()
+        if current:
+            emails_list = [e.strip() for e in current.split(",") if e.strip()]
+            if email not in emails_list:
+                emails_list.append(email)
+            self.ed_emails.setText(", ".join(emails_list))
+        else:
+            self.ed_emails.setText(email)
+            
+        self.ed_emails.setStyleSheet("border: 1px solid #10b981;")
+        QTimer.singleShot(1000, lambda: self.ed_emails.setStyleSheet(""))
+
+    def _remove_recent_email_from_combo(self):
+        """Elimina el email seleccionado de la lista de recientes."""
+        email = self.cb_recent.currentText().strip()
+        if not email:
+            return
+            
+        from services.emailer import remove_recent_email
+        remove_recent_email(email)
+        self._reload_recent_combo()
+        self._toast("Email eliminado", level="warning")
+
 
     def _send_mail(self):
-        df = (self.date_from.text() or "").strip()
-        dt = (self.date_to.text() or "").strip()
+        from datetime import datetime
+        from core.db import connect
+        from services.emailer import _create_html_email_report
+        
+        df = self.date_from.date().toString("yyyy-MM-dd")
+        dt = self.date_to.date().toString("yyyy-MM-dd")
         rec_raw = (self.ed_emails.text() or "").strip()
         recipients = [x.strip() for x in rec_raw.split(",") if x.strip()]
-        if not df or not dt or not recipients:
-            for field, empty in (
-                (self.date_from, not df),
-                (self.date_to, not dt),
-                (self.ed_emails, not recipients),
-            ):
-                self._mark_field_state(field, "error" if empty else None)
+        
+        if not recipients:
+            self._mark_field_state(self.ed_emails, "error")
             self._toast(
-                "Fechas y correos requeridos.", level="error", duration_ms=4200
+                "Correos requeridos.", level="error", duration_ms=4200
             )
             return
-        for field in (self.date_from, self.date_to, self.ed_emails):
-            self._mark_field_state(field, None)
-        body = render_range_text(df, dt)
+        
+        if self.date_from.date() > self.date_to.date():
+            self._toast(
+                "La fecha inicial debe ser anterior a la fecha final.", level="error", duration_ms=4200
+            )
+            return
+        self._mark_field_state(self.ed_emails, None)
+        
+        conn = connect()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT 
+                COUNT(DISTINCT t.id) as tickets,
+                SUM(ti.quantity) as items,
+                SUM(t.total) as total_cents
+            FROM ticket t
+            LEFT JOIN ticket_item ti ON ti.ticket_id = t.id
+            WHERE DATE(t.ts) BETWEEN DATE(?) AND DATE(?)
+        """, (df, dt))
+        row = cur.fetchone()
+        stats = {
+            'tickets': row[0] or 0,
+            'items': int(row[1] or 0),
+            'total_cents': row[2] or 0
+        }
+        
+        # Desglose efectivo/tarjeta para email
+        cur.execute("""
+            SELECT
+                COALESCE(payment_method, 'cash') as pm,
+                COALESCE(SUM(total), 0) as tot
+            FROM ticket
+            WHERE DATE(ts) BETWEEN DATE(?) AND DATE(?)
+            GROUP BY pm
+        """, (df, dt))
+        for pm_row in cur.fetchall():
+            pm = pm_row[0] or 'cash'
+            if pm == 'card':
+                stats['total_card_cents'] = int(pm_row[1] or 0)
+            else:
+                stats['total_cash_cents'] = int(pm_row[1] or 0)
+        if 'total_cash_cents' not in stats:
+            stats['total_cash_cents'] = stats['total_cents']
+        if 'total_card_cents' not in stats:
+            stats['total_card_cents'] = 0
+        
+        html_body = _create_html_email_report(df, dt, stats)
+        plain_body = render_range_text(df, dt)
+        
+        date_from_obj = datetime.strptime(df, "%Y-%m-%d")
+        date_to_obj = datetime.strptime(dt, "%Y-%m-%d")
+        from_str = date_from_obj.strftime("%d-%b-%Y")  # 01-Feb-2026
+        to_str = date_to_obj.strftime("%d-%b-%Y")  # 07-Feb-2026
+        filename = f"Tottem_Ventas_{from_str}_al_{to_str}.csv"
+        
         att = [
-            (f"tickets_{df}_a_{dt}.csv", csv_tickets_bytes(df, dt)),
-            (f"items_{df}_a_{dt}.csv", csv_items_bytes(df, dt)),
+            (filename, csv_sales_detailed_bytes(df, dt)),
         ]
+        
         ok, msg = send_mail(
-            subject=f"Reporte POS {df} a {dt}",
-            body=body,
+            subject=f"Reporte de Ventas {date_from_obj.strftime('%d/%m/%Y')} - {date_to_obj.strftime('%d/%m/%Y')}",
+            body=plain_body,
             recipients=recipients,
             attachments=att,
+            html_body=html_body
         )
+        
         if ok:
-            for field in (self.date_from, self.date_to, self.ed_emails):
-                self._mark_field_state(field, "success")
+            self._mark_field_state(self.ed_emails, "success")
             self._toast(
                 i18n.t("report_sent_ok") or "Reporte enviado.", level="success"
             )
-            self.cb_recent.clear()
-            self.cb_recent.addItem("")
-            for e in recent_emails():
-                self.cb_recent.addItem(e)
         else:
             self._toast(
                 i18n.t("report_sent_err", err=msg)
@@ -1139,19 +2327,17 @@ class AdminWindow(QMainWindow):
         except Exception as e:
             self._toast(f"Error al imprimir reporte: {e}", level="error")
 
-    # ---------- Shifts (Turnos) + Empleados
+    # ---------- Shifts + Employees
     def _tab_shifts(self) -> QWidget:
         w = QWidget()
         v = QVBoxLayout(w)
         v.setContentsMargins(10, 10, 10, 10)
         v.setSpacing(10)
 
-        # --- Sección turnos ---
         self.lbl_shift = QLabel(self._shift_label_text())
         self.lbl_shift.setWordWrap(True)
         v.addWidget(self.lbl_shift)
 
-        # Selector de empleado para el turno
         emp_row = QHBoxLayout()
         emp_row.addWidget(QLabel(i18n.t("emp_for_shift") or "Empleado del turno"))
         self.cmb_shift_employee = QComboBox()
@@ -1173,7 +2359,6 @@ class AdminWindow(QMainWindow):
         row1.addWidget(btn_close)
         v.addLayout(row1)
 
-        # --- Sección empleados ---
         v.addWidget(QLabel(i18n.t("employees_title") or "Empleados"))
 
         self.tbl_employees = QTableWidget(0, 5)
@@ -1190,10 +2375,15 @@ class AdminWindow(QMainWindow):
         self.tbl_employees.setSelectionMode(QAbstractItemView.SingleSelection)
         self.tbl_employees.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.tbl_employees.verticalHeader().setVisible(False)
-        self.tbl_employees.setColumnWidth(0, 60)
-        self.tbl_employees.setColumnWidth(1, 110)
-        self.tbl_employees.setColumnWidth(2, 200)
-        self.tbl_employees.setColumnWidth(3, 140)
+        
+        from PySide6.QtWidgets import QHeaderView
+        header = self.tbl_employees.horizontalHeader()
+        header.setStretchLastSection(False)
+        header.setSectionResizeMode(0, QHeaderView.ResizeToContents)  # ID: auto-size
+        header.setSectionResizeMode(1, QHeaderView.ResizeToContents)  # No. Empleado: auto-size
+        header.setSectionResizeMode(2, QHeaderView.Stretch)           # Nombre: espacio restante
+        header.setSectionResizeMode(3, QHeaderView.ResizeToContents)  # Contacto: auto-size
+        header.setSectionResizeMode(4, QHeaderView.ResizeToContents)  # Activo: auto-size
         self.tbl_employees.setColumnWidth(4, 70)
         v.addWidget(self.tbl_employees, 2)
 
@@ -1239,7 +2429,6 @@ class AdminWindow(QMainWindow):
             self.tbl_employees.setItem(
                 idx, 4, QTableWidgetItem("Sí" if r.get("active") else "No")
             )
-        # Actualizar combo de empleados de turno si existe
         if hasattr(self, "cmb_shift_employee"):
             self._reload_shift_employees()
 
@@ -1250,11 +2439,10 @@ class AdminWindow(QMainWindow):
         self.cmb_shift_employee.clear()
         emps = [e for e in list_employees() if e.get("active")]
         if not emps:
-            self.cmb_shift_employee.addItem("(sin empleados)", "")
+            self.cmb_shift_employee.addItem(i18n.t("sys_no_employees") or "(sin empleados)", "")
             return
         for e in emps:
             label = f"{e['emp_no']} - {e['full_name']}"
-            # Guardamos como dato el emp_no (podría ser el ID si lo prefieres)
             self.cmb_shift_employee.addItem(label, e["emp_no"])
 
     def _emp_current_id(self) -> int | None:
@@ -1335,41 +2523,752 @@ class AdminWindow(QMainWindow):
         QMessageBox.information(self, i18n.t("employees_title") or "Empleados", i18n.t("emp_deleted") or "Eliminado.")
         self._emp_refresh()
 
+    # ---------- Themes
+    def _tab_themes(self) -> QWidget:
+        """Tab for theme selection and customization."""
+        
+        w = QWidget()
+        main_layout = QHBoxLayout(w)
+        main_layout.setSpacing(24)
+        main_layout.setContentsMargins(16, 16, 16, 16)
+        
+        left_panel = QVBoxLayout()
+        left_panel.setSpacing(16)
+        
+        # Header
+        header = QLabel(i18n.t("tab_themes") or "Temas")
+        header.setStyleSheet("font-size: 18px; font-weight: 700;")
+        left_panel.addWidget(header)
+        
+        # Theme list
+        self.theme_list = QListWidget()
+        self.theme_list.setMinimumWidth(280)
+        self.theme_list.itemClicked.connect(self._on_theme_selected)
+        left_panel.addWidget(self.theme_list, 1)
+        
+        # Buttons
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(12)
+        
+        btn_apply = QPushButton(i18n.t("ok") or "Aplicar")
+        btn_apply.setProperty("role", "primary")
+        btn_apply.setMinimumHeight(56)
+        btn_apply.clicked.connect(self._apply_theme)
+        
+        btn_new = QPushButton(i18n.t("theme_new") or "Nuevo")
+        btn_new.setMinimumHeight(56)
+        btn_new.clicked.connect(self._new_theme)
+        
+        btn_delete = QPushButton(i18n.t("delete") or "Eliminar")
+        btn_delete.setProperty("role", "danger")
+        btn_delete.setMinimumHeight(56)
+        btn_delete.clicked.connect(self._delete_theme)
+        
+        btn_row.addWidget(btn_apply)
+        btn_row.addWidget(btn_new)
+        btn_row.addWidget(btn_delete)
+        left_panel.addLayout(btn_row)
+        
+        main_layout.addLayout(left_panel)
+        
+        right_panel = QVBoxLayout()
+        right_panel.setSpacing(16)
+        
+        preview_header = QLabel(i18n.t("preview") or "Vista previa")
+        preview_header.setStyleSheet("font-size: 16px; font-weight: 600;")
+        right_panel.addWidget(preview_header)
+        
+        # Color preview grid
+        preview_frame = QFrame()
+        preview_frame.setObjectName("ThemePreviewFrame")
+        preview_frame.setStyleSheet("""
+            QFrame#ThemePreviewFrame {
+                border-radius: 16px;
+                padding: 16px;
+                border: 1px solid palette(mid);
+            }
+        """)
+        preview_grid = QGridLayout(preview_frame)
+        preview_grid.setSpacing(12)
+        
+        # Color preview boxes
+        self.color_previews = {}
+        color_labels = [
+            ("bg_deep", i18n.t("color_background") or "Fondo"),
+            ("surface", i18n.t("color_surface") or "Superficie"),
+            ("text_primary", i18n.t("color_text") or "Texto"),
+            ("accent_primary", i18n.t("color_accent") or "Acento"),
+            ("success", "Success"),
+            ("warning", "Warning"),
+            ("danger", "Danger"),
+        ]
+        
+        for i, (key, label) in enumerate(color_labels):
+            row = i // 4
+            col = i % 4
+            
+            box = QFrame()
+            box.setFixedSize(60, 60)
+            box.setStyleSheet("border-radius: 12px; background: #333;")
+            box.setCursor(Qt.PointingHandCursor)
+            box.setProperty("color_key", key)
+            box.mousePressEvent = lambda e, k=key: self._pick_color(k)
+            
+            lbl = QLabel(label)
+            lbl.setStyleSheet("font-size: 11px; color: #94a3b8;")
+            lbl.setAlignment(Qt.AlignCenter)
+            
+            col_layout = QVBoxLayout()
+            col_layout.setSpacing(4)
+            col_layout.addWidget(box, alignment=Qt.AlignCenter)
+            col_layout.addWidget(lbl, alignment=Qt.AlignCenter)
+            
+            self.color_previews[key] = box
+            preview_grid.addLayout(col_layout, row, col)
+        
+        right_panel.addWidget(preview_frame)
+        
+        # Theme name for custom themes
+        name_row = QHBoxLayout()
+        name_row.setSpacing(12)
+        name_lbl = QLabel(i18n.t("theme_name") or "Nombre:")
+        self.theme_name_edit = QLineEdit()
+        self.theme_name_edit.setPlaceholderText(i18n.t("theme_custom") or "Mi tema")
+        self.theme_name_edit.setMinimumHeight(48)
+        self.theme_name_edit.installEventFilter(self._osk_filter)  # Enable OSK for touchscreen
+        name_row.addWidget(name_lbl)
+        name_row.addWidget(self.theme_name_edit, 1)
+        right_panel.addLayout(name_row)
+        
+        # Save custom button
+        btn_save_custom = QPushButton(f"{get_icon_char('save') or '💾'}  " + (i18n.t("save") or "Guardar tema"))
+        btn_save_custom.setProperty("role", "success")
+        btn_save_custom.setMinimumHeight(56)
+        btn_save_custom.clicked.connect(self._save_custom_theme)
+        right_panel.addWidget(btn_save_custom)
+        
+        right_panel.addStretch(1)
+        main_layout.addLayout(right_panel, 1)
+        
+        # Store current editing colors
+        self._editing_colors = {}
+        self._current_theme_id = None
+        
+        # Load themes
+        self._refresh_theme_list()
+        
+        return w
+    
+    def _refresh_theme_list(self):
+        """Reload the theme list."""
+        from services import themes as theme_svc
+        
+        self.theme_list.clear()
+        current = theme_svc.get_current_theme()
+        
+        for theme in theme_svc.list_themes():
+            name = theme["name"] if i18n.current_lang() == "es" else theme.get("name_en", theme["name"])
+            suffix = " ✨" if theme["is_custom"] else ""
+            item = QListWidgetItem(f"{name}{suffix}")
+            item.setData(Qt.UserRole, theme["id"])
+            item.setData(Qt.UserRole + 1, theme["colors"])
+            item.setData(Qt.UserRole + 2, theme["is_custom"])
+            self.theme_list.addItem(item)
+            
+            if theme["id"] == current:
+                item.setSelected(True)
+                self._on_theme_selected(item)
+    
+    def _on_theme_selected(self, item):
+        """Handle theme selection."""
+        theme_id = item.data(Qt.UserRole)
+        colors = item.data(Qt.UserRole + 1)
+        is_custom = item.data(Qt.UserRole + 2)
+        
+        self._current_theme_id = theme_id
+        self._editing_colors = colors.copy()
+        
+        # Update preview boxes
+        for key, box in self.color_previews.items():
+            color = colors.get(key, "#333333")
+            box.setStyleSheet(f"border-radius: 12px; background: {color};")
+        
+        # Update name field for custom themes
+        if is_custom:
+            self.theme_name_edit.setText(colors.get("name", theme_id))
+        else:
+            self.theme_name_edit.setText("")
+    
+    def _pick_color(self, key: str):
+        """Open color picker for a specific color key."""
+        from PySide6.QtWidgets import QColorDialog
+        from PySide6.QtGui import QColor
+        
+        current = self._editing_colors.get(key, "#333333")
+        color = QColorDialog.getColor(QColor(current), self, i18n.t("color_accent") or "Seleccionar color")
+        
+        if color.isValid():
+            hex_color = color.name()
+            self._editing_colors[key] = hex_color
+            if key in self.color_previews:
+                self.color_previews[key].setStyleSheet(f"border-radius: 12px; background: {hex_color};")
+    
+    def _apply_theme(self):
+        """Apply the selected theme with a loading indicator."""
+        
+        if not self._current_theme_id:
+            self._toast(i18n.t("theme_select") or "Selecciona un tema.", level="warning")
+            return
+            
+        self.loading_overlay.show_event()
+        # Use QTimer to allow UI to render the overlay before blocking for QSS apply
+        QTimer.singleShot(100, self._do_apply_theme)
+
+    def _do_apply_theme(self):
+        from services import themes as theme_svc
+        from PySide6.QtWidgets import QApplication
+        
+        app = QApplication.instance()
+        if theme_svc.apply_theme(app, self._current_theme_id):
+            self._toast(i18n.t("theme_applied") or "Tema aplicado.", level="success")
+        else:
+            self._toast("Error applying theme.", level="error")
+            
+        self.loading_overlay.hide()
+        # Refresh current tab UI if needed (some objects might need manual refresh)
+        self.style().unpolish(self)
+        self.style().polish(self)
+        # Update logo colors to match the new theme
+        self._update_logo()
+    
+    def _new_theme(self):
+        """Start creating a new custom theme based on current."""
+        from services import themes as theme_svc
+        
+        # Start with dark theme as base
+        base = theme_svc.get_theme("dark")
+        if base:
+            self._editing_colors = base.copy()
+            for key, box in self.color_previews.items():
+                color = self._editing_colors.get(key, "#333333")
+                box.setStyleSheet(f"border-radius: 12px; background: {color};")
+        
+        self._current_theme_id = None
+        self.theme_name_edit.setText("")
+        self.theme_name_edit.setFocus()
+        self._toast(i18n.t("theme_new") or "Personaliza los colores y guarda.", level="info")
+    
+    def _save_custom_theme(self):
+        """Save the current colors as a custom theme."""
+        from services import themes as theme_svc
+        
+        name = self.theme_name_edit.text().strip()
+        if not name:
+            self._toast(i18n.t("theme_name_required") or "Ingresa un nombre.", level="warning")
+            return
+        
+        # Create theme ID from name
+        theme_id = name.lower().replace(" ", "_")[:20]
+        
+        # Save colors with name
+        colors = self._editing_colors.copy()
+        colors["name"] = name
+        colors["name_en"] = name
+        
+        theme_svc.save_custom_theme(theme_id, colors)
+        self._toast(i18n.t("theme_saved") or "Tema guardado.", level="success")
+        self._refresh_theme_list()
+    
+    def _delete_theme(self):
+        """Delete the selected custom theme."""
+        from services import themes as theme_svc
+        
+        item = self.theme_list.currentItem()
+        if not item:
+            self._toast(i18n.t("theme_select") or "Selecciona un tema.", level="warning")
+            return
+        
+        is_custom = item.data(Qt.UserRole + 2)
+        if not is_custom:
+            self._toast(i18n.t("theme_cannot_delete") or "No se puede eliminar.", level="warning")
+            return
+        
+        theme_id = item.data(Qt.UserRole)
+        if QMessageBox.question(
+            self,
+            i18n.t("tab_themes") or "Temas",
+            i18n.t("theme_confirm_delete") or "¿Eliminar tema?"
+        ) == QMessageBox.Yes:
+            theme_svc.delete_custom_theme(theme_id)
+            self._toast(i18n.t("theme_deleted") or "Tema eliminado.", level="success")
+            self._refresh_theme_list()
+
     # ---------- System
     def _tab_system(self) -> QWidget:
         w = QWidget()
-        f = QFormLayout(w)
-        row = QHBoxLayout()
+        main_layout = QVBoxLayout(w)
+        main_layout.setSpacing(12)
+        main_layout.setContentsMargins(12, 12, 12, 12)
+        
+        top_container = QHBoxLayout()
+        top_container.setSpacing(16)
+        
+        wifi_frame = QFrame()
+        wifi_frame.setObjectName("SystemCard")
+        wifi_frame.setStyleSheet("""
+            QFrame#SystemCard {
+                border-radius: 10px;
+            }
+        """)
+        wifi_layout = QVBoxLayout(wifi_frame)
+        wifi_layout.setSpacing(8)
+        wifi_layout.setContentsMargins(12, 12, 12, 12)
+        
+        wifi_icon = get_icon_char("network-wired") or "🌐"
+        wifi_title = QLabel(f"{wifi_icon}  {i18n.t('sys_wifi_config')}")
+        wifi_title.setObjectName("SectionTitleSmall")
+        wifi_title.setStyleSheet("font-size: 13px; font-weight: 700;")
+        wifi_layout.addWidget(wifi_title)
+        
+        # SSID row
+        ssid_row = QHBoxLayout()
+        ssid_row.setSpacing(6)
         self.ssid_combo = QComboBox()
-        btn_scan = QPushButton(
-            i18n.t("scan_usb_printers").replace("impresoras USB", "redes")
-        )
+        self.ssid_combo.setMinimumHeight(32)
+        btn_scan = QPushButton(i18n.t("sys_scan"))
+        btn_scan.setMinimumSize(90, 32)
+        btn_scan.setToolTip(i18n.t("sys_scan_wifi_tooltip"))
         btn_scan.clicked.connect(self._scan_wifi)
-        row.addWidget(self.ssid_combo)
-        row.addWidget(btn_scan)
+        ssid_row.addWidget(self.ssid_combo, 1)
+        ssid_row.addWidget(btn_scan)
+        wifi_layout.addLayout(ssid_row)
+        
+        # Password
         self.wifi_pass = QLineEdit()
         self.wifi_pass.setEchoMode(QLineEdit.Password)
-        self.wifi_pass.setPlaceholderText(
-            i18n.t("password").replace(":", "")
-        )
+        self.wifi_pass.setPlaceholderText(i18n.t("sys_net_password"))
+        self.wifi_pass.setMinimumHeight(32)
+        wifi_layout.addWidget(self.wifi_pass)
+        
+        # Connect button
         btn_conn = QPushButton(i18n.t("connect_wifi"))
+        btn_conn.setMinimumHeight(32)
         btn_conn.clicked.connect(self._connect_wifi)
+        wifi_layout.addWidget(btn_conn)
+        
+        # Status row
+        status_row = QHBoxLayout()
+        status_row.setSpacing(6)
+        status_lbl = QLabel(i18n.t("sys_status"))
+        status_lbl.setStyleSheet("font-size: 11px;")
         self.wifi_state = QLabel("(—)")
-        btn_state = QPushButton(i18n.t("update_status"))
+        self.wifi_state.setStyleSheet("font-weight: 600; font-size: 11px;")
+        self.wifi_state.setProperty("role", "success")
+        btn_state = QPushButton(i18n.t("sys_update"))
+        btn_state.setMinimumSize(90, 28)
+        btn_state.setToolTip(i18n.t("sys_update_tooltip"))
         btn_state.clicked.connect(self._refresh_wifi)
-        btn_reboot = QPushButton(i18n.t("reboot"))
+        status_row.addWidget(status_lbl)
+        status_row.addWidget(self.wifi_state, 1)
+        status_row.addWidget(btn_state)
+        wifi_layout.addLayout(status_row)
+        
+        # Power buttons row
+        power_row = QHBoxLayout()
+        power_row.setSpacing(6)
+        btn_reboot = QPushButton(i18n.t("reboot") or "Reiniciar")
+        btn_reboot.setMinimumHeight(28)
         btn_reboot.clicked.connect(self._confirm_reboot)
-        btn_power = QPushButton(i18n.t("poweroff"))
+        btn_power = QPushButton(i18n.t("poweroff") or "Apagar")
+        btn_power.setMinimumHeight(28)
         btn_power.clicked.connect(self._confirm_poweroff)
-        f.addRow(i18n.t("wifi_ssid"), row)
-        f.addRow(i18n.t("password"), self.wifi_pass)
-        f.addRow(btn_conn)
-        f.addRow(i18n.t("status"), self.wifi_state)
-        f.addRow(btn_state)
-        f.addRow(btn_reboot, btn_power)
-
+        power_row.addWidget(btn_reboot)
+        power_row.addWidget(btn_power)
+        wifi_layout.addLayout(power_row)
+        
+        wifi_layout.addStretch()
         self.wifi_pass.installEventFilter(self._osk_filter)
+        
+        top_container.addWidget(wifi_frame, 1)
+        
+        email_frame = QFrame()
+        email_frame.setObjectName("SystemCard")
+        email_frame.setStyleSheet("""
+            QFrame#SystemCard {
+                border-radius: 10px;
+            }
+        """)
+        email_layout = QVBoxLayout(email_frame)
+        email_layout.setSpacing(8)
+        email_layout.setContentsMargins(12, 12, 12, 12)
+        
+        email_icon = get_icon_char("envelope") or "📧"
+        email_title = QLabel(f"{email_icon}  {i18n.t('sys_gmail_config')}")
+        email_title.setObjectName("SectionTitleSmall")
+        email_title.setStyleSheet("font-size: 13px; font-weight: 700;")
+        
+        # Gmail user
+        user_lbl = QLabel(i18n.t("sys_gmail_account"))
+        user_lbl.setStyleSheet("font-size: 11px;")
+        email_layout.addWidget(user_lbl)
+        
+        self.gmail_user = QLineEdit()
+        self.gmail_user.setPlaceholderText(i18n.t("sys_gmail_placeholder"))
+        self.gmail_user.setMinimumHeight(32)
+        email_layout.addWidget(self.gmail_user)
+        
+        # Gmail password
+        pass_lbl = QLabel(i18n.t("sys_gmail_app_pass"))
+        pass_lbl.setStyleSheet("font-size: 11px;")
+        email_layout.addWidget(pass_lbl)
+        
+        self.gmail_pass = QLineEdit()
+        self.gmail_pass.setEchoMode(QLineEdit.Password)
+        self.gmail_pass.setPlaceholderText(i18n.t("sys_gmail_pass_placeholder"))
+        self.gmail_pass.setMinimumHeight(32)
+        email_layout.addWidget(self.gmail_pass)
+        
+        # Save button
+        save_icon = get_icon_char("floppy-disk") or "💾"
+        btn_save_email = QPushButton(f"{save_icon} {i18n.t('save')}")
+        btn_save_email.setMinimumHeight(32)
+        btn_save_email.setProperty("role", "primary")
+        btn_save_email.clicked.connect(self._save_gmail_config)
+        email_layout.addWidget(btn_save_email)
+        
+        # Note
+        note = QLabel(i18n.t("sys_gmail_note"))
+        note.setStyleSheet("font-size: 10px;")
+        note.setWordWrap(True)
+        email_layout.addWidget(note)
+        
+        email_layout.addStretch()
+        
+        self.gmail_user.installEventFilter(self._osk_filter)
+        self.gmail_pass.installEventFilter(self._osk_filter)
+        
+        top_container.addWidget(email_frame, 1)
+        
+        main_layout.addLayout(top_container, 1)
+        
+        separator = QFrame()
+        separator.setFrameShape(QFrame.HLine)
+        separator.setStyleSheet("max-height: 1px; border: 1px solid palette(mid);")
+        main_layout.addWidget(separator)
+        
+        bottom_container = QHBoxLayout()
+        bottom_container.setSpacing(16)
+        
+        # === Public IP and Remote Support (60-70% left) ===
+        ip_frame = QFrame()
+        ip_frame.setObjectName("SystemCard")
+        ip_frame.setStyleSheet("""
+            QFrame#SystemCard {
+                border-radius: 10px;
+            }
+        """)
+        ip_layout = QVBoxLayout(ip_frame)
+        ip_layout.setSpacing(8)
+        ip_layout.setContentsMargins(12, 12, 12, 12)
+        
+        server_icon = get_icon_char("server") or "🖥"
+        ip_title = QLabel(f"{server_icon}  {i18n.t('sys_connectivity')}")
+        ip_title.setObjectName("SectionTitleSmall")
+        ip_title.setStyleSheet("font-size: 13px; font-weight: 700;")
+        ip_layout.addWidget(ip_title)
+        
+        # Public IP row
+        ip_row = QHBoxLayout()
+        ip_row.setSpacing(8)
+        ip_lbl = QLabel(i18n.t("public_ip") or "IP Pública:")
+        ip_lbl.setStyleSheet("font-size: 11px;")
+        self.lbl_public_ip = QLabel("—")
+        self.lbl_public_ip.setStyleSheet("font-weight: 700; font-size: 14px;")
+        self.lbl_public_ip.setProperty("role", "success")
+        self.lbl_public_ip.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        self.btn_refresh_ip = QPushButton(i18n.t("prod_refresh") or "Actualizar")
+        self.btn_refresh_ip.setMinimumSize(90, 28)
+        self.btn_refresh_ip.setToolTip(i18n.t("update_status") or "Actualizar IP")
+        self.btn_refresh_ip.clicked.connect(self._refresh_public_ip)
+        ip_row.addWidget(ip_lbl)
+        ip_row.addWidget(self.lbl_public_ip, 1)
+        ip_row.addWidget(self.btn_refresh_ip)
+        ip_layout.addLayout(ip_row)
+        
+        # SSH note
+        ssh_note = QLabel(i18n.t("ssh_support_note") or "Para soporte remoto, usa SSH con esta IP.")
+        ssh_note.setStyleSheet("font-size: 10px;")
+        ssh_note.setWordWrap(True)
+        ip_layout.addWidget(ssh_note)
+        
+        ip_layout.addStretch()
+        
+        bottom_container.addWidget(ip_frame, 2)  # 60-70% del espacio
+        
+        # === Factory Reset (30-40% right) ===
+        reset_frame = QFrame()
+        reset_frame.setObjectName("SystemCard")
+        reset_frame.setStyleSheet("""
+            QFrame#SystemCard {
+                border-radius: 10px;
+            }
+        """)
+        reset_layout = QVBoxLayout(reset_frame)
+        reset_layout.setSpacing(8)
+        reset_layout.setContentsMargins(12, 12, 12, 12)
+        
+        gear_icon = get_icon_char("gears") or "⚙️"
+        reset_title = QLabel(f"{gear_icon}  {i18n.t('sys_system')}")
+        reset_title.setObjectName("SectionTitleSmall")
+        reset_title.setStyleSheet("font-size: 13px; font-weight: 700;")
+        reset_layout.addWidget(reset_title)
+        
+        reset_layout.addStretch()
+        
+        # Factory Reset button (smaller, aligned bottom right)
+        btn_factory_reset = QPushButton(i18n.t("factory_reset") or "Restaurar de Fábrica")
+        btn_factory_reset.setMinimumHeight(48)
+        btn_factory_reset.setProperty("role", "danger")
+        btn_factory_reset.setStyleSheet("""
+            QPushButton {
+                font-weight: 600;
+                font-size: 11px;
+            }
+        """)
+        btn_factory_reset.clicked.connect(self._confirm_factory_reset)
+        reset_layout.addWidget(btn_factory_reset)
+        
+        factory_note = QLabel(i18n.t("factory_reset_warning") or "⚠ Elimina todos los datos")
+        factory_note.setStyleSheet("font-size: 9px;")
+        factory_note.setProperty("role", "danger")
+        factory_note.setAlignment(Qt.AlignCenter)
+        reset_layout.addWidget(factory_note)
+        
+        bottom_container.addWidget(reset_frame, 1)  # 30-40% del espacio
+        
+        main_layout.addLayout(bottom_container)
+        
+        self._load_gmail_config()
+
+        # Version badge at the bottom
+        version_row = QHBoxLayout()
+        version_row.addStretch()
+        from services import themes as theme_svc
+        colors = theme_svc.get_theme(theme_svc.get_current_theme()) or {}
+        success_color = colors.get("success", "#10b981")
+        version_lbl = QLabel(i18n.t("version_beta"))
+        version_lbl.setObjectName("VersionBadge")
+        version_lbl.setAlignment(Qt.AlignCenter)
+        version_lbl.setStyleSheet(f"""
+            QLabel#VersionBadge {{
+                color: {success_color};
+                font-size: 12px;
+                font-weight: 700;
+                letter-spacing: 2px;
+                padding: 6px 18px;
+                border: 2px solid {success_color};
+                border-radius: 12px;
+                background: transparent;
+            }}
+        """)
+        version_row.addWidget(version_lbl)
+        version_row.addStretch()
+        main_layout.addLayout(version_row)
+
         return w
+    
+    def _confirm_factory_reset(self):
+        """Factory reset with double confirmation (yes/no + type RESET) and OSK."""
+        # --- First confirmation ---
+        ans = QMessageBox.warning(
+            self,
+            i18n.t("factory_reset"),
+            i18n.t("factory_reset_confirm"),
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+        if ans != QMessageBox.Yes:
+            return
+
+        # --- Second confirmation: type RESET in a custom dialog w/ OSK ---
+        dlg = QDialog(self)
+        dlg.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
+        dlg.setModal(True)
+        dlg.setMinimumWidth(420)
+        dlg.setStyleSheet("""
+            QDialog { border: 2px solid #ef4444; border-radius: 14px; padding: 18px; }
+            QLabel#ResetTitle { font-size: 16px; font-weight: 700; color: #ef4444; }
+        """)
+
+        lay = QVBoxLayout(dlg)
+        lay.setSpacing(14)
+        lay.setContentsMargins(20, 20, 20, 20)
+
+        title = QLabel(f"⚠  {i18n.t('factory_reset')}")
+        title.setObjectName("ResetTitle")
+        title.setAlignment(Qt.AlignCenter)
+        lay.addWidget(title)
+
+        lbl = QLabel(i18n.t("factory_reset_type_confirm"))
+        lbl.setStyleSheet("font-size: 13px;")
+        lbl.setAlignment(Qt.AlignCenter)
+        lay.addWidget(lbl)
+
+        ed_confirm = QLineEdit()
+        ed_confirm.setPlaceholderText("RESET")
+        ed_confirm.setMinimumHeight(48)
+        ed_confirm.setAlignment(Qt.AlignCenter)
+        ed_confirm.setStyleSheet("font-size: 16px; font-weight: 700; letter-spacing: 4px;")
+        # Install OSK filter for touchscreen support
+        ed_confirm.installEventFilter(self._osk_filter)
+        lay.addWidget(ed_confirm)
+
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(12)
+
+        btn_cancel = QPushButton(i18n.t("cancel") or "Cancelar")
+        btn_cancel.setMinimumHeight(48)
+        btn_cancel.clicked.connect(dlg.reject)
+
+        btn_ok = QPushButton(i18n.t("factory_reset"))
+        btn_ok.setMinimumHeight(48)
+        btn_ok.setProperty("role", "danger")
+        btn_ok.setStyleSheet("font-weight: 700;")
+
+        def _try_accept():
+            if ed_confirm.text().strip().upper() == "RESET":
+                dlg.accept()
+            else:
+                ed_confirm.setStyleSheet(
+                    "font-size: 16px; font-weight: 700; letter-spacing: 4px; border: 2px solid #ef4444;"
+                )
+
+        btn_ok.clicked.connect(_try_accept)
+
+        btn_row.addWidget(btn_cancel)
+        btn_row.addWidget(btn_ok)
+        lay.addLayout(btn_row)
+
+        if dlg.exec() != QDialog.Accepted:
+            return
+
+        # --- Execute factory reset ---
+        try:
+            # 1. Delete custom themes
+            root_dir = Path(__file__).resolve().parent.parent.parent.parent
+            themes_dir = root_dir / "config" / "themes"
+            if themes_dir.exists():
+                import shutil
+                shutil.rmtree(themes_dir, ignore_errors=True)
+
+            # 2. Reset config.yaml to factory defaults
+            reset_config_to_defaults()
+
+            # 3. Wipe and recreate database
+            from core.db import factory_reset
+            ok = factory_reset()
+            if not ok:
+                raise RuntimeError("factory_reset() returned False")
+
+            # 4. Show success and restart app
+            QMessageBox.information(
+                self,
+                i18n.t("factory_reset"),
+                i18n.t("factory_reset_success"),
+            )
+
+            # Restart app (same mechanism as _exit_to_kiosk)
+            # Restart app — close admin to return to kiosk
+            
+            # Clear UI for Products tab
+            if hasattr(self, "table_products"):
+                self.table_products.setRowCount(0)
+            if hasattr(self, "btn_category_toggle"):
+                self.btn_category_toggle.setEnabled(False)
+            if hasattr(self, "cat_combo"):
+                self.cat_combo.clear()
+            
+            self.close()
+
+        except Exception as exc:
+            QMessageBox.critical(
+                self,
+                i18n.t("factory_reset"),
+                i18n.t("factory_reset_error", err=str(exc)),
+            )
+    
+    def _refresh_public_ip(self):
+        """Gets and displays the system's public IP address (thread-safe)."""
+        if hasattr(self, "btn_refresh_ip"):
+            self.btn_refresh_ip.setEnabled(False)
+
+        def _on_ip_fetched(text, style):
+            if hasattr(self, "lbl_public_ip"):
+                self.lbl_public_ip.setText(text)
+                if style:
+                    self.lbl_public_ip.setStyleSheet(style)
+            if hasattr(self, "btn_refresh_ip"):
+                self.btn_refresh_ip.setEnabled(True)
+
+        if hasattr(self, "lbl_public_ip"):
+            self.lbl_public_ip.setText(i18n.t("getting_ip") if i18n.t("getting_ip") != "getting_ip" else "Obteniendo...")
+            self.lbl_public_ip.setStyleSheet("color: #10b981; font-weight: 700; font-size: 14px;")
+
+        self._ip_thread = _IPFetcherThread(self)
+        self._ip_thread.finished.connect(_on_ip_fetched)
+        self._ip_thread.start()
+    
+    def _load_gmail_config(self):
+        """Carga la configuración de Gmail desde config.yaml"""
+        cfg = load_config()
+        email_cfg = cfg.get("notifications", {}).get("email", {})
+        
+        default_gmail_user = "tottem.reports@gmail.com"
+        
+        gmail_user = email_cfg.get("gmail_user", "")
+        self.gmail_user.setText(gmail_user or default_gmail_user)
+    
+    def _save_gmail_config(self):
+        """Guarda la configuración de Gmail en config.yaml"""
+        gmail_user = self.gmail_user.text().strip()
+        gmail_pass = self.gmail_pass.text().strip()
+        
+        if gmail_user and not gmail_user.endswith("@gmail.com"):
+            QMessageBox.warning(
+                self,
+                i18n.t("email_config_title") or "Configuración de Email",
+                i18n.t("email_config_invalid") or "Por favor ingresa una cuenta de Gmail válida (debe terminar en @gmail.com)"
+            )
+            return
+        
+        if not gmail_user and gmail_pass:
+            QMessageBox.warning(
+                self,
+                i18n.t("email_config_title") or "Configuración de Email",
+                i18n.t("email_config_empty") or "Por favor ingresa una cuenta de Gmail"
+            )
+            return
+        
+        cfg = load_config()
+        if "notifications" not in cfg:
+            cfg["notifications"] = {}
+        if "email" not in cfg["notifications"]:
+            cfg["notifications"]["email"] = {}
+        
+        cfg["notifications"]["email"]["gmail_user"] = gmail_user
+        if gmail_pass:
+            cfg["notifications"]["email"]["gmail_pass"] = gmail_pass
+        
+        save_config(cfg)
+        
+        QMessageBox.information(
+            self,
+            i18n.t("email_config_title") or "Configuración de Email",
+            i18n.t("email_config_saved") or "Configuración de Gmail guardada correctamente."
+        )
+        
+        self.gmail_pass.clear()
+
 
     def _scan_wifi(self):
         nets = wifi_list()
@@ -1406,80 +3305,31 @@ class AdminWindow(QMainWindow):
             poweroff()
 
     def _exit_to_kiosk(self):
-        env = os.environ.copy()
-        cmd = [sys.executable, "-m", "cli", "run-kiosk"]
-        try:
-            subprocess.Popen(
-                cmd,
-                cwd=str(ROOT),
-                env=env,
-            )
-        except Exception as e:
-            QMessageBox.critical(self, "POS", f"No se pudo abrir caja:\n{e}")
-            return
-
-        QApplication.instance().quit()
+        self.close()
 
     # ---------- Language toggle ----------
     def _toggle_lang(self):
-        # Cambiar idioma global
         i18n.toggle()
 
-        # Cambiar textos de la barra superior
         self.setWindowTitle(i18n.t("admin_title"))
-        self.lang_btn.setText(i18n.t("lang"))
+        self.lang_btn.setText(i18n.lang_switch_label())
+        self.title_lbl.setText(f"{get_icon_char('gear') or '⚙'}  " + (i18n.t("admin_title") or "Administración"))
+        self.btn_close.setText(f"{get_icon_char('arrow-left') or '←'}  " + (i18n.t("exit") or "Salir"))
 
-        # --- Actualizar los textos de las pestañas ---
-        # Indices fijos según __init__
-        self.tabs.setTabText(0, i18n.t("tab_security") or "Seguridad")
-        self.tabs.setTabText(1, i18n.t("tab_devices") or "Dispositivos")
-        self.tabs.setTabText(2, i18n.t("tab_store") or "Tienda")
-        self.tabs.setTabText(3, i18n.t("tab_products") or "Productos")
-        self.tabs.setTabText(4, i18n.t("tab_shifts") or "Turnos")
-        self.tabs.setTabText(5, i18n.t("tab_reports") or "Reportes")
-        self.tabs.setTabText(6, i18n.t("tab_system") or "Sistema")
-
-        # Productos – actualizar textos visibles
-        if hasattr(self, "tbl"):
-            self.tbl.setHorizontalHeaderLabels(
-                [
-                    i18n.t("prod_id"),
-                    i18n.t("prod_name"),
-                    i18n.t("prod_price"),
-                    i18n.t("prod_active"),
-                    i18n.t("prod_unit"),
-                    i18n.t("prod_allow_partial"),
-                    i18n.t("category") or "Categoría",
-                ]
-            )
-
-        if hasattr(self, "chk_enable_categories"):
-            self.chk_enable_categories.setText(
-                i18n.t("enable_categories") or "Habilitar Categorías"
-            )
-
-        # Empleados
-        if hasattr(self, "tbl_employees"):
-            self.tbl_employees.setHorizontalHeaderLabels(
-                [
-                    "ID",
-                    i18n.t("emp_no") or "No. empleado",
-                    i18n.t("emp_name") or "Nombre completo",
-                    i18n.t("emp_phone") or "Contacto",
-                    i18n.t("emp_active") or "Activo",
-                ]
-            )
-
-        # Reportes: placeholder correos
-        if hasattr(self, "ed_emails"):
-            self.ed_emails.setPlaceholderText(
-                i18n.t("emails_placeholder")
-                or "correo1@ejemplo.com, correo2@ejemplo.com"
-            )
-
-        # Turno actual / lista de turnos
+        current_idx = self.tabs.currentIndex()
+        
+        self.tabs.clear()
+        
+        self.tabs.addTab(self._tab_security(), f"{get_icon_char('lock') or '🔐'}  " + i18n.t("tab_security"))
+        self.tabs.addTab(self._tab_devices(), f"{get_icon_char('print') or '🖨'}  " + i18n.t("tab_devices"))
+        self.tabs.addTab(self._tab_store(), f"{get_icon_char('store') or '🏪'}  " + i18n.t("tab_store"))
+        self.tabs.addTab(self._tab_products(), f"{get_icon_char('box') or '📦'}  " + i18n.t("tab_products"))
+        self.tabs.addTab(self._tab_shifts(), f"{get_icon_char('chart-bar') or '📊'}  " + (i18n.t("tab_shifts") or "Turnos"))
+        self.tabs.addTab(self._tab_tickets(), f"{get_icon_char('receipt') or '🧾'}  " + (i18n.t("tickets") if i18n.t("tickets") != "tickets" else "Tickets"))
+        self.tabs.addTab(self._tab_reports(), f"{get_icon_char('chart-line') or '📈'}  " + i18n.t("tab_reports"))
+        self.tabs.addTab(self._tab_themes(), f"{get_icon_char('palette') or '🎨'}  " + i18n.t("tab_themes"))
+        self.tabs.addTab(self._tab_system(), f"{get_icon_char('computer') or '💻'}  " + i18n.t("tab_system"))
+        
+        self.tabs.setCurrentIndex(current_idx)
         if hasattr(self, "lbl_shift"):
             self.lbl_shift.setText(self._shift_label_text())
-        if hasattr(self, "list_shifts"):
-            self._reload_week_shifts()
-

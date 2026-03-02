@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-# services/receipts.py — Renderiza texto de ticket (ESC/POS)
 
 from __future__ import annotations
 from typing import Iterable, Optional
@@ -18,10 +17,20 @@ def _load_cfg() -> dict:
         return {}
 
 
-def render_ticket(items: Iterable[CartItem], *, paid_cents: Optional[int] = None, change_cents: Optional[int] = None) -> str:
+def render_ticket(
+    items: Iterable[CartItem], 
+    *, 
+    paid_cents: Optional[int] = None, 
+    change_cents: Optional[int] = None,
+    ticket_number: Optional[int] = None,
+    timestamp: Optional[str] = None,
+    served_by: Optional[str] = None,
+    payment_method: Optional[str] = None
+) -> str:
     """
     Devuelve un bloque de texto listo para imprimir en ESC/POS.
     Si se incluyen paid_cents y change_cents, los muestra al final.
+    Si se incluyen ticket_number, timestamp, served_by, los muestra al inicio.
     """
     cfg = _load_cfg()
     store = cfg.get("store", {}) or {}
@@ -34,6 +43,13 @@ def render_ticket(items: Iterable[CartItem], *, paid_cents: Optional[int] = None
     else:
         out.append("Mi Tienda\n")
 
+    if ticket_number is not None:
+        out.append(f"\nTicket: {ticket_number}\n")
+    if served_by:
+        out.append(f"Cajero: {served_by}\n")
+    if timestamp:
+        out.append(f"Fecha: {timestamp}\n")
+    
     out.append("------------------------------\n")
     total = 0
     for it in items:
@@ -46,13 +62,17 @@ def render_ticket(items: Iterable[CartItem], *, paid_cents: Optional[int] = None
     out.append("------------------------------\n")
     out.append(f"TOTAL: $ {cents_to_money(total)}\n")
 
-    if paid_cents is not None:
-        out.append(f"Pago:  $ {cents_to_money(int(paid_cents))}\n")
-    if change_cents is not None:
-        out.append(f"Cambio:$ {cents_to_money(int(change_cents))}\n")
+    if payment_method == "card":
+        out.append("Metodo: Tarjeta\n")
+    else:
+        if paid_cents is not None and paid_cents > 0:
+            out.append(f"Pago:  $ {cents_to_money(int(paid_cents))}\n")
+        if change_cents is not None and change_cents > 0:
+            out.append(f"Cambio:$ {cents_to_money(int(change_cents))}\n")
 
     if foot:
         out.append("\n" + foot.rstrip() + "\n")
 
     return "".join(out)
+
 

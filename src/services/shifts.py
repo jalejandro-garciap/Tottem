@@ -1,5 +1,5 @@
 from __future__ import annotations
-import sqlite3
+from core.db import sqlite3
 from typing import Optional, Dict, Any, List
 from services.sales import connect
 
@@ -91,7 +91,32 @@ def shift_totals(shift_id: int) -> dict:
     cur.execute("SELECT COUNT(*) FROM ticket_item WHERE ticket_id IN (SELECT id FROM ticket WHERE shift_id=?);",
                 (int(shift_id),))
     items = int((cur.fetchone() or (0,))[0] or 0)
-    return {"tickets": tickets, "total": total, "items": items}
+    # Desglose por método de pago
+    cur.execute("""
+        SELECT
+            COALESCE(payment_method, 'cash') as pm,
+            COUNT(*) as cnt,
+            COALESCE(SUM(total), 0) as tot
+        FROM ticket WHERE shift_id=?
+        GROUP BY pm;
+    """, (int(shift_id),))
+    tickets_cash = 0
+    tickets_card = 0
+    total_cash = 0
+    total_card = 0
+    for r in cur.fetchall():
+        pm = r[0] or "cash"
+        if pm == "card":
+            tickets_card = int(r[1] or 0)
+            total_card = int(r[2] or 0)
+        else:
+            tickets_cash = int(r[1] or 0)
+            total_cash = int(r[2] or 0)
+    return {
+        "tickets": tickets, "total": total, "items": items,
+        "tickets_cash": tickets_cash, "total_cash": total_cash,
+        "tickets_card": tickets_card, "total_card": total_card,
+    }
 
 
 def list_shifts(limit: int = 50) -> List[dict]:

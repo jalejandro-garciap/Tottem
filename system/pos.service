@@ -1,39 +1,43 @@
 [Unit]
-Description=POS Local (kiosk - linuxfb)
-After=network-online.target
+Description=TOTTEM POS - Punto de Venta (linuxfb)
+After=network-online.target local-fs.target
 Wants=network-online.target
 
 [Service]
 Type=simple
-WorkingDirectory=/home/user/app
+# NOTA: Cambiar estas rutas según la instalación
+# El script setup_services.sh las actualiza automáticamente
+WorkingDirectory=/home/user/Tottem
 Environment=PYTHONUNBUFFERED=1
 Environment=QT_QPA_PLATFORM=linuxfb
 Environment=QT_QPA_FB_FORCE_FULLSCREEN=1
+Environment=QT_QPA_FONTDIR=/usr/share/fonts
+Environment=QT_LOGGING_RULES=*.debug=false
 
-# Ejecutar en la TTY1 (misma del framebuffer) para poder controlar cursor/clear
+# Ejecutar en TTY1 para control del framebuffer
 TTYPath=/dev/tty1
 StandardInput=tty
 TTYVHangup=yes
 
-# Apaga blink y cursor de la consola, limpia pantalla y cambia a TTY1 antes de lanzar
-ExecStartPre=/bin/sh -lc 'echo 0 > /sys/class/graphics/fbcon/cursor_blink || true'
-ExecStartPre=/bin/sh -lc "printf '\\033[?25l' > /dev/tty1 || true"    # hide cursor (ANSI)
-ExecStartPre=/bin/sh -lc 'chvt 1 && setterm -cursor off -blank 0 -powersave off -clear all </dev/tty1 || true'
+# Preparar la consola antes de iniciar
+ExecStartPre=/bin/sh -lc 'echo 0 > /sys/class/graphics/fbcon/cursor_blink 2>/dev/null || true'
+ExecStartPre=/bin/sh -lc "printf '\\033[?25l' > /dev/tty1 || true"
+ExecStartPre=/bin/sh -lc 'chvt 1 && setterm -cursor off -blank 0 -powersave off -clear all </dev/tty1 2>/dev/null || true'
 
-# Lanza el kiosk
-ExecStart=/home/user/app/.venv/bin/pos run-kiosk
+# Iniciar el kiosk
+ExecStart=/home/user/Tottem/.venv/bin/pos run-kiosk
 
-# Al salir, restaura cursor y blink
-ExecStopPost=/bin/sh -lc "printf '\\033[?25h' > /dev/tty1 || true"    # show cursor (ANSI)
-ExecStopPost=/bin/sh -lc 'echo 1 > /sys/class/graphics/fbcon/cursor_blink || true'
-ExecStopPost=/bin/sh -lc 'setterm -cursor on </dev/tty1 || true'
+# Restaurar la consola al salir
+ExecStopPost=/bin/sh -lc "printf '\\033[?25h' > /dev/tty1 || true"
+ExecStopPost=/bin/sh -lc 'echo 1 > /sys/class/graphics/fbcon/cursor_blink 2>/dev/null || true'
+ExecStopPost=/bin/sh -lc 'setterm -cursor on </dev/tty1 2>/dev/null || true'
 
 User=user
 Group=user
 Restart=on-failure
+RestartSec=5
 StandardOutput=journal
 StandardError=journal
 
 [Install]
 WantedBy=multi-user.target
-

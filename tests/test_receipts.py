@@ -75,3 +75,56 @@ def test_render_ticket_default_header_when_missing_config(monkeypatch, tmp_path)
     )
 
     assert txt == expected
+
+
+def test_render_ticket_cash_payment_shows_paid_and_change(monkeypatch, tmp_path):
+    """Cash payment shows Pago/Cambio lines."""
+    config_path = tmp_path / "config.yaml"
+    _write_config(tmp_path, header="Test", footer=None)
+    monkeypatch.setattr("services.receipts.CONFIG_PATH", config_path)
+
+    txt = render_ticket(
+        [CartItem(1, "Agua", 1500, 1, "pz")],
+        paid_cents=2000,
+        change_cents=500,
+        payment_method="cash",
+    )
+
+    assert "Pago:  $ 20.00" in txt
+    assert "Cambio:$ 5.00" in txt
+    assert "Metodo: Tarjeta" not in txt
+
+
+def test_render_ticket_card_payment_shows_method(monkeypatch, tmp_path):
+    """Card payment shows 'Metodo: Tarjeta' instead of Pago/Cambio."""
+    config_path = tmp_path / "config.yaml"
+    _write_config(tmp_path, header="Test", footer=None)
+    monkeypatch.setattr("services.receipts.CONFIG_PATH", config_path)
+
+    txt = render_ticket(
+        [CartItem(1, "Agua", 1500, 1, "pz")],
+        paid_cents=1500,
+        change_cents=0,
+        payment_method="card",
+    )
+
+    assert "Metodo: Tarjeta" in txt
+    assert "Pago:" not in txt
+    assert "Cambio:" not in txt
+
+
+def test_render_ticket_no_method_defaults_to_cash(monkeypatch, tmp_path):
+    """Omitting payment_method maintains backward compat (cash behavior)."""
+    config_path = tmp_path / "config.yaml"
+    _write_config(tmp_path, header="Test", footer=None)
+    monkeypatch.setattr("services.receipts.CONFIG_PATH", config_path)
+
+    txt = render_ticket(
+        [CartItem(1, "Agua", 1500, 1, "pz")],
+        paid_cents=2000,
+        change_cents=500,
+    )
+
+    assert "Pago:  $ 20.00" in txt
+    assert "Cambio:$ 5.00" in txt
+    assert "Metodo: Tarjeta" not in txt
