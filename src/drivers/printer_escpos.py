@@ -22,7 +22,8 @@ _RETRY_DELAY = 0.4  # seconds between retries
 
 def _load_cfg() -> dict:
     try:
-        return yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8")) or {}
+        raw = CONFIG_PATH.read_text(encoding="utf-8").replace("\r\n", "\n")
+        return yaml.safe_load(raw) or {}
     except Exception:
         return {}
 
