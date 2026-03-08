@@ -5,6 +5,7 @@ from PySide6.QtWidgets import (
     QHeaderView, QAbstractItemView, QSizePolicy, QDialog, QTextEdit,
     QCheckBox, QFrame, QScrollArea, QListWidget, QListWidgetItem,
     QDoubleSpinBox, QDateEdit, QApplication, QStackedLayout,
+    QColorDialog,
 )
 from PySide6.QtCore import Qt, QObject, QEvent, QTimer, QDate, QLocale, QSize, QThread, Signal
 from PySide6.QtGui import QPixmap, QImage, QPainter, QColor
@@ -372,6 +373,32 @@ class ProductDialog(QDialog):
         form.addRow(i18n.t("category") or "Categoría", self.ed_category)
         form.addRow("Ícono", self.combo_icon)
 
+        # Card color picker
+        self._card_color = (product.get("card_color") or "") if product else ""
+        color_row = QHBoxLayout()
+        color_row.setSpacing(12)
+
+        self.btn_pick_color = QPushButton(i18n.t("choose_color") or "Elegir color")
+        self.btn_pick_color.setMinimumHeight(56)
+        self.btn_pick_color.clicked.connect(self._pick_card_color)
+
+        self.btn_clear_color = QPushButton(i18n.t("clear_color") or "Sin color")
+        self.btn_clear_color.setMinimumHeight(56)
+        self.btn_clear_color.clicked.connect(self._clear_card_color)
+
+        self.lbl_color_preview = QLabel()
+        self.lbl_color_preview.setFixedSize(56, 56)
+        self.lbl_color_preview.setStyleSheet(
+            f"background: {self._card_color}; border: 2px solid palette(mid); border-radius: 8px;"
+            if self._card_color else
+            "background: transparent; border: 2px dashed palette(mid); border-radius: 8px;"
+        )
+
+        color_row.addWidget(self.btn_pick_color, 1)
+        color_row.addWidget(self.btn_clear_color)
+        color_row.addWidget(self.lbl_color_preview)
+        form.addRow(i18n.t("card_color") or "Color card", color_row)
+
         checks = QHBoxLayout()
         checks.setSpacing(24)
         checks.addWidget(self.cb_active)
@@ -400,6 +427,24 @@ class ProductDialog(QDialog):
         for w in (self.ed_name, self.ed_price, self.ed_unit, self.ed_category):
             w.installEventFilter(self._osk_filter)
 
+    def _pick_card_color(self):
+        """Abre el selector de color nativo."""
+        from PySide6.QtGui import QColor
+        initial = QColor(self._card_color) if self._card_color else QColor("#3b82f6")
+        color = QColorDialog.getColor(initial, self, i18n.t("choose_color") or "Elegir color")
+        if color.isValid():
+            self._card_color = color.name()  # e.g. "#3b82f6"
+            self.lbl_color_preview.setStyleSheet(
+                f"background: {self._card_color}; border: 2px solid palette(mid); border-radius: 8px;"
+            )
+
+    def _clear_card_color(self):
+        """Clear the selected card color."""
+        self._card_color = ""
+        self.lbl_color_preview.setStyleSheet(
+            "background: transparent; border: 2px dashed palette(mid); border-radius: 8px;"
+        )
+
     def data(self) -> dict | None:
         name = (self.ed_name.text() or "").strip()
         if not name:
@@ -421,6 +466,7 @@ class ProductDialog(QDialog):
             "allow_decimal": self.cb_partial.isChecked(),
             "category": category,
             "icon": icon,
+            "card_color": self._card_color or "",
         }
 
 
@@ -1170,19 +1216,37 @@ class AdminWindow(QMainWindow):
         top.setColumnStretch(1, 0)
         top.setColumnStretch(2, 1)
 
-        # ─── Tab Widget ───────────────────────────────────────────────────
+        # ─── Tab Widget (lazy loading for faster startup) ────────────────
         self.tabs = QTabWidget()
         self.tabs.setObjectName("AdminTabs")
         from ui.icon_helper import get_icon_char
-        self.tabs.addTab(self._tab_security(), f"{get_icon_char('lock') or '🔐'}  " + i18n.t("tab_security"))
-        self.tabs.addTab(self._tab_devices(), f"{get_icon_char('print') or '🖨'}  " + i18n.t("tab_devices"))
-        self.tabs.addTab(self._tab_store(), f"{get_icon_char('store') or '🏪'}  " + i18n.t("tab_store"))
-        self.tabs.addTab(self._tab_products(), f"{get_icon_char('box') or '📦'}  " + i18n.t("tab_products"))
-        self.tabs.addTab(self._tab_shifts(), f"{get_icon_char('chart-bar') or '📊'}  " + (i18n.t("tab_shifts") or "Turnos"))
-        self.tabs.addTab(self._tab_tickets(), f"{get_icon_char('receipt') or '🧾'}  " + (i18n.t("tickets") if i18n.t("tickets") != "tickets" else "Tickets"))
-        self.tabs.addTab(self._tab_reports(), f"{get_icon_char('chart-line') or '📈'}  " + i18n.t("tab_reports"))
-        self.tabs.addTab(self._tab_themes(), f"{get_icon_char('palette') or '🎨'}  " + i18n.t("tab_themes"))
-        self.tabs.addTab(self._tab_system(), f"{get_icon_char('computer') or '💻'}  " + i18n.t("tab_system"))
+
+        # Define tab specs: (builder_method, icon, label_key, label_fallback)
+        self._tab_specs = [
+            (self._tab_security, 'lock', "tab_security", "Seguridad"),
+            (self._tab_devices, 'print', "tab_devices", "Dispositivos"),
+            (self._tab_store, 'store', "tab_store", "Tienda"),
+            (self._tab_products, 'box', "tab_products", "Productos"),
+            (self._tab_shifts, 'chart-bar', "tab_shifts", "Turnos"),
+            (self._tab_tickets, 'receipt', "tickets", "Tickets"),
+            (self._tab_reports, 'chart-line', "tab_reports", "Reportes"),
+            (self._tab_themes, 'palette', "tab_themes", "Temas"),
+            (self._tab_system, 'computer', "tab_system", "Sistema"),
+        ]
+        self._tab_loaded = set()  # Track which tabs have been built
+
+        for idx, (builder, icon_name, key, fallback) in enumerate(self._tab_specs):
+            icon_ch = get_icon_char(icon_name) or '📋'
+            label = f"{icon_ch}  " + (i18n.t(key) or fallback)
+            if idx == 0:
+                # Build only the first tab immediately
+                self.tabs.addTab(builder(), label)
+                self._tab_loaded.add(0)
+            else:
+                # Add empty placeholder — built on first access
+                self.tabs.addTab(QWidget(), label)
+
+        self.tabs.currentChanged.connect(self._on_tab_changed)
 
         # ─── Main Container ───────────────────────────────────────────────
         wrap = QWidget()
@@ -1199,6 +1263,20 @@ class AdminWindow(QMainWindow):
     def resizeEvent(self, event):
         super().resizeEvent(event)
         self.toast_mgr.sync_geometry()
+
+    def _on_tab_changed(self, index: int):
+        """Lazy-build tab content on first access."""
+        if index in self._tab_loaded or index < 0 or index >= len(self._tab_specs):
+            return
+        builder = self._tab_specs[index][0]
+        real_widget = builder()
+        self.tabs.removeTab(index)
+        from ui.icon_helper import get_icon_char
+        icon_ch = get_icon_char(self._tab_specs[index][1]) or '📋'
+        label = f"{icon_ch}  " + (i18n.t(self._tab_specs[index][2]) or self._tab_specs[index][3])
+        self.tabs.insertTab(index, real_widget, label)
+        self.tabs.setCurrentIndex(index)
+        self._tab_loaded.add(index)
 
     def _update_logo(self):
         """Render the Tottem SVG logo with theme-aware color inversion."""
@@ -1658,7 +1736,7 @@ class AdminWindow(QMainWindow):
                     return
                 self._prod_save_in_progress = True
                 try:
-                    # create_product(*, name, price_money, unit, allow_decimal, active, category, icon)
+                    # create_product(*, name, price_money, unit, allow_decimal, active, category, icon, card_color)
                     create_product(
                         name=data["name"],
                         price_money=data["price"],  # ya está en centavos; el wrapper acepta int/float/str
@@ -1667,6 +1745,7 @@ class AdminWindow(QMainWindow):
                         active=data["active"],
                         category=data["category"],
                         icon=data.get("icon", ""),
+                        card_color=data.get("card_color", ""),
                     )
                 finally:
                     self._prod_save_in_progress = False
@@ -1689,7 +1768,7 @@ class AdminWindow(QMainWindow):
             data = dlg.data()
             if not data:
                 return
-            # update_product(product_id, *, name, price_money, unit, allow_decimal, active, category, icon)
+            # update_product(product_id, *, name, price_money, unit, allow_decimal, active, category, icon, card_color)
             update_product(
                 product_id=pid,
                 name=data["name"],
@@ -1699,6 +1778,7 @@ class AdminWindow(QMainWindow):
                 active=data["active"],
                 category=data["category"],
                 icon=data.get("icon", ""),
+                card_color=data.get("card_color", ""),
             )
             QMessageBox.information(self, i18n.t("tab_products"), i18n.t("prod_saved"))
             self._prod_refresh()
@@ -3318,17 +3398,20 @@ class AdminWindow(QMainWindow):
 
         current_idx = self.tabs.currentIndex()
         
+        # Rebuild tabs with lazy loading (only rebuild already-loaded tabs)
+        previously_loaded = set(self._tab_loaded)
+        self._tab_loaded.clear()
         self.tabs.clear()
         
-        self.tabs.addTab(self._tab_security(), f"{get_icon_char('lock') or '🔐'}  " + i18n.t("tab_security"))
-        self.tabs.addTab(self._tab_devices(), f"{get_icon_char('print') or '🖨'}  " + i18n.t("tab_devices"))
-        self.tabs.addTab(self._tab_store(), f"{get_icon_char('store') or '🏪'}  " + i18n.t("tab_store"))
-        self.tabs.addTab(self._tab_products(), f"{get_icon_char('box') or '📦'}  " + i18n.t("tab_products"))
-        self.tabs.addTab(self._tab_shifts(), f"{get_icon_char('chart-bar') or '📊'}  " + (i18n.t("tab_shifts") or "Turnos"))
-        self.tabs.addTab(self._tab_tickets(), f"{get_icon_char('receipt') or '🧾'}  " + (i18n.t("tickets") if i18n.t("tickets") != "tickets" else "Tickets"))
-        self.tabs.addTab(self._tab_reports(), f"{get_icon_char('chart-line') or '📈'}  " + i18n.t("tab_reports"))
-        self.tabs.addTab(self._tab_themes(), f"{get_icon_char('palette') or '🎨'}  " + i18n.t("tab_themes"))
-        self.tabs.addTab(self._tab_system(), f"{get_icon_char('computer') or '💻'}  " + i18n.t("tab_system"))
+        from ui.icon_helper import get_icon_char
+        for idx, (builder, icon_name, key, fallback) in enumerate(self._tab_specs):
+            icon_ch = get_icon_char(icon_name) or '📋'
+            label = f"{icon_ch}  " + (i18n.t(key) or fallback)
+            if idx in previously_loaded:
+                self.tabs.addTab(builder(), label)
+                self._tab_loaded.add(idx)
+            else:
+                self.tabs.addTab(QWidget(), label)
         
         self.tabs.setCurrentIndex(current_idx)
         if hasattr(self, "lbl_shift"):

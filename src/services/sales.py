@@ -51,7 +51,8 @@ def get_active_products() -> List[Dict[str, Any]]:
                    COALESCE(unit,'pz') AS unit,
                    COALESCE(allow_decimal,0) AS allow_decimal,
                    COALESCE(category,'General') AS category,
-                   COALESCE(icon,'') AS icon
+                   COALESCE(icon,'') AS icon,
+                   COALESCE(card_color,'') AS card_color
             FROM product
             WHERE active = 1
             ORDER BY name COLLATE NOCASE
@@ -65,7 +66,8 @@ def list_products(q: str = "", include_inactive: bool = True) -> List[Dict[str, 
              COALESCE(unit,'pz') AS unit,
              COALESCE(allow_decimal,0) AS allow_decimal,
              COALESCE(category,'General') AS category,
-             COALESCE(icon,'') AS icon
+             COALESCE(icon,'') AS icon,
+             COALESCE(card_color,'') AS card_color
       FROM product
       WHERE 1=1
     """
@@ -87,7 +89,8 @@ def list_products_by_category(q: str = "", category: str | None = None, include_
              COALESCE(unit,'pz') AS unit,
              COALESCE(allow_decimal,0) AS allow_decimal,
              COALESCE(category,'General') AS category,
-             COALESCE(icon,'') AS icon
+             COALESCE(icon,'') AS icon,
+             COALESCE(card_color,'') AS card_color
       FROM product
       WHERE 1=1
     """
@@ -121,24 +124,26 @@ def upsert_product(*,
                    allow_decimal: bool,
                    active: bool,
                    category: str,
-                   icon: str = "") -> int:
+                   icon: str = "",
+                   card_color: str = "") -> int:
     unit = (unit or "pz").strip()
     category = (category or "General").strip()
     icon = (icon or "").strip()
+    card_color = (card_color or "").strip() or None  # Store NULL if empty
     allow_decimal_i = 1 if allow_decimal else 0
     active_i = 1 if active else 0
     with connect() as c:
         if product_id:
             c.execute("""
                 UPDATE product
-                   SET name=?, price=?, unit=?, allow_decimal=?, active=?, category=?, icon=?
+                   SET name=?, price=?, unit=?, allow_decimal=?, active=?, category=?, icon=?, card_color=?
                  WHERE id=?
-            """, (name, price_cents, unit, allow_decimal_i, active_i, category, icon, product_id))
+            """, (name, price_cents, unit, allow_decimal_i, active_i, category, icon, card_color, product_id))
             return int(product_id)
         cur = c.execute("""
-            INSERT INTO product(name, price, unit, allow_decimal, active, category, icon)
-            VALUES(?,?,?,?,?,?,?)
-        """, (name, price_cents, unit, allow_decimal_i, active_i, category, icon))
+            INSERT INTO product(name, price, unit, allow_decimal, active, category, icon, card_color)
+            VALUES(?,?,?,?,?,?,?,?)
+        """, (name, price_cents, unit, allow_decimal_i, active_i, category, icon, card_color))
         return int(cur.lastrowid)
 
 
@@ -154,7 +159,8 @@ def get_product(product_id: int) -> Optional[Dict[str, Any]]:
                  COALESCE(unit,'pz') AS unit,
                  COALESCE(allow_decimal,0) AS allow_decimal,
                  COALESCE(category,'General') AS category,
-                 COALESCE(icon,'') AS icon
+                 COALESCE(icon,'') AS icon,
+                 COALESCE(card_color,'') AS card_color
             FROM product WHERE id=?
         """, (product_id,)).fetchone()
     return dict(r) if r else None

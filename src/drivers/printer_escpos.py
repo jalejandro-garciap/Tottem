@@ -2,6 +2,7 @@
 from __future__ import annotations
 from typing import Iterable, Callable
 from pathlib import Path
+import time
 import yaml
 
 import usb.core
@@ -14,6 +15,9 @@ from services.sales import CartItem
 
 ROOT = Path(__file__).resolve().parents[2]
 CONFIG_PATH = ROOT / "config" / "config.yaml"
+
+_MAX_RETRIES = 3
+_RETRY_DELAY = 0.4  # seconds between retries
 
 
 def _load_cfg() -> dict:
@@ -29,7 +33,7 @@ class EscposPrinter:
 
     - Lee VID/PID/interface/EPs de config/config.yaml.
     - Abre y cierra el dispositivo en CADA operación (no mantiene 'self.dev' abierto).
-    - Ejecuta la impresión en un solo intento para evitar impresiones duplicadas.
+    - Implementa reintentos automáticos para recuperarse de errores USB transitorios.
     """
 
     def __init__(self):
@@ -75,29 +79,52 @@ class EscposPrinter:
 
         return dev, out_ep
 
+    def _close_dev(self, dev: usb.core.Device | None):
+        """Libera la interfaz USB y los recursos del dispositivo de forma segura."""
+        if dev is None:
+            return
+        try:
+            usb.util.release_interface(dev, self.interface)
+        except Exception:
+            pass
+        try:
+            usb.util.dispose_resources(dev)
+        except Exception:
+            pass
+
     def _with_printer(self, fn: Callable[[Callable[[bytes], None]], None]):
         """
         Abre el dispositivo, ejecuta fn(write) y cierra al terminar.
+        Incluye reintentos automáticos para recuperarse de errores USB transitorios.
 
         fn: función que recibe 'write(data: bytes)' para enviar datos al printer.
-    """
-        dev = None
-        try:
-            dev, out_ep = self._open_dev()
+        """
+        last_err = None
+        for attempt in range(_MAX_RETRIES):
+            dev = None
+            try:
+                dev, out_ep = self._open_dev()
 
-            def write(data: bytes):
-                dev.write(out_ep, data, timeout=3000)
+                def write(data: bytes):
+                    dev.write(out_ep, data, timeout=3000)
 
-            fn(write)
-        except USBError as e:
-            print("[ERROR] USBError while printing:", e)
-            raise
-        finally:
-            if dev is not None:
-                try:
-                    usb.util.dispose_resources(dev)
-                except Exception:
-                    pass
+                fn(write)
+                return  # success
+            except USBError as e:
+                last_err = e
+                print(f"[WARN] USB attempt {attempt + 1}/{_MAX_RETRIES} failed: {e}")
+            except Exception as e:
+                last_err = e
+                print(f"[WARN] Printer attempt {attempt + 1}/{_MAX_RETRIES} failed: {e}")
+            finally:
+                self._close_dev(dev)
+
+            # Wait before retry
+            if attempt < _MAX_RETRIES - 1:
+                time.sleep(_RETRY_DELAY)
+
+        # All retries exhausted
+        raise RuntimeError(f"Printer operation failed after {_MAX_RETRIES} attempts: {last_err}")
 
     # ---------- ESC/POS helpers ----------
 
@@ -149,3 +176,41 @@ class EscposPrinter:
 
         self._with_printer(_do)
 
+    def print_and_open_drawer(self, text: str) -> tuple[bool, bool]:
+        """Imprime texto y abre el cajón en una sola sesión USB.
+        
+        Combina ambas operaciones para evitar problemas de reconexión USB
+        cuando se ejecutan print_text + open_drawer en secuencia rápida.
+        
+        El cajón se abre SIEMPRE, incluso si la impresión falla (e.g. sin papel).
+        
+        Returns:
+            (print_ok, drawer_ok) — tupla indicando si cada operación fue exitosa.
+        """
+        normalized = self._normalize_text(text)
+        results = {"print_ok": False, "drawer_ok": False}
+
+        def _do(write):
+            # --- Intentar imprimir (puede fallar por falta de papel) ---
+            try:
+                # ESC @ (init)
+                write(b"\x1b\x40")
+                write(normalized.encode("utf-8", errors="ignore"))
+                write(b"\n\n")
+                # corte parcial
+                write(b"\x1d\x56\x42\x00")
+                results["print_ok"] = True
+            except Exception as e:
+                print(f"[WARN] Print failed (paper out?): {e}")
+
+            # --- Siempre intentar abrir cajón ---
+            try:
+                time.sleep(0.15)
+                # ESC p m t1 t2  -> abrir cajón pin 0, 50ms on, 50ms off
+                write(b"\x1b\x70\x00\x32\x32")
+                results["drawer_ok"] = True
+            except Exception as e:
+                print(f"[WARN] Drawer open failed: {e}")
+
+        self._with_printer(_do)
+        return (results["print_ok"], results["drawer_ok"])

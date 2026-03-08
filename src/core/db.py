@@ -5,6 +5,7 @@ Supports SQLCipher (encrypted) with fallback to plain sqlite3 for development.
 from __future__ import annotations
 from pathlib import Path
 from datetime import datetime
+import threading
 
 # ─── Conditional import: prefer sqlcipher3, fall back to sqlite3 ─────────────
 try:
@@ -24,6 +25,9 @@ MIGRATIONS_DIR = ROOT / "migrations"
 
 SCHEMA_TABLE = "schema_migrations"
 
+# ─── Thread-local connection cache ───────────────────────────────────────────
+_local = threading.local()
+
 
 def _apply_key(conn) -> None:
     """Apply the encryption key derived from the Pi's hardware serial."""
@@ -38,10 +42,40 @@ def _apply_key(conn) -> None:
 
 
 def connect() -> sqlite3.Connection:
+    """Return a cached thread-local connection, or create one if needed.
+    
+    Caching avoids repeated PRAGMA key derivation which is expensive
+    on Raspberry Pi with SQLCipher (~200ms per connection).
+    """
+    conn = getattr(_local, 'conn', None)
+    if conn is not None:
+        try:
+            conn.execute("SELECT 1")
+            return conn
+        except Exception:
+            # Connection is stale/broken, discard it
+            try:
+                conn.close()
+            except Exception:
+                pass
+            _local.conn = None
+
     conn = sqlite3.connect(str(DB_PATH))
     _apply_key(conn)
     conn.row_factory = sqlite3.Row
+    _local.conn = conn
     return conn
+
+
+def close_cached() -> None:
+    """Close the cached connection for the current thread."""
+    conn = getattr(_local, 'conn', None)
+    if conn is not None:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        _local.conn = None
 
 
 def applied_migrations(conn: sqlite3.Connection) -> set[str]:
