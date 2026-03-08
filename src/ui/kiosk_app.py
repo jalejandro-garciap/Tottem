@@ -23,8 +23,11 @@ def run():
         sys.exit(99)
 
     # ─── Auto-migrate plain DB to encrypted if needed ─────────────────
-    from core.db import migrate_plain_to_encrypted
+    from core.db import migrate_plain_to_encrypted, ensure_migrated
     migrate_plain_to_encrypted()
+
+    # ─── Apply pending SQL migrations (e.g. new columns) ─────────────
+    ensure_migrated()
 
     app = QApplication(sys.argv)
 

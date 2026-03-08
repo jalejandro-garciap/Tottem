@@ -87,7 +87,11 @@ def applied_migrations(conn: sqlite3.Connection) -> set[str]:
 
 
 def ensure_migrated():
-    conn = connect()
+    """Run pending SQL migrations using a dedicated (non-cached) connection."""
+    # Use a fresh connection for migrations — not the cached one
+    conn = sqlite3.connect(str(DB_PATH))
+    _apply_key(conn)
+    conn.row_factory = sqlite3.Row
     done = applied_migrations(conn)
     files = sorted(p for p in MIGRATIONS_DIR.glob("*.sql"))
     for p in files:
@@ -102,6 +106,8 @@ def ensure_migrated():
                 (name, datetime.utcnow().isoformat()),
             )
     conn.close()
+    # Invalidate the cached connection so it picks up the new schema
+    close_cached()
 
 
 def migrate_plain_to_encrypted() -> bool:
