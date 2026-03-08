@@ -1268,15 +1268,20 @@ class AdminWindow(QMainWindow):
         """Lazy-build tab content on first access."""
         if index in self._tab_loaded or index < 0 or index >= len(self._tab_specs):
             return
+        # Mark as loaded FIRST to prevent re-entry
+        self._tab_loaded.add(index)
         builder = self._tab_specs[index][0]
         real_widget = builder()
+        # Block signals to prevent removeTab/insertTab from triggering
+        # another currentChanged → _on_tab_changed infinite loop
+        self.tabs.blockSignals(True)
         self.tabs.removeTab(index)
         from ui.icon_helper import get_icon_char
         icon_ch = get_icon_char(self._tab_specs[index][1]) or '📋'
         label = f"{icon_ch}  " + (i18n.t(self._tab_specs[index][2]) or self._tab_specs[index][3])
         self.tabs.insertTab(index, real_widget, label)
         self.tabs.setCurrentIndex(index)
-        self._tab_loaded.add(index)
+        self.tabs.blockSignals(False)
 
     def _update_logo(self):
         """Render the Tottem SVG logo with theme-aware color inversion."""
