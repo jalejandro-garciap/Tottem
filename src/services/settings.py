@@ -8,8 +8,9 @@ CONFIG_PATH = ROOT / "config" / "config.yaml"
 
 def load_config() -> Dict[str, Any]:
     if CONFIG_PATH.exists():
-        with CONFIG_PATH.open("r", encoding="utf-8") as f:
-            data = yaml.safe_load(f) or {}
+        # Read as text and normalize CRLF → LF to avoid PyYAML recursion bug on Python 3.13
+        raw = CONFIG_PATH.read_text(encoding="utf-8").replace("\r\n", "\n")
+        data = yaml.safe_load(raw) or {}
     else:
         data = {}
     if "ui" not in data or not isinstance(data["ui"], dict):

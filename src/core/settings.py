@@ -48,8 +48,8 @@ _cached: AppSettings | None = None
 def settings() -> AppSettings:
     global _cached
     if _cached is None:
-        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
-            data = yaml.safe_load(f) or {}
+        raw = CONFIG_PATH.read_text(encoding="utf-8").replace("\r\n", "\n")
+        data = yaml.safe_load(raw) or {}
         _cached = AppSettings.model_validate(data)
     return _cached
 

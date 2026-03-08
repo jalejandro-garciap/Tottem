@@ -1,0 +1,5 @@
+BEGIN;
+
+ALTER TABLE product ADD COLUMN card_color TEXT DEFAULT NULL;
+
+COMMIT;

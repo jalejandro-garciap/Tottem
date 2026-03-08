@@ -19,7 +19,8 @@ def get_product(product_id: int) -> Optional[Dict[str, Any]]:
     return _get_product_core(product_id)
 
 def create_product(*, name: str, price_money: str | float | int, unit: str,
-                   allow_decimal: bool, active: bool, category: str, icon: str = "") -> int:
+                   allow_decimal: bool, active: bool, category: str, icon: str = "",
+                   card_color: str = "") -> int:
     price_cents = money_to_cents(price_money)
     return _upsert_core(
         product_id=None,
@@ -30,10 +31,12 @@ def create_product(*, name: str, price_money: str | float | int, unit: str,
         active=active,
         category=category,
         icon=icon,
+        card_color=card_color,
     )
 
 def update_product(*, product_id: int, name: str, price_money: str | float | int, unit: str,
-                   allow_decimal: bool, active: bool, category: str, icon: str = "") -> int:
+                   allow_decimal: bool, active: bool, category: str, icon: str = "",
+                   card_color: str = "") -> int:
     price_cents = money_to_cents(price_money)
     return _upsert_core(
         product_id=product_id,
@@ -44,6 +47,7 @@ def update_product(*, product_id: int, name: str, price_money: str | float | int
         active=active,
         category=category,
         icon=icon,
+        card_color=card_color,
     )
 
 def set_active(product_id: int, active: bool) -> None:
@@ -59,6 +63,7 @@ def set_active(product_id: int, active: bool) -> None:
         active=active,
         category=data.get("category") or "General",
         icon=data.get("icon") or "",
+        card_color=data.get("card_color") or "",
     )
 
 def delete_product(product_id: int) -> None:

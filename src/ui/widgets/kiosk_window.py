@@ -817,6 +817,29 @@ class POSWindow(QMainWindow):
             # Without icon: show name, price/unit (original behavior)
             btn.setText(f"{name}\n{price} / {unit}")
         
+        # Apply optional card color
+        card_color = (p.get("card_color") or "").strip()
+        if card_color:
+            from PySide6.QtGui import QColor
+            bg = QColor(card_color)
+            # Calculate luminance to pick readable text color
+            lum = 0.299 * bg.redF() + 0.587 * bg.greenF() + 0.114 * bg.blueF()
+            text_color = "#ffffff" if lum < 0.55 else "#1a1a2e"
+            btn.setStyleSheet(f"""
+                QPushButton {{
+                    background: {card_color};
+                    color: {text_color};
+                    border: 2px solid rgba(255,255,255,0.15);
+                }}
+                QPushButton:hover {{
+                    background: {bg.lighter(115).name()};
+                    border-color: rgba(255,255,255,0.3);
+                }}
+                QPushButton:pressed {{
+                    background: {bg.darker(115).name()};
+                }}
+            """)
+        
         btn.clicked.connect(lambda _=None, prod=p: self.add_item(prod))
         return btn
 
@@ -1119,15 +1142,28 @@ class POSWindow(QMainWindow):
                     change_cents=change_cents,
                     payment_method=payment_method
                 )
-            self.printer.print_text(text)
+
+            if payment_method != "card":
+                # Combined print + drawer open in a single USB session
+                # The drawer opens even if print fails (e.g. paper out)
+                try:
+                    self.printer.print_and_open_drawer(text)
+                except Exception as e:
+                    print("Print+Drawer error:", e)
+                    # Fallback: try each operation separately
+                    try:
+                        self.printer.print_text(text)
+                    except Exception as e2:
+                        print("Print fallback error:", e2)
+                    # Always try to open drawer, even if print failed
+                    try:
+                        self.printer.open_drawer()
+                    except Exception as e3:
+                        print("Drawer fallback error:", e3)
+            else:
+                self.printer.print_text(text)
         except Exception as e:
             print("Print error:", e)
-
-        if payment_method != "card":
-            try:
-                self.printer.open_drawer()
-            except Exception as e:
-                print("Drawer error:", e)
 
         self.cart.clear()
         self.list.clear()

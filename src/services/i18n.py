@@ -104,6 +104,10 @@ _STRINGS: Dict[str, Dict[str, str]] = {
         "enable_categories": "Habilitar Categorías",
         "categories_enabled": "Categorías habilitadas. El kiosko mostrará submenús por categoría.",
         "categories_disabled": "Categorías deshabilitadas. El kiosko mostrará un solo menú de productos.",
+        "card_color": "Color card",
+        "choose_color": "Elegir color",
+        "clear_color": "Sin color",
+        "card_color_hint": "Color de fondo del botón en el kiosk (opcional)",
 
         # Reports
         "reports_title": "Reportes",
@@ -210,7 +214,7 @@ _STRINGS: Dict[str, Dict[str, str]] = {
         "preview": "Vista previa",
 
         # System tab
-        "version_beta": "v1.0 Beta",
+        "version_beta": "v1.1 Beta",
         "sys_wifi_config": "Configuración WiFi",
         "sys_scan": "Buscar",
         "sys_scan_wifi_tooltip": "Escanear redes WiFi",
@@ -398,6 +402,10 @@ _STRINGS: Dict[str, Dict[str, str]] = {
         "enable_categories": "Enable categories",
         "categories_enabled": "Categories enabled. The kiosk will show category submenus.",
         "categories_disabled": "Categories disabled. The kiosk will show a single product menu.",
+        "card_color": "Card color",
+        "choose_color": "Choose color",
+        "clear_color": "No color",
+        "card_color_hint": "Button background color in the kiosk (optional)",
 
         "reports_title": "Reports",
         "tickets": "Tickets",
@@ -504,7 +512,7 @@ _STRINGS: Dict[str, Dict[str, str]] = {
         "preview": "Preview",
 
         # System tab
-        "version_beta": "v1.0 Beta",
+        "version_beta": "v1.1 Beta",
         "sys_wifi_config": "WiFi Configuration",
         "sys_scan": "Scan",
         "sys_scan_wifi_tooltip": "Scan WiFi networks",
