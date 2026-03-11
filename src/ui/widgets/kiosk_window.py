@@ -862,68 +862,87 @@ class POSWindow(QMainWindow):
                 w.deleteLater()
 
         avail_w = self._available_grid_width()
+        viewport = self.products_area.viewport()
+        avail_h = viewport.height() if viewport else 600
+        
         spacing = self.grid.spacing()
-        margins = self.grid_wrap.contentsMargins().left()
 
         def _layout_items(items, is_category=False):
             num_items = len(items)
+            if num_items == 0:
+                self._current_cols = 1
+                self._current_rows = 1
+                return
+
             base_min = self._target_category_button_min_size(avail_w) if is_category else self._target_button_min_size(avail_w)
             
-            self._base_cols = self._calc_cols(avail_w, base_min.width(), spacing, margins)
+            header_h = s(52) + s(16)
+            margins_v = self.grid_wrap.contentsMargins().top() + self.grid_wrap.contentsMargins().bottom()
+            margins_h = self.grid_wrap.contentsMargins().left() + self.grid_wrap.contentsMargins().right()
             
-            scale_w = 1.0
-            scale_h = 1.0
-            if num_items <= 3:
-                scale_w = 1.6
-                scale_h = 2.2
-            elif num_items <= 6:
-                scale_w = 1.3
-                scale_h = 1.8
-
-            adj_w = int(base_min.width() * scale_w)
-            adj_h = int(base_min.height() * scale_h)
-            adj_size = QSize(adj_w, adj_h)
+            effective_h = max(200, avail_h - header_h - margins_v)
+            effective_w = max(200, avail_w - margins_h)
             
-            grid_cols = self._calc_cols(avail_w, adj_w, spacing, margins)
-            grid_cols = max(1, grid_cols)
-            if num_items > 0 and num_items < grid_cols:
-                grid_cols = num_items
+            best_scale = 1.0
+            best_size = base_min
+            best_cols = max(1, (effective_w + spacing) // (base_min.width() + spacing))
+            best_cols = min(best_cols, num_items)
             
-            self._current_cols = grid_cols
+            # Dynamic scaling strategy up to 2.5x
+            for scale in [2.5, 2.3, 2.0, 1.8, 1.5, 1.3, 1.1, 1.0]:
+                tw = int(base_min.width() * scale)
+                th = int(base_min.height() * scale)
+                
+                c = (effective_w + spacing) // (tw + spacing)
+                if c < 1:
+                    continue
+                c = min(c, num_items)
+                
+                r = math.ceil(float(num_items) / float(c))
+                total_h = r * th + (r - 1) * spacing
+                if total_h <= effective_h or scale == 1.0:
+                    best_size = QSize(tw, th)
+                    best_cols = c
+                    best_scale = scale
+                    break
+                    
+            self._current_cols = best_cols
+            r = math.ceil(float(num_items) / float(best_cols))
+            self._current_rows = r
             
-            # Left and Right Stretches for horizontal centering
-            self.grid.setColumnStretch(0, 1)
-            self.grid.setColumnStretch(grid_cols + 1, 1)
-            
-            rows = math.ceil(num_items / grid_cols) if grid_cols > 0 else 0
-            
-            # Top and Bottom Stretches for vertical centering
-            if num_items <= 6:
-                # Bottom stretch is larger to compensate for the header above the grid
-                self.grid.setRowStretch(0, 1)
-                self.grid.setRowStretch(rows + 1, 2)
+            # Centering horizontally
+            total_w = best_cols * best_size.width() + (best_cols - 1) * spacing
+            if total_w < effective_w:
+                self.grid.setColumnStretch(0, 1)
+                self.grid.setColumnStretch(best_cols + 1, 1)
             else:
-                # Normal top-alignment for many items
-                self.grid.setRowStretch(0, 0)
-                self.grid.setRowStretch(rows + 1, 1)
+                self.grid.setColumnStretch(0, 0)
+                self.grid.setColumnStretch(best_cols + 1, 1)
             
-            self._current_rows = rows
+            # Centering vertically, offsetting the header visually
+            total_h = r * best_size.height() + (r - 1) * spacing
+            if total_h < effective_h:
+                self.grid.setRowStretch(0, 5)
+                self.grid.setRowStretch(r + 1, 8)  # Bottom stretch is stronger to push elements up slightly
+            else:
+                self.grid.setRowStretch(0, 0)
+                self.grid.setRowStretch(r + 1, 1)
 
-            est_text_w = max(60, adj_w - 24)
+            est_text_w = max(60, best_size.width() - 24)
 
             for idx, item in enumerate(items):
-                r_idx = idx // grid_cols
-                c_idx = idx % grid_cols
+                r_idx = idx // best_cols
+                c_idx = idx % best_cols
                 
                 if is_category:
-                    btn = self._make_category_button(item, adj_size)
+                    btn = self._make_category_button(item, best_size)
                 else:
-                    btn = self._make_product_button(item, adj_size, est_text_w)
+                    btn = self._make_product_button(item, best_size, est_text_w)
                 
-                # Set fixed size or tightly constrained max size so they don't stretch uglily
-                btn.setMinimumSize(adj_size)
-                btn.setMaximumSize(QSize(int(adj_w * 1.05), int(adj_h * 1.05)))
+                btn.setMinimumSize(best_size)
+                btn.setMaximumSize(best_size)
                 
+                # Add widget at offset 1, 1 to leave room for stretch rows/cols at 0
                 self.grid.addWidget(btn, r_idx + 1, c_idx + 1, alignment=Qt.AlignCenter)
 
         if not self.categories_enabled:
@@ -957,14 +976,17 @@ class POSWindow(QMainWindow):
     def eventFilter(self, obj, event):
         if event.type() in (QEvent.Show, QEvent.Resize):
             avail_w = self._available_grid_width()
-            if self.categories_enabled and self.current_category is None:
-                min_size = self._target_category_button_min_size(avail_w)
-            else:
-                min_size = self._target_button_min_size(avail_w)
-            margins = self.grid_wrap.contentsMargins().left() if hasattr(self, 'grid_wrap') else 0
-            new_cols = self._calc_cols(avail_w, min_size.width(), self.grid.spacing(), margins)
-            if new_cols != getattr(self, '_base_cols', -1):
+            viewport = self.products_area.viewport()
+            avail_h = viewport.height() if viewport else 600
+            
+            gw = getattr(self, '_last_avail_w', 0)
+            gh = getattr(self, '_last_avail_h', 0)
+            
+            if abs(gw - avail_w) > 10 or abs(gh - avail_h) > 10:
+                self._last_avail_w = avail_w
+                self._last_avail_h = avail_h
                 self._populate_grid()
+                
         return super().eventFilter(obj, event)
 
     # ═══════════════════════════════════════════════════════════════════════
