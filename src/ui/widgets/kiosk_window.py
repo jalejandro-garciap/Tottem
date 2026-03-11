@@ -862,54 +862,71 @@ class POSWindow(QMainWindow):
                 w.deleteLater()
 
         avail_w = self._available_grid_width()
-        btn_min = self._target_button_min_size(avail_w)
         spacing = self.grid.spacing()
         margins = self.grid_wrap.contentsMargins().left()
-        cols = self._calc_cols(avail_w, btn_min.width(), spacing, margins)
-        self._current_cols = cols
-        est_text_w = max(60, btn_min.width() - 24)
+
+        def _layout_items(items, is_category=False):
+            num_items = len(items)
+            base_min = self._target_category_button_min_size(avail_w) if is_category else self._target_button_min_size(avail_w)
+            
+            multiplier = 1.0
+            if num_items <= 3:
+                multiplier = 1.35
+            elif num_items <= 6:
+                multiplier = 1.15
+
+            adj_min = QSize(int(base_min.width() * multiplier), int(base_min.height() * multiplier))
+            
+            base_cols = self._calc_cols(avail_w, base_min.width(), spacing, margins)
+            self._current_cols = base_cols
+
+            grid_cols = self._calc_cols(avail_w, adj_min.width(), spacing, margins)
+            if num_items > 0:
+                grid_cols = min(grid_cols, num_items)
+            
+            grid_cols = max(1, int(grid_cols))
+            
+            for col in range(max(self._current_cols, grid_cols)):
+                self.grid.setColumnStretch(col, 0)
+                self.grid.setColumnMinimumWidth(col, 0)
+
+            est_text_w = max(60, adj_min.width() - 24)
+
+            for idx, item in enumerate(items):
+                if is_category:
+                    btn = self._make_category_button(item, adj_min)
+                else:
+                    btn = self._make_product_button(item, adj_min, est_text_w)
+                
+                if multiplier > 1.0:
+                    btn.setMaximumSize(QSize(int(adj_min.width() * 1.5), int(adj_min.height() * 1.5)))
+                
+                self.grid.addWidget(btn, idx // grid_cols, idx % grid_cols, alignment=Qt.AlignCenter)
+            
+            rows = math.ceil(num_items / grid_cols) if grid_cols > 0 else 0
+            for row in range(rows):
+                self.grid.setRowStretch(row, 0)
+            
+            if rows > 2 or num_items > 6:
+                self.grid.setRowStretch(rows, 1)
+                
+            self._current_rows = rows + 1
 
         if not self.categories_enabled:
             self.btn_back.setVisible(False)
             self.lbl_grid_title.setText(i18n.t("products") or "Productos")
-
-            prods = self.products
-            for idx, p in enumerate(prods):
-                btn = self._make_product_button(p, btn_min, est_text_w)
-                self.grid.addWidget(btn, idx // cols, idx % cols)
-            rows = math.ceil(len(prods) / cols) if cols > 0 else 0
-            for row in range(rows):
-                self.grid.setRowStretch(row, 0)
-            self.grid.setRowStretch(rows, 1)
-            self._current_rows = rows + 1
+            _layout_items(self.products, is_category=False)
             return
 
         if self.current_category is None:
             self.btn_back.setVisible(False)
             self.lbl_grid_title.setText(i18n.t("categories") or "Categorías")
-            cat_btn_min = self._target_category_button_min_size(avail_w)
-            cols = self._calc_cols(avail_w, cat_btn_min.width(), spacing, margins)
-            self._current_cols = cols
-            for idx, c in enumerate(self.categories):
-                btn = self._make_category_button(c, cat_btn_min)
-                self.grid.addWidget(btn, idx // cols, idx % cols)
-            rows = math.ceil(len(self.categories) / cols) if cols > 0 else 0
-            for row in range(rows):
-                self.grid.setRowStretch(row, 0)
-            self.grid.setRowStretch(rows, 1)
-            self._current_rows = rows + 1
+            _layout_items(self.categories, is_category=True)
         else:
             self.btn_back.setVisible(True)
             self.lbl_grid_title.setText(self.current_category)
             prods = [p for p in self.products if (p.get("category") or "General") == self.current_category]
-            for idx, p in enumerate(prods):
-                btn = self._make_product_button(p, btn_min, est_text_w)
-                self.grid.addWidget(btn, idx // cols, idx % cols)
-            rows = math.ceil(len(prods) / cols) if cols > 0 else 0
-            for row in range(rows):
-                self.grid.setRowStretch(row, 0)
-            self.grid.setRowStretch(rows, 1)
-            self._current_rows = rows + 1
+            _layout_items(prods, is_category=False)
 
     def _open_category(self, name: str):
         if not self.categories_enabled:
@@ -930,8 +947,9 @@ class POSWindow(QMainWindow):
                 min_size = self._target_category_button_min_size(avail_w)
             else:
                 min_size = self._target_button_min_size(avail_w)
-            new_cols = self._calc_cols(avail_w, min_size.width(), self.grid.spacing(), 0)
-            if new_cols != self._current_cols:
+            margins = self.grid_wrap.contentsMargins().left() if hasattr(self, 'grid_wrap') else 0
+            new_cols = self._calc_cols(avail_w, min_size.width(), self.grid.spacing(), margins)
+            if new_cols != getattr(self, '_current_cols', -1):
                 self._populate_grid()
         return super().eventFilter(obj, event)
 

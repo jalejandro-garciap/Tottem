@@ -214,7 +214,7 @@ _STRINGS: Dict[str, Dict[str, str]] = {
         "preview": "Vista previa",
 
         # System tab
-        "version_beta": "v1.1 Beta",
+        "version_beta": "v1.2 Beta",
         "sys_wifi_config": "Configuración WiFi",
         "sys_scan": "Buscar",
         "sys_scan_wifi_tooltip": "Escanear redes WiFi",
@@ -512,7 +512,7 @@ _STRINGS: Dict[str, Dict[str, str]] = {
         "preview": "Preview",
 
         # System tab
-        "version_beta": "v1.1 Beta",
+        "version_beta": "v1.2 Beta",
         "sys_wifi_config": "WiFi Configuration",
         "sys_scan": "Scan",
         "sys_scan_wifi_tooltip": "Scan WiFi networks",
