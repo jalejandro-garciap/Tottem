@@ -871,14 +871,17 @@ class POSWindow(QMainWindow):
             
             self._base_cols = self._calc_cols(avail_w, base_min.width(), spacing, margins)
             
-            scale = 1.0
+            scale_w = 1.0
+            scale_h = 1.0
             if num_items <= 3:
-                scale = 1.6
+                scale_w = 1.6
+                scale_h = 2.2
             elif num_items <= 6:
-                scale = 1.3
+                scale_w = 1.3
+                scale_h = 1.8
 
-            adj_w = int(base_min.width() * scale)
-            adj_h = int(base_min.height() * scale)
+            adj_w = int(base_min.width() * scale_w)
+            adj_h = int(base_min.height() * scale_h)
             adj_size = QSize(adj_w, adj_h)
             
             grid_cols = self._calc_cols(avail_w, adj_w, spacing, margins)
@@ -895,8 +898,14 @@ class POSWindow(QMainWindow):
             rows = math.ceil(num_items / grid_cols) if grid_cols > 0 else 0
             
             # Top and Bottom Stretches for vertical centering
-            self.grid.setRowStretch(0, 1)
-            self.grid.setRowStretch(rows + 1, 1)
+            if num_items <= 6:
+                # Bottom stretch is larger to compensate for the header above the grid
+                self.grid.setRowStretch(0, 1)
+                self.grid.setRowStretch(rows + 1, 2)
+            else:
+                # Normal top-alignment for many items
+                self.grid.setRowStretch(0, 0)
+                self.grid.setRowStretch(rows + 1, 1)
             
             self._current_rows = rows
 
