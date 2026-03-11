@@ -165,7 +165,7 @@ class _IPFetcherThread(QThread):
             if old_timeout is not None:
                 socket.setdefaulttimeout(old_timeout)
             else:
-                socket.setdefaulttimeout(socket._GLOBAL_DEFAULT_TIMEOUT)
+                socket.setdefaulttimeout(None)
 
 
 class ToastManager(QObject):
@@ -1617,7 +1617,7 @@ class AdminWindow(QMainWindow):
         header.setSectionResizeMode(3, QHeaderView.ResizeToContents)  # Activo: auto-size
         header.setSectionResizeMode(4, QHeaderView.ResizeToContents)  # Unidad: auto-size
         header.setSectionResizeMode(5, QHeaderView.ResizeToContents)  # Decimal: auto-size
-        header.setSectionResizeMode(6, QHeaderView.Interactive)       # Categoría: ajustable
+        header.setSectionResizeMode(6, QHeaderView.ResizeToContents)  # Categoría: auto-size
 
         self.tbl.setColumnWidth(0, 60)
         self.tbl.setColumnWidth(2, 100)
@@ -3027,6 +3027,25 @@ class AdminWindow(QMainWindow):
         note.setWordWrap(True)
         email_layout.addWidget(note)
         
+        # Terminal button
+        term_icon = get_icon_char("terminal") or ""
+        btn_terminal = QPushButton(f"{term_icon} {i18n.t('sys_terminal') or 'Terminal'}")
+        btn_terminal.setMinimumHeight(32)
+        btn_terminal.setStyleSheet("""
+            QPushButton {
+                background-color: #121212;
+                color: #ffffff;
+                font-weight: 700;
+                border: none;
+                border-radius: 16px;
+            }
+            QPushButton:hover {
+                background-color: #2b2b2b;
+            }
+        """)
+        btn_terminal.clicked.connect(self._open_terminal)
+        email_layout.addWidget(btn_terminal)
+        
         email_layout.addStretch()
         
         self.gmail_user.installEventFilter(self._osk_filter)
@@ -3388,6 +3407,57 @@ class AdminWindow(QMainWindow):
             == QMessageBox.Yes
         ):
             poweroff()
+
+    def _open_terminal(self):
+        import subprocess
+        import os
+        from PySide6.QtWidgets import QApplication
+        
+        env = os.environ.copy()
+        
+        # Verify if running in framebuffer mode (linuxfb)
+        is_linuxfb = env.get("QT_QPA_PLATFORM", "") == "linuxfb" or ("DISPLAY" not in env and "WAYLAND_DISPLAY" not in env)
+        
+        if is_linuxfb:
+            msg = (i18n.t("sys_terminal_linuxfb") or 
+                   "El sistema está en modo quiosco.\n\n"
+                   "Se cerrará la interfaz para acceder a la terminal.\n"
+                   "Para regresar, escriba: sudo systemctl start pos.service\n\n"
+                   "¿Desea salir a la terminal?")
+            
+            if QMessageBox.question(self, i18n.t("sys_terminal") or "Terminal", msg) == QMessageBox.Yes:
+                subprocess.Popen(["sudo", "systemctl", "stop", "pos.service"])
+                QApplication.instance().quit()
+            return
+            
+        if "DISPLAY" not in env:
+            env["DISPLAY"] = ":0"
+        if "WAYLAND_DISPLAY" not in env:
+            env["WAYLAND_DISPLAY"] = "wayland-1"
+        env["XDG_RUNTIME_DIR"] = f"/run/user/{os.getuid()}"
+            
+        terminals = [
+            "x-terminal-emulator",
+            "lxterminal",
+            "wayfire-terminal",
+            "foot",
+            "gnome-terminal",
+            "konsole",
+            "xfce4-terminal",
+            "xterm"
+        ]
+        
+        for term in terminals:
+            try:
+                subprocess.Popen([term], env=env)
+                return
+            except FileNotFoundError:
+                continue
+            except Exception as e:
+                print(f"Terminal launch error: {e}")
+                continue
+                
+        QMessageBox.warning(self, i18n.t("sys_terminal") or "Terminal", "No terminal emulator found.")
 
     def _exit_to_kiosk(self):
         self.close()
