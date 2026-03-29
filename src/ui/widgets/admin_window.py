@@ -292,17 +292,30 @@ class _PinKeypadFocusFilter(QObject):
 
 
 class ProductDialog(QDialog):
-    """Premium Product Editor"""
+    """Premium Product Editor with Presentations & Pricing Support (v1.3)"""
 
     def __init__(self, parent=None, *, product: dict | None = None):
         super().__init__(parent)
         self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
         self.setModal(True)
-        self.setMinimumWidth(480)
+        self.setMinimumWidth(s(600))
+        self._product = product
 
-        root = QVBoxLayout(self)
-        root.setContentsMargins(40, 40, 40, 40)
-        root.setSpacing(28)
+        # Load existing presentations if editing
+        self._existing_presentations = []
+        if product and product.get("id"):
+            from services.presentations import list_presentations
+            self._existing_presentations = list_presentations(product["id"], include_inactive=True)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QScrollArea.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+
+        inner = QWidget()
+        root = QVBoxLayout(inner)
+        root.setContentsMargins(s(40), s(40), s(40), s(40))
+        root.setSpacing(s(20))
 
         # Header
         from ui.icon_helper import get_icon_char
@@ -324,7 +337,7 @@ class ProductDialog(QDialog):
 
         # Form
         form = QFormLayout()
-        form.setSpacing(16)
+        form.setSpacing(s(14))
         form.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
         form.setFormAlignment(Qt.AlignCenter)
 
@@ -334,26 +347,20 @@ class ProductDialog(QDialog):
         self.ed_category = QLineEdit(
             (product.get("category") if product else None) or "General"
         )
-        
+
         # Icon selector
         from ui.icon_helper import ICON_MAP, get_icon_char
         self.combo_icon = QComboBox()
-        self.combo_icon.setMinimumHeight(s(64))  # Touch-friendly height
-        self.combo_icon.setMaxVisibleItems(8)  # Reduce scroll, show 8 items at once
-        
-        # Touch-friendly settings
-        self.combo_icon.setMinimumHeight(64)
+        self.combo_icon.setMinimumHeight(s(64))
         self.combo_icon.setMaxVisibleItems(8)
-        
+
         self.combo_icon.addItem("(Sin ícono)", "")
-        
-        # Add available icons sorted by name
+
         for icon_name in sorted(ICON_MAP.keys()):
             icon_char = get_icon_char(icon_name)
             display_text = f"{icon_char}  {icon_name}"
             self.combo_icon.addItem(display_text, icon_name)
-        
-        # Select current icon if exists
+
         if product and product.get("icon"):
             idx = self.combo_icon.findData(product.get("icon"))
             if idx >= 0:
@@ -365,10 +372,9 @@ class ProductDialog(QDialog):
         self.cb_partial.setChecked(bool(product.get("allow_decimal")) if product else False)
 
         for ed in (self.ed_name, self.ed_price, self.ed_unit, self.ed_category):
-            ed.setMinimumHeight(56)
+            ed.setMinimumHeight(s(48))
 
         form.addRow(i18n.t("prod_name"), self.ed_name)
-        form.addRow(i18n.t("prod_price"), self.ed_price)
         form.addRow(i18n.t("prod_unit"), self.ed_unit)
         form.addRow(i18n.t("category") or "Categoría", self.ed_category)
         form.addRow("Ícono", self.combo_icon)
@@ -379,15 +385,15 @@ class ProductDialog(QDialog):
         color_row.setSpacing(12)
 
         self.btn_pick_color = QPushButton(i18n.t("choose_color") or "Elegir color")
-        self.btn_pick_color.setMinimumHeight(56)
+        self.btn_pick_color.setMinimumHeight(s(48))
         self.btn_pick_color.clicked.connect(self._pick_card_color)
 
         self.btn_clear_color = QPushButton(i18n.t("clear_color") or "Sin color")
-        self.btn_clear_color.setMinimumHeight(56)
+        self.btn_clear_color.setMinimumHeight(s(48))
         self.btn_clear_color.clicked.connect(self._clear_card_color)
 
         self.lbl_color_preview = QLabel()
-        self.lbl_color_preview.setFixedSize(56, 56)
+        self.lbl_color_preview.setFixedSize(s(48), s(48))
         self.lbl_color_preview.setStyleSheet(
             f"background: {self._card_color}; border: 2px solid palette(mid); border-radius: 8px;"
             if self._card_color else
@@ -407,14 +413,98 @@ class ProductDialog(QDialog):
 
         root.addLayout(form)
 
+        # ─── Presentations Switch ──────────────────────────────────────────
+        has_pres = bool(product.get("has_presentations", 0)) if product else False
+
+        self.cb_presentations = QCheckBox(i18n.t("has_presentations"))
+        self.cb_presentations.setChecked(has_pres)
+        self.cb_presentations.setStyleSheet(f"font-size: {s(14)}px; font-weight: 600; padding: {s(8)}px 0;")
+        self.cb_presentations.toggled.connect(self._toggle_presentations)
+        root.addWidget(self.cb_presentations)
+
+        # ─── Single price (shown when no presentations) ───────────────────
+        self.price_row_widget = QWidget()
+        price_row_layout = QFormLayout(self.price_row_widget)
+        price_row_layout.setContentsMargins(0, 0, 0, 0)
+        price_row_layout.setSpacing(s(10))
+        self.ed_price.setMinimumHeight(s(48))
+        price_row_layout.addRow(i18n.t("prod_price"), self.ed_price)
+        root.addWidget(self.price_row_widget)
+
+        # ─── Presentations Table (shown when has presentations) ───────────
+        self.pres_container = QWidget()
+        pres_layout = QVBoxLayout(self.pres_container)
+        pres_layout.setContentsMargins(0, s(4), 0, 0)
+        pres_layout.setSpacing(s(8))
+
+        pres_header = QLabel(i18n.t("presentations"))
+        pres_header.setStyleSheet(f"font-size: {s(14)}px; font-weight: 700;")
+        pres_layout.addWidget(pres_header)
+
+        # Help text
+        help_lbl = QLabel(i18n.t("pricing_help"))
+        help_lbl.setWordWrap(True)
+        help_lbl.setStyleSheet(f"font-size: {s(11)}px; font-style: italic; padding: {s(4)}px 0;")
+        pres_layout.addWidget(help_lbl)
+
+        self.tbl_pres = QTableWidget(0, 6)
+        self.tbl_pres.setHorizontalHeaderLabels([
+            i18n.t("presentation_name"),
+            i18n.t("presentation_price"),
+            i18n.t("wholesale_price"),
+            i18n.t("wholesale_min_qty"),
+            i18n.t("discount_pct"),
+            i18n.t("presentation_col_active"),
+        ])
+        self.tbl_pres.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.tbl_pres.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.tbl_pres.verticalHeader().setVisible(False)
+        self.tbl_pres.setMinimumHeight(s(150))
+
+        pres_header_view = self.tbl_pres.horizontalHeader()
+        pres_header_view.setSectionResizeMode(0, QHeaderView.Stretch)
+        for col in range(1, 6):
+            pres_header_view.setSectionResizeMode(col, QHeaderView.ResizeToContents)
+
+        pres_layout.addWidget(self.tbl_pres, 1)
+
+        # Presentation actions
+        pres_actions = QHBoxLayout()
+        pres_actions.setSpacing(s(12))
+        btn_add_pres = QPushButton(i18n.t("presentation_add"))
+        btn_add_pres.setMinimumHeight(s(44))
+        btn_add_pres.setProperty("role", "success")
+        btn_add_pres.clicked.connect(self._add_presentation_row)
+        btn_rm_pres = QPushButton(i18n.t("presentation_remove"))
+        btn_rm_pres.setMinimumHeight(s(44))
+        btn_rm_pres.setProperty("role", "danger")
+        btn_rm_pres.clicked.connect(self._remove_presentation_row)
+        pres_actions.addWidget(btn_add_pres)
+        pres_actions.addWidget(btn_rm_pres)
+        pres_actions.addStretch(1)
+        pres_layout.addLayout(pres_actions)
+
+        root.addWidget(self.pres_container)
+
+        # ─── Toggle visibility ─────────────────────────────────────────────
+        self._toggle_presentations(has_pres)
+
+        # Load existing presentations into table
+        if has_pres and self._existing_presentations:
+            for p in self._existing_presentations:
+                self._add_presentation_row_data(p)
+        elif has_pres:
+            # Add one empty row
+            self._add_presentation_row()
+
         # Actions
         row = QHBoxLayout()
         row.setSpacing(16)
-        btn_cancel = QPushButton("Cancelar")
-        btn_cancel.setMinimumHeight(60)
+        btn_cancel = QPushButton(i18n.t("cancel") or "Cancelar")
+        btn_cancel.setMinimumHeight(s(56))
         from ui.icon_helper import get_icon_char
-        btn_ok = QPushButton(f"{get_icon_char('arrow-right') or '→'}  Guardar")
-        btn_ok.setMinimumHeight(60)
+        btn_ok = QPushButton(f"{get_icon_char('arrow-right') or '→'}  {i18n.t('save') or 'Guardar'}")
+        btn_ok.setMinimumHeight(s(56))
         btn_ok.setProperty("role", "primary")
         btn_cancel.clicked.connect(self.reject)
         btn_ok.clicked.connect(self.accept)
@@ -422,39 +512,152 @@ class ProductDialog(QDialog):
         row.addWidget(btn_ok)
         root.addLayout(row)
 
+        scroll.setWidget(inner)
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.addWidget(scroll)
+
         # OSK
         self._osk_filter = _OskFocusFilter(self)
         for w in (self.ed_name, self.ed_price, self.ed_unit, self.ed_category):
             w.installEventFilter(self._osk_filter)
 
+    def _toggle_presentations(self, checked: bool):
+        """Show/hide presentations table vs single price field."""
+        self.price_row_widget.setVisible(not checked)
+        self.pres_container.setVisible(checked)
+
+    def _add_presentation_row(self):
+        """Add an empty presentation row to the table."""
+        r = self.tbl_pres.rowCount()
+        self.tbl_pres.insertRow(r)
+        self.tbl_pres.setItem(r, 0, QTableWidgetItem(""))      # name
+        self.tbl_pres.setItem(r, 1, QTableWidgetItem(""))      # price
+        self.tbl_pres.setItem(r, 2, QTableWidgetItem(""))      # wholesale price
+        self.tbl_pres.setItem(r, 3, QTableWidgetItem(""))      # wholesale min qty
+        self.tbl_pres.setItem(r, 4, QTableWidgetItem(""))      # discount %
+        self.tbl_pres.setItem(r, 5, QTableWidgetItem("Sí"))    # active
+
+    def _add_presentation_row_data(self, p: dict):
+        """Add a presentation row pre-filled from data."""
+        r = self.tbl_pres.rowCount()
+        self.tbl_pres.insertRow(r)
+        self.tbl_pres.setItem(r, 0, QTableWidgetItem(p.get("name", "")))
+        self.tbl_pres.setItem(r, 1, QTableWidgetItem(cents_to_money(p.get("price", 0))))
+        wp = p.get("wholesale_price")
+        self.tbl_pres.setItem(r, 2, QTableWidgetItem(cents_to_money(wp) if wp else ""))
+        wmq = p.get("wholesale_min_qty")
+        self.tbl_pres.setItem(r, 3, QTableWidgetItem(str(wmq) if wmq else ""))
+        dp = p.get("discount_pct")
+        self.tbl_pres.setItem(r, 4, QTableWidgetItem(str(dp) if dp else ""))
+        self.tbl_pres.setItem(r, 5, QTableWidgetItem("Sí" if p.get("active", True) else "No"))
+
+    def _remove_presentation_row(self):
+        """Remove the selected presentation row."""
+        row = self.tbl_pres.currentRow()
+        if row >= 0:
+            self.tbl_pres.removeRow(row)
+
     def _pick_card_color(self):
-        """Abre el selector de color nativo."""
         from PySide6.QtGui import QColor
         initial = QColor(self._card_color) if self._card_color else QColor("#3b82f6")
         color = QColorDialog.getColor(initial, self, i18n.t("choose_color") or "Elegir color")
         if color.isValid():
-            self._card_color = color.name()  # e.g. "#3b82f6"
+            self._card_color = color.name()
             self.lbl_color_preview.setStyleSheet(
                 f"background: {self._card_color}; border: 2px solid palette(mid); border-radius: 8px;"
             )
 
     def _clear_card_color(self):
-        """Clear the selected card color."""
         self._card_color = ""
         self.lbl_color_preview.setStyleSheet(
             "background: transparent; border: 2px dashed palette(mid); border-radius: 8px;"
         )
+
+    def _parse_pres_table(self) -> list[dict] | None:
+        """Parse the presentations table into a list of dicts."""
+        presentations = []
+        for r in range(self.tbl_pres.rowCount()):
+            name = (self.tbl_pres.item(r, 0).text() or "").strip() if self.tbl_pres.item(r, 0) else ""
+            price_str = (self.tbl_pres.item(r, 1).text() or "").strip() if self.tbl_pres.item(r, 1) else ""
+            wp_str = (self.tbl_pres.item(r, 2).text() or "").strip() if self.tbl_pres.item(r, 2) else ""
+            wmq_str = (self.tbl_pres.item(r, 3).text() or "").strip() if self.tbl_pres.item(r, 3) else ""
+            dp_str = (self.tbl_pres.item(r, 4).text() or "").strip() if self.tbl_pres.item(r, 4) else ""
+            active_str = (self.tbl_pres.item(r, 5).text() or "").strip().lower() if self.tbl_pres.item(r, 5) else "sí"
+
+            if not name:
+                QMessageBox.warning(self, i18n.t("presentations"),
+                                    f"Fila {r+1}: {i18n.t('prod_err_name')}")
+                return None
+            try:
+                price_cents = money_to_cents(price_str)
+            except Exception:
+                QMessageBox.warning(self, i18n.t("presentations"),
+                                    f"Fila {r+1}: {i18n.t('prod_err_price')}")
+                return None
+
+            wp_cents = None
+            if wp_str:
+                try:
+                    wp_cents = money_to_cents(wp_str)
+                except Exception:
+                    pass
+
+            wmq = None
+            if wmq_str:
+                try:
+                    wmq = float(wmq_str)
+                except Exception:
+                    pass
+
+            dp = None
+            if dp_str:
+                try:
+                    dp = int(float(dp_str))
+                except Exception:
+                    pass
+
+            active = active_str not in ("no", "0", "false", "n")
+
+            presentations.append({
+                "name": name,
+                "price_cents": price_cents,
+                "wholesale_price_cents": wp_cents,
+                "wholesale_min_qty": wmq,
+                "discount_pct": dp,
+                "active": active,
+                "sort_order": r,
+            })
+        return presentations
 
     def data(self) -> dict | None:
         name = (self.ed_name.text() or "").strip()
         if not name:
             QMessageBox.warning(self, i18n.t("tab_products") or "Productos", i18n.t("prod_err_name"))
             return None
-        try:
-            cents = money_to_cents(self.ed_price.text())
-        except Exception:
-            QMessageBox.warning(self, i18n.t("tab_products") or "Productos", i18n.t("prod_err_price"))
-            return None
+
+        has_pres = self.cb_presentations.isChecked()
+
+        if has_pres:
+            # Price comes from presentations, use 0 as base
+            cents = 0
+            presentations = self._parse_pres_table()
+            if presentations is None:
+                return None
+            if not presentations:
+                QMessageBox.warning(self, i18n.t("presentations"),
+                                    i18n.t("prod_err_price"))
+                return None
+            # Use first presentation price as base price for the product record
+            cents = presentations[0]["price_cents"]
+        else:
+            try:
+                cents = money_to_cents(self.ed_price.text())
+            except Exception:
+                QMessageBox.warning(self, i18n.t("tab_products") or "Productos", i18n.t("prod_err_price"))
+                return None
+            presentations = []
+
         unit = (self.ed_unit.text() or "pz").strip() or "pz"
         category = (self.ed_category.text() or "General").strip() or "General"
         icon = self.combo_icon.currentData() or ""
@@ -467,6 +670,8 @@ class ProductDialog(QDialog):
             "category": category,
             "icon": icon,
             "card_color": self._card_color or "",
+            "has_presentations": has_pres,
+            "presentations": presentations,
         }
 
 
@@ -1590,7 +1795,7 @@ class AdminWindow(QMainWindow):
         fl.addWidget(btn_refresh)
         self.prod_search.installEventFilter(self._osk_filter)
 
-        self.tbl = QTableWidget(0, 7)
+        self.tbl = QTableWidget(0, 8)
         self.tbl.setHorizontalHeaderLabels(
             [
                 i18n.t("prod_id"),
@@ -1600,6 +1805,7 @@ class AdminWindow(QMainWindow):
                 i18n.t("prod_unit"),
                 i18n.t("prod_allow_partial"),
                 i18n.t("category") or "Categoría",
+                i18n.t("prod_presentations_count") or "Pres.",
             ]
         )
         self.tbl.setSelectionBehavior(QAbstractItemView.SelectRows)
@@ -1618,6 +1824,7 @@ class AdminWindow(QMainWindow):
         header.setSectionResizeMode(4, QHeaderView.ResizeToContents)  # Unidad: auto-size
         header.setSectionResizeMode(5, QHeaderView.ResizeToContents)  # Decimal: auto-size
         header.setSectionResizeMode(6, QHeaderView.ResizeToContents)  # Categoría: auto-size
+        header.setSectionResizeMode(7, QHeaderView.ResizeToContents)  # Pres.: auto-size
 
         self.tbl.setColumnWidth(0, 60)
         self.tbl.setColumnWidth(2, 100)
@@ -1625,6 +1832,7 @@ class AdminWindow(QMainWindow):
         self.tbl.setColumnWidth(4, 90)
         self.tbl.setColumnWidth(5, 100)
         self.tbl.setColumnWidth(6, 140)
+        self.tbl.setColumnWidth(7, 60)
 
         actions = QHBoxLayout()
         btn_new = QPushButton(i18n.t("prod_new"))
@@ -1670,6 +1878,7 @@ class AdminWindow(QMainWindow):
 
     def _fill_table(self, items: list[dict]):
         """Pinta la tabla y actualiza el combo de categorías a partir de los ítems visibles."""
+        from services.presentations import count_presentations
         self.tbl.setRowCount(0)
         for p in items:
             cat = p.get("category") or "General"
@@ -1682,6 +1891,13 @@ class AdminWindow(QMainWindow):
             self.tbl.setItem(r, 4, QTableWidgetItem(p.get("unit") or "pz"))
             self.tbl.setItem(r, 5, QTableWidgetItem("Sí" if p.get("allow_decimal") else "No"))
             self.tbl.setItem(r, 6, QTableWidgetItem(cat))
+            # Presentations column
+            has_pres = bool(p.get("has_presentations", 0))
+            if has_pres:
+                pres_count = count_presentations(p["id"])
+                self.tbl.setItem(r, 7, QTableWidgetItem(str(pres_count)))
+            else:
+                self.tbl.setItem(r, 7, QTableWidgetItem("—"))
 
         try:
             all_items = list_products(q="", include_inactive=True)
@@ -1741,17 +1957,19 @@ class AdminWindow(QMainWindow):
                     return
                 self._prod_save_in_progress = True
                 try:
-                    # create_product(*, name, price_money, unit, allow_decimal, active, category, icon, card_color)
-                    create_product(
+                    pid = create_product(
                         name=data["name"],
-                        price_money=data["price"],  # ya está en centavos; el wrapper acepta int/float/str
+                        price_money=data["price"],
                         unit=data["unit"],
                         allow_decimal=data["allow_decimal"],
                         active=data["active"],
                         category=data["category"],
                         icon=data.get("icon", ""),
                         card_color=data.get("card_color", ""),
+                        has_presentations=data.get("has_presentations", False),
                     )
+                    # Save presentations if any
+                    self._save_presentations(pid, data)
                 finally:
                     self._prod_save_in_progress = False
                 QMessageBox.information(self, i18n.t("tab_products"), i18n.t("prod_saved"))
@@ -1773,7 +1991,6 @@ class AdminWindow(QMainWindow):
             data = dlg.data()
             if not data:
                 return
-            # update_product(product_id, *, name, price_money, unit, allow_decimal, active, category, icon, card_color)
             update_product(
                 product_id=pid,
                 name=data["name"],
@@ -1784,9 +2001,39 @@ class AdminWindow(QMainWindow):
                 category=data["category"],
                 icon=data.get("icon", ""),
                 card_color=data.get("card_color", ""),
+                has_presentations=data.get("has_presentations", False),
             )
+            # Save presentations
+            self._save_presentations(pid, data)
             QMessageBox.information(self, i18n.t("tab_products"), i18n.t("prod_saved"))
             self._prod_refresh()
+
+    def _save_presentations(self, product_id: int, data: dict):
+        """Sync presentations to the DB from dialog data."""
+        from services.presentations import (
+            list_presentations, upsert_presentation, delete_presentation
+        )
+        if not data.get("has_presentations") or not data.get("presentations"):
+            return
+        # Get existing presentation IDs
+        existing = list_presentations(product_id, include_inactive=True)
+        existing_ids = {p["id"] for p in existing}
+        new_ids = set()
+        for pres_data in data["presentations"]:
+            pres_id = upsert_presentation(
+                product_id=product_id,
+                name=pres_data["name"],
+                price_cents=pres_data["price_cents"],
+                wholesale_price_cents=pres_data.get("wholesale_price_cents"),
+                wholesale_min_qty=pres_data.get("wholesale_min_qty"),
+                discount_pct=pres_data.get("discount_pct"),
+                active=pres_data.get("active", True),
+                sort_order=pres_data.get("sort_order", 0),
+            )
+            new_ids.add(pres_id)
+        # Remove presentations that were deleted in the UI
+        for old_id in existing_ids - new_ids:
+            delete_presentation(old_id)
 
     def _prod_toggle(self):
         pid = self._current_prod_id()

@@ -128,3 +128,93 @@ def test_render_ticket_no_method_defaults_to_cash(monkeypatch, tmp_path):
     assert "Pago:  $ 20.00" in txt
     assert "Cambio:$ 5.00" in txt
     assert "Metodo: Tarjeta" not in txt
+
+
+# ═══════════════════════════════════════════════════════════════════
+# v1.3: Presentation & Pricing Tests
+# ═══════════════════════════════════════════════════════════════════
+
+def test_render_ticket_with_presentation_name(monkeypatch, tmp_path):
+    """Items with presentation_name show it on the ticket."""
+    config_path = tmp_path / "config.yaml"
+    _write_config(tmp_path, header="Test", footer=None)
+    monkeypatch.setattr("services.receipts.CONFIG_PATH", config_path)
+
+    txt = render_ticket([
+        CartItem(1, "Helado", 1500, 2, "pz",
+                 presentation_id=10, presentation_name="Cono",
+                 applied_price=1500, price_type="normal"),
+    ])
+
+    assert "Helado (Cono)" in txt
+    assert "$ 15.00" in txt
+    assert "TOTAL: $ 30.00" in txt
+
+
+def test_render_ticket_unica_presentation_hidden(monkeypatch, tmp_path):
+    """Items with 'Única' presentation name don't show it (backward compat)."""
+    config_path = tmp_path / "config.yaml"
+    _write_config(tmp_path, header="Test", footer=None)
+    monkeypatch.setattr("services.receipts.CONFIG_PATH", config_path)
+
+    txt = render_ticket([
+        CartItem(1, "Helado", 1500, 1, "pz",
+                 presentation_id=10, presentation_name="Única",
+                 applied_price=1500, price_type="normal"),
+    ])
+
+    assert "(Única)" not in txt
+    assert "Helado" in txt
+
+
+def test_render_ticket_wholesale_tag(monkeypatch, tmp_path):
+    """Wholesale items show MAYOREO tag and use applied_price for total."""
+    config_path = tmp_path / "config.yaml"
+    _write_config(tmp_path, header="Test", footer=None)
+    monkeypatch.setattr("services.receipts.CONFIG_PATH", config_path)
+
+    txt = render_ticket([
+        CartItem(1, "Helado", 1500, 5, "pz",
+                 presentation_id=10, presentation_name="Cono",
+                 applied_price=1200, price_type="wholesale"),
+    ])
+
+    assert "MAYOREO" in txt
+    assert "$ 12.00" in txt
+    # Total should be 1200 * 5 = 6000 cents = $60.00
+    assert "TOTAL: $ 60.00" in txt
+
+
+def test_render_ticket_discount_tag(monkeypatch, tmp_path):
+    """Discounted items show DTO tag and use applied_price for total."""
+    config_path = tmp_path / "config.yaml"
+    _write_config(tmp_path, header="Test", footer=None)
+    monkeypatch.setattr("services.receipts.CONFIG_PATH", config_path)
+
+    txt = render_ticket([
+        CartItem(1, "Helado", 2000, 1, "pz",
+                 presentation_id=10, presentation_name="Vaso",
+                 applied_price=1700, price_type="discount"),
+    ])
+
+    assert "DTO" in txt
+    assert "$ 17.00" in txt
+    assert "TOTAL: $ 17.00" in txt
+
+
+def test_render_ticket_backward_compat_no_presentation_fields(monkeypatch, tmp_path):
+    """CartItem without v1.3 fields still renders correctly."""
+    config_path = tmp_path / "config.yaml"
+    _write_config(tmp_path, header="Test", footer=None)
+    monkeypatch.setattr("services.receipts.CONFIG_PATH", config_path)
+
+    txt = render_ticket([
+        CartItem(1, "Agua", 1000, 3, "pz"),
+    ])
+
+    assert "Agua" in txt
+    assert "$ 10.00" in txt
+    assert "TOTAL: $ 30.00" in txt
+    # No tags should appear
+    assert "MAYOREO" not in txt
+    assert "DTO" not in txt

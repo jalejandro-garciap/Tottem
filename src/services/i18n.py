@@ -109,6 +109,25 @@ _STRINGS: Dict[str, Dict[str, str]] = {
         "clear_color": "Sin color",
         "card_color_hint": "Color de fondo del botón en el kiosk (opcional)",
 
+        # Presentations & Pricing (v1.3)
+        "has_presentations": "¿Tiene presentaciones?",
+        "presentations": "Presentaciones",
+        "presentation_name": "Nombre presentación",
+        "presentation_price": "Precio",
+        "wholesale_price": "Precio mayoreo",
+        "wholesale_min_qty": "Cant. mín. mayoreo",
+        "discount_pct": "Descuento %",
+        "price_normal": "Normal",
+        "price_wholesale": "Mayoreo",
+        "price_discount": "Descuento",
+        "select_presentation": "Selecciona presentación",
+        "pricing_help": "El precio mayoreo se activa al alcanzar la cantidad mínima. El sistema mostrará el precio anterior tachado y el nuevo precio resaltado.",
+        "presentation_default": "Única",
+        "presentation_add": "+ Agregar",
+        "presentation_remove": "Quitar",
+        "presentation_col_active": "Activo",
+        "prod_presentations_count": "Pres.",
+
         # Reports
         "reports_title": "Reportes",
         "tickets": "Tickets",
@@ -214,7 +233,7 @@ _STRINGS: Dict[str, Dict[str, str]] = {
         "preview": "Vista previa",
 
         # System tab
-        "version_beta": "v1.2 Beta",
+        "version_beta": "v1.3 Beta",
         "sys_wifi_config": "Configuración WiFi",
         "sys_scan": "Buscar",
         "sys_scan_wifi_tooltip": "Escanear redes WiFi",
@@ -408,6 +427,25 @@ _STRINGS: Dict[str, Dict[str, str]] = {
         "clear_color": "No color",
         "card_color_hint": "Button background color in the kiosk (optional)",
 
+        # Presentations & Pricing (v1.3)
+        "has_presentations": "Has presentations?",
+        "presentations": "Presentations",
+        "presentation_name": "Presentation name",
+        "presentation_price": "Price",
+        "wholesale_price": "Wholesale price",
+        "wholesale_min_qty": "Min. wholesale qty",
+        "discount_pct": "Discount %",
+        "price_normal": "Normal",
+        "price_wholesale": "Wholesale",
+        "price_discount": "Discount",
+        "select_presentation": "Select presentation",
+        "pricing_help": "Wholesale price activates when the minimum quantity is reached. The system will show the previous price crossed out and the new price highlighted.",
+        "presentation_default": "Default",
+        "presentation_add": "+ Add",
+        "presentation_remove": "Remove",
+        "presentation_col_active": "Active",
+        "prod_presentations_count": "Pres.",
+
         "reports_title": "Reports",
         "tickets": "Tickets",
         "shift_label_closed": "Shift: (closed)",
@@ -513,7 +551,7 @@ _STRINGS: Dict[str, Dict[str, str]] = {
         "preview": "Preview",
 
         # System tab
-        "version_beta": "v1.2 Beta",
+        "version_beta": "v1.3 Beta",
         "sys_wifi_config": "WiFi Configuration",
         "sys_scan": "Scan",
         "sys_scan_wifi_tooltip": "Scan WiFi networks",

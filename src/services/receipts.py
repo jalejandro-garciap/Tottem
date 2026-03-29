@@ -54,11 +54,30 @@ def render_ticket(
     out.append("------------------------------\n")
     total = 0
     for it in items:
+        # Build name with presentation
         line_name = f"{it.name}".strip()
+        pres_name = getattr(it, 'presentation_name', None)
+        if pres_name and pres_name != 'Única':
+            line_name = f"{it.name} ({pres_name})"
+
         qty_str = f"x{it.qty}"
-        price_str = f"$ {cents_to_money(it.price)}"
-        out.append(f"{qty_str} {line_name}\n   {price_str}\n")
-        total += it.price * it.qty
+
+        # Use applied_price if available, otherwise base price
+        eff_price = getattr(it, 'applied_price', None)
+        if eff_price is None:
+            eff_price = it.price
+        price_str = f"$ {cents_to_money(eff_price)}"
+
+        # Pricing type indicator
+        price_type = getattr(it, 'price_type', 'normal') or 'normal'
+        tag = ""
+        if price_type == 'wholesale':
+            tag = " MAYOREO"
+        elif price_type == 'discount':
+            tag = " DTO"
+
+        out.append(f"{qty_str} {line_name}{tag}\n   {price_str}\n")
+        total += eff_price * it.qty
 
     out.append("------------------------------\n")
     out.append(f"TOTAL: $ {cents_to_money(total)}\n")

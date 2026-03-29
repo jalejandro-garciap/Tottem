@@ -481,6 +481,82 @@ class QtyModeDialog(QDialog):
         self.accept()
 
 
+class PresentationSelectorDialog(QDialog):
+    """Touch-friendly dialog to select a product presentation/variant."""
+
+    def __init__(self, product_name: str, presentations: list[dict], parent=None):
+        super().__init__(parent)
+        self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
+        self.setModal(True)
+        self.setMinimumWidth(s(450))
+        self.selected_presentation: dict | None = None
+
+        from services.sales import cents_to_money
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(s(32), s(32), s(32), s(32))
+        layout.setSpacing(s(16))
+
+        # Title
+        title = QLabel(i18n.t("select_presentation"))
+        title.setAlignment(Qt.AlignCenter)
+        title.setStyleSheet(f"font-size: {s(18)}px; font-weight: 700;")
+        layout.addWidget(title)
+
+        # Product name
+        prod_lbl = QLabel(product_name)
+        prod_lbl.setAlignment(Qt.AlignCenter)
+        prod_lbl.setStyleSheet(f"font-size: {s(14)}px;")
+        prod_lbl.setWordWrap(True)
+        layout.addWidget(prod_lbl)
+
+        # One button per presentation
+        for pres in presentations:
+            pname = pres.get("name", "")
+            pprice = cents_to_money(pres.get("price", 0))
+            label_parts = [f"{pname}  —  ${pprice}"]
+            # Show wholesale or discount hint
+            if pres.get("wholesale_price") is not None and pres.get("wholesale_min_qty") is not None:
+                wp = cents_to_money(pres["wholesale_price"])
+                wmq = pres["wholesale_min_qty"]
+                label_parts.append(f"\n{i18n.t('price_wholesale')}: ${wp} (≥{int(wmq) if wmq == int(wmq) else wmq})")
+            elif pres.get("discount_pct") and pres["discount_pct"] > 0:
+                label_parts.append(f"\n{i18n.t('price_discount')}: -{pres['discount_pct']}%")
+
+            btn = QPushButton("".join(label_parts))
+            btn.setMinimumHeight(s(80))
+            btn.setStyleSheet(f"""
+                QPushButton {{
+                    font-size: {s(15)}px;
+                    font-weight: 600;
+                    background: rgba(0, 0, 0, 0.1);
+                    border: 2px solid palette(mid);
+                    border-radius: {s(14)}px;
+                    text-align: center;
+                    padding: {s(10)}px;
+                }}
+                QPushButton:hover {{
+                    background: rgba(0, 0, 0, 0.2);
+                    border-color: palette(highlight);
+                }}
+                QPushButton:pressed {{
+                    background: #2a2a3a;
+                }}
+            """)
+            btn.clicked.connect(lambda _=None, pr=pres: self._select(pr))
+            layout.addWidget(btn)
+
+        # Cancel button
+        btn_cancel = QPushButton(i18n.t("cancel") or "Cancelar")
+        btn_cancel.setMinimumHeight(s(50))
+        btn_cancel.clicked.connect(self.reject)
+        layout.addWidget(btn_cancel)
+
+    def _select(self, pres: dict):
+        self.selected_presentation = pres
+        self.accept()
+
+
 class POSWindow(QMainWindow):
     """
     Premium Point of Sale Interface
@@ -678,7 +754,8 @@ class POSWindow(QMainWindow):
             key = ("id", p["id"]) if p.get("id") is not None else ("name", p.get("name", ""))
             self.prod_meta[key] = {
                 "allow_decimal": bool(p.get("allow_decimal", 0)),
-                "unit": (p.get("unit") or "pz").strip()
+                "unit": (p.get("unit") or "pz").strip(),
+                "has_presentations": bool(p.get("has_presentations", 0)),
             }
 
         self.categories_enabled = is_categories_enabled()
@@ -999,8 +1076,20 @@ class POSWindow(QMainWindow):
         return s or "0"
 
     def _format_row(self, it: CartItem) -> str:
-        subtotal = round(it.price * it.qty) / 100.0
-        return f"{it.name}  ×{self._fmt_qty(it.qty)} {it.unit or 'pz'}    ${subtotal:,.2f}"
+        eff_price = it.applied_price if it.applied_price is not None else it.price
+        subtotal = round(eff_price * it.qty) / 100.0
+        name_part = it.name
+        if it.presentation_name and it.presentation_name != 'Única':
+            name_part = f"{it.name} ({it.presentation_name})"
+        line = f"{name_part}  ×{self._fmt_qty(it.qty)} {it.unit or 'pz'}    ${subtotal:,.2f}"
+        # Add pricing indicator
+        if it.price_type == 'wholesale':
+            orig = round(it.price * it.qty) / 100.0
+            line += f"  [~${orig:,.2f}~ {i18n.t('price_wholesale')}]"
+        elif it.price_type == 'discount':
+            orig = round(it.price * it.qty) / 100.0
+            line += f"  [~${orig:,.2f}~ {i18n.t('price_discount')}]"
+        return line
 
     def _refresh_list_row(self, idx: int):
         if 0 <= idx < len(self.cart) and self.list.item(idx):
@@ -1011,13 +1100,13 @@ class POSWindow(QMainWindow):
         for it in self.cart:
             self.list.addItem(self._format_row(it))
 
-    def _find_cart_index_by_product(self, product_id, name: str) -> int:
+    def _find_cart_index_by_product(self, product_id, name: str, presentation_id=None) -> int:
         if product_id is not None:
             for i, it in enumerate(self.cart):
-                if it.product_id == product_id:
+                if it.product_id == product_id and it.presentation_id == presentation_id:
                     return i
         for i, it in enumerate(self.cart):
-            if (it.product_id is None) and (it.name == name):
+            if (it.product_id is None) and (it.name == name) and (it.presentation_id == presentation_id):
                 return i
         return -1
 
@@ -1034,13 +1123,56 @@ class POSWindow(QMainWindow):
         name = p.get("name", "")
         price = int(p.get("price", 0))
         unit = (p.get("unit") or "pz").strip()
-        idx = self._find_cart_index_by_product(prod_id, name)
+        has_pres = bool(p.get("has_presentations", 0))
+
+        presentation_id = None
+        presentation_name = None
+        pres_data = None
+
+        if has_pres:
+            from services.presentations import list_presentations
+            presos = list_presentations(prod_id)
+            if len(presos) > 1:
+                # Show selector
+                dlg = PresentationSelectorDialog(name, presos, self)
+                if dlg.exec() != QDialog.Accepted or not dlg.selected_presentation:
+                    return
+                pres_data = dlg.selected_presentation
+            elif len(presos) == 1:
+                pres_data = presos[0]
+            # else no presentations found, fall through to base price
+
+        if pres_data:
+            presentation_id = pres_data["id"]
+            presentation_name = pres_data["name"]
+            price = int(pres_data["price"])
+
+        idx = self._find_cart_index_by_product(prod_id, name, presentation_id)
         if idx >= 0:
             self.cart[idx].qty += 1.0
+            self._recalc_item_price(idx)
             self._refresh_list_row(idx)
             self.list.setCurrentRow(idx)
         else:
-            it = CartItem(prod_id, name, price, 1.0, unit)
+            it = CartItem(
+                prod_id, name, price, 1.0, unit,
+                presentation_id=presentation_id,
+                presentation_name=presentation_name,
+                applied_price=price,
+                price_type='normal',
+            )
+            # Resolve initial pricing
+            if pres_data:
+                from services.presentations import resolve_price_from_data
+                eff, ptype = resolve_price_from_data(
+                    pres_data["price"],
+                    pres_data.get("wholesale_price"),
+                    pres_data.get("wholesale_min_qty"),
+                    pres_data.get("discount_pct"),
+                    1.0
+                )
+                it.applied_price = eff
+                it.price_type = ptype
             self.cart.append(it)
             self.list.addItem(self._format_row(it))
             self.list.setCurrentRow(self.list.count() - 1)
@@ -1052,6 +1184,7 @@ class POSWindow(QMainWindow):
             return
         q = self.cart[idx].qty
         self.cart[idx].qty = math.floor(q) + 1.0
+        self._recalc_item_price(idx)
         self._refresh_list_row(idx)
         self._refresh_total()
 
@@ -1061,8 +1194,21 @@ class POSWindow(QMainWindow):
             return
         q = self.cart[idx].qty
         self.cart[idx].qty = max(1.0, math.ceil(q) - 1.0)
+        self._recalc_item_price(idx)
         self._refresh_list_row(idx)
         self._refresh_total()
+
+    def _recalc_item_price(self, idx: int):
+        """Recalculate applied_price and price_type for a cart item based on its current qty."""
+        it = self.cart[idx]
+        if it.presentation_id is not None:
+            from services.presentations import resolve_price
+            eff, ptype = resolve_price(it.presentation_id, it.qty)
+            it.applied_price = eff
+            it.price_type = ptype
+        else:
+            it.applied_price = it.price
+            it.price_type = 'normal'
 
     def _set_qty(self):
         idx = self._selected_index()
@@ -1093,6 +1239,7 @@ class POSWindow(QMainWindow):
             else:
                 q = max(1.0, float(int(round(q or 0.0)) or 1))
             self.cart[idx].qty = q
+            self._recalc_item_price(idx)
             self._refresh_list_row(idx)
             self._refresh_total()
     
@@ -1114,6 +1261,7 @@ class POSWindow(QMainWindow):
             qty = amount_cents / item.price
             qty = max(0.001, min(9999.0, qty))
             self.cart[idx].qty = qty
+            self._recalc_item_price(idx)
             self._refresh_list_row(idx)
             self._refresh_total()
 
@@ -1134,7 +1282,10 @@ class POSWindow(QMainWindow):
             self._refresh_total()
 
     def _total_amount(self) -> float:
-        cents = sum(round(i.price * i.qty) for i in self.cart)
+        cents = sum(
+            round((i.applied_price if i.applied_price is not None else i.price) * i.qty)
+            for i in self.cart
+        )
         return cents / 100.0
 
     def _refresh_total(self):
@@ -1164,7 +1315,10 @@ class POSWindow(QMainWindow):
             )
             return
         
-        total_cents = int(round(sum(round(i.price * i.qty) for i in self.cart)))
+        total_cents = int(round(sum(
+            round((i.applied_price if i.applied_price is not None else i.price) * i.qty)
+            for i in self.cart
+        )))
         dlg = PaymentDialog(total_cents, self)
         if dlg.exec() != QDialog.Accepted:
             return
@@ -1292,7 +1446,8 @@ class POSWindow(QMainWindow):
             key = ("id", p["id"]) if p.get("id") is not None else ("name", p.get("name", ""))
             self.prod_meta[key] = {
                 "allow_decimal": bool(p.get("allow_decimal", 0)),
-                "unit": (p.get("unit") or "pz").strip()
+                "unit": (p.get("unit") or "pz").strip(),
+                "has_presentations": bool(p.get("has_presentations", 0)),
             }
         
         self.categories_enabled = is_categories_enabled()

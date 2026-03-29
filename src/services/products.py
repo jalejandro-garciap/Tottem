@@ -9,6 +9,7 @@ from services.sales import (
     delete_product as _delete_core,
     get_categories as _get_categories_core,
 )
+from services.presentations import ensure_default_presentation, sync_default_price
 
 def list_products(q: str = "", include_inactive: bool = True, category: Optional[str] = None) -> List[Dict[str, Any]]:
     if category is not None:
@@ -20,9 +21,9 @@ def get_product(product_id: int) -> Optional[Dict[str, Any]]:
 
 def create_product(*, name: str, price_money: str | float | int, unit: str,
                    allow_decimal: bool, active: bool, category: str, icon: str = "",
-                   card_color: str = "") -> int:
+                   card_color: str = "", has_presentations: bool = False) -> int:
     price_cents = money_to_cents(price_money)
-    return _upsert_core(
+    pid = _upsert_core(
         product_id=None,
         name=name,
         price_cents=price_cents,
@@ -32,13 +33,17 @@ def create_product(*, name: str, price_money: str | float | int, unit: str,
         category=category,
         icon=icon,
         card_color=card_color,
+        has_presentations=has_presentations,
     )
+    # Auto-create default presentation
+    ensure_default_presentation(pid, price_cents)
+    return pid
 
 def update_product(*, product_id: int, name: str, price_money: str | float | int, unit: str,
                    allow_decimal: bool, active: bool, category: str, icon: str = "",
-                   card_color: str = "") -> int:
+                   card_color: str = "", has_presentations: bool = False) -> int:
     price_cents = money_to_cents(price_money)
-    return _upsert_core(
+    result = _upsert_core(
         product_id=product_id,
         name=name,
         price_cents=price_cents,
@@ -48,7 +53,13 @@ def update_product(*, product_id: int, name: str, price_money: str | float | int
         category=category,
         icon=icon,
         card_color=card_color,
+        has_presentations=has_presentations,
     )
+    # Ensure default presentation exists and sync price if single
+    ensure_default_presentation(product_id, price_cents)
+    if not has_presentations:
+        sync_default_price(product_id, price_cents)
+    return result
 
 def set_active(product_id: int, active: bool) -> None:
     data = _get_product_core(product_id)

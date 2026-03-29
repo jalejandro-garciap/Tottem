@@ -18,9 +18,14 @@ def connect() -> sqlite3.Connection:
 class CartItem:
     product_id: Optional[int]
     name: str
-    price: int   # cents
+    price: int   # cents (base/normal price)
     qty: float
     unit: str    # 'pz', 'kg', etc.
+    # v1.3: Presentation & pricing fields
+    presentation_id: Optional[int] = None
+    presentation_name: Optional[str] = None
+    applied_price: Optional[int] = None   # effective price after rules (cents)
+    price_type: str = 'normal'            # 'normal', 'wholesale', 'discount'
 
 
 def cents_to_money(cents: int) -> str:
@@ -52,7 +57,8 @@ def get_active_products() -> List[Dict[str, Any]]:
                    COALESCE(allow_decimal,0) AS allow_decimal,
                    COALESCE(category,'General') AS category,
                    COALESCE(icon,'') AS icon,
-                   COALESCE(card_color,'') AS card_color
+                   COALESCE(card_color,'') AS card_color,
+                   COALESCE(has_presentations,0) AS has_presentations
             FROM product
             WHERE active = 1
             ORDER BY name COLLATE NOCASE
@@ -67,7 +73,8 @@ def list_products(q: str = "", include_inactive: bool = True) -> List[Dict[str, 
              COALESCE(allow_decimal,0) AS allow_decimal,
              COALESCE(category,'General') AS category,
              COALESCE(icon,'') AS icon,
-             COALESCE(card_color,'') AS card_color
+             COALESCE(card_color,'') AS card_color,
+             COALESCE(has_presentations,0) AS has_presentations
       FROM product
       WHERE 1=1
     """
@@ -90,7 +97,8 @@ def list_products_by_category(q: str = "", category: str | None = None, include_
              COALESCE(allow_decimal,0) AS allow_decimal,
              COALESCE(category,'General') AS category,
              COALESCE(icon,'') AS icon,
-             COALESCE(card_color,'') AS card_color
+             COALESCE(card_color,'') AS card_color,
+             COALESCE(has_presentations,0) AS has_presentations
       FROM product
       WHERE 1=1
     """
@@ -125,25 +133,27 @@ def upsert_product(*,
                    active: bool,
                    category: str,
                    icon: str = "",
-                   card_color: str = "") -> int:
+                   card_color: str = "",
+                   has_presentations: bool = False) -> int:
     unit = (unit or "pz").strip()
     category = (category or "General").strip()
     icon = (icon or "").strip()
     card_color = (card_color or "").strip() or None  # Store NULL if empty
     allow_decimal_i = 1 if allow_decimal else 0
     active_i = 1 if active else 0
+    has_pres_i = 1 if has_presentations else 0
     with connect() as c:
         if product_id:
             c.execute("""
                 UPDATE product
-                   SET name=?, price=?, unit=?, allow_decimal=?, active=?, category=?, icon=?, card_color=?
+                   SET name=?, price=?, unit=?, allow_decimal=?, active=?, category=?, icon=?, card_color=?, has_presentations=?
                  WHERE id=?
-            """, (name, price_cents, unit, allow_decimal_i, active_i, category, icon, card_color, product_id))
+            """, (name, price_cents, unit, allow_decimal_i, active_i, category, icon, card_color, has_pres_i, product_id))
             return int(product_id)
         cur = c.execute("""
-            INSERT INTO product(name, price, unit, allow_decimal, active, category, icon, card_color)
-            VALUES(?,?,?,?,?,?,?,?)
-        """, (name, price_cents, unit, allow_decimal_i, active_i, category, icon, card_color))
+            INSERT INTO product(name, price, unit, allow_decimal, active, category, icon, card_color, has_presentations)
+            VALUES(?,?,?,?,?,?,?,?,?)
+        """, (name, price_cents, unit, allow_decimal_i, active_i, category, icon, card_color, has_pres_i))
         return int(cur.lastrowid)
 
 
@@ -160,7 +170,8 @@ def get_product(product_id: int) -> Optional[Dict[str, Any]]:
                  COALESCE(allow_decimal,0) AS allow_decimal,
                  COALESCE(category,'General') AS category,
                  COALESCE(icon,'') AS icon,
-                 COALESCE(card_color,'') AS card_color
+                 COALESCE(card_color,'') AS card_color,
+                 COALESCE(has_presentations,0) AS has_presentations
             FROM product WHERE id=?
         """, (product_id,)).fetchone()
     return dict(r) if r else None
@@ -193,7 +204,11 @@ def save_ticket(
         from services.shifts import current_shift
         sh = current_shift()
         shift_id = sh["id"] if sh else None
-    total_cents = int(round(sum(round(i.price * i.qty) for i in items)))
+    # Use applied_price if set, otherwise fall back to base price
+    total_cents = int(round(sum(
+        round((i.applied_price if i.applied_price is not None else i.price) * i.qty)
+        for i in items
+    )))
     with connect() as c:
         cur = c.execute("""
             INSERT INTO ticket(ts, total, shift_id, paid, change_amount, payment_method) 
@@ -201,10 +216,13 @@ def save_ticket(
         """, (total_cents, shift_id, paid_cents, change_cents, payment_method))
         tid = int(cur.lastrowid)
         for it in items:
+            eff_price = it.applied_price if it.applied_price is not None else it.price
             c.execute("""
-                INSERT INTO ticket_item(ticket_id, product_id, name, price, quantity)
-                VALUES(?,?,?,?,?)
-            """, (tid, it.product_id, it.name, it.price, it.qty))
+                INSERT INTO ticket_item(ticket_id, product_id, name, price, quantity,
+                                        presentation_id, presentation_name, applied_price, price_type)
+                VALUES(?,?,?,?,?,?,?,?,?)
+            """, (tid, it.product_id, it.name, it.price, it.qty,
+                  it.presentation_id, it.presentation_name, eff_price, it.price_type or 'normal'))
     return tid
 
 
@@ -217,7 +235,10 @@ def get_last_ticket_id() -> Optional[int]:
 def get_ticket_items(ticket_id: int) -> List[CartItem]:
     with connect() as c:
         rows = c.execute("""
-          SELECT product_id, name, price, quantity
+          SELECT product_id, name, price, quantity,
+                 COALESCE(unit, 'pz') AS unit,
+                 presentation_id, presentation_name,
+                 applied_price, COALESCE(price_type, 'normal') AS price_type
             FROM ticket_item
            WHERE ticket_id=?
         """, (ticket_id,)).fetchall()
@@ -228,7 +249,11 @@ def get_ticket_items(ticket_id: int) -> List[CartItem]:
             name=r["name"],
             price=r["price"],
             qty=float(r["quantity"]),
-            unit="pz"  # ticket_item no guarda unidad; legacy
+            unit=r["unit"] or "pz",
+            presentation_id=r["presentation_id"],
+            presentation_name=r["presentation_name"],
+            applied_price=r["applied_price"],
+            price_type=r["price_type"] or "normal",
         ))
     return items
 
