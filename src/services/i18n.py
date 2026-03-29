@@ -213,8 +213,25 @@ _STRINGS: Dict[str, Dict[str, str]] = {
         "color_status": "Estado",
         "preview": "Vista previa",
 
+        # Pricing rules
+        "price_wholesale": "MAYOREO",
+        "price_discount": "DESCUENTO",
+        "price_normal": "Normal",
+        "pricing_rule": "Regla de precio",
+        "wholesale_price": "Precio mayoreo",
+        "wholesale_min_qty": "Cant. mín. mayoreo",
+        "discount_pct": "Descuento (%)",
+        "pricing_active": "Regla activa",
+        "pricing_saved": "Regla de precio guardada.",
+        "pricing_deleted": "Regla de precio eliminada.",
+        "pricing_exclusive": "No se puede tener mayoreo y descuento activos simultáneamente.",
+        "pricing_section": "Regla de Precio",
+        "wholesale_badge": "Mayoreo ≥ {qty}",
+        "discount_badge": "-{pct}% DESC",
+        "pricing_none": "(sin regla)",
+
         # System tab
-        "version_beta": "v1.2 Beta",
+        "version_beta": "v1.3 Beta",
         "sys_wifi_config": "Configuración WiFi",
         "sys_scan": "Buscar",
         "sys_scan_wifi_tooltip": "Escanear redes WiFi",
@@ -512,8 +529,25 @@ _STRINGS: Dict[str, Dict[str, str]] = {
         "color_status": "Status",
         "preview": "Preview",
 
+        # Pricing rules
+        "price_wholesale": "WHOLESALE",
+        "price_discount": "DISCOUNT",
+        "price_normal": "Normal",
+        "pricing_rule": "Pricing rule",
+        "wholesale_price": "Wholesale price",
+        "wholesale_min_qty": "Min. wholesale qty",
+        "discount_pct": "Discount (%)",
+        "pricing_active": "Rule active",
+        "pricing_saved": "Pricing rule saved.",
+        "pricing_deleted": "Pricing rule deleted.",
+        "pricing_exclusive": "Cannot have wholesale and discount active simultaneously.",
+        "pricing_section": "Pricing Rule",
+        "wholesale_badge": "Wholesale ≥ {qty}",
+        "discount_badge": "-{pct}% OFF",
+        "pricing_none": "(no rule)",
+
         # System tab
-        "version_beta": "v1.2 Beta",
+        "version_beta": "v1.3 Beta",
         "sys_wifi_config": "WiFi Configuration",
         "sys_scan": "Scan",
         "sys_scan_wifi_tooltip": "Scan WiFi networks",

@@ -18,6 +18,7 @@ from services.sales import (
     get_last_ticket_id, get_ticket_items
 )
 from services.settings import is_categories_enabled
+from services.pricing import get_all_active_rules, resolve_price
 from drivers.printer_escpos import EscposPrinter
 from services import i18n
 from ui.widgets.keypad import NumKeypad
@@ -689,6 +690,9 @@ class POSWindow(QMainWindow):
 
         self._populate_grid()
 
+        # ─── Pricing rules cache ──────────────────────────────────────────
+        self.pricing_rules = get_all_active_rules()
+
         # Layout assembly
         root.addWidget(self.products_area, 3)
         root.addWidget(self.right_wrap, 2)
@@ -803,19 +807,39 @@ class POSWindow(QMainWindow):
         btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         fm = btn.fontMetrics()
         name = self._elide_two_lines(p.get("name", ""), fm, est_width, max_lines=2)
-        price = "${:,.2f}".format(p.get("price", 0) / 100.0)
+        base_price = p.get("price", 0)
+        price_str = "${:,.2f}".format(base_price / 100.0)
         unit = (p.get("unit") or "pz").strip()
-        
+
+        # Check pricing rule
+        prod_id = p.get("id")
+        rule = self.pricing_rules.get(prod_id) if prod_id else None
+        badge = ""
+        if rule:
+            discount_pct = float(rule.get("discount_pct", 0) or 0)
+            ws_price = int(rule.get("wholesale_price", 0) or 0)
+            ws_min = float(rule.get("wholesale_min_qty", 0) or 0)
+            if discount_pct > 0:
+                discount_amt = round(base_price * discount_pct / 100.0)
+                discounted = max(0, base_price - discount_amt)
+                price_str = "${:,.2f}".format(discounted / 100.0)
+                badge = i18n.t("discount_badge", pct=f"{discount_pct:g}")
+            elif ws_price > 0 and ws_min > 0:
+                qty_str_badge = f"{ws_min:g}"
+                badge = i18n.t("wholesale_badge", qty=qty_str_badge)
+
         # Icon rendering logic: icon + text OR text-only
         icon_name = (p.get("icon") or "").strip()
         icon_char = get_icon_char(icon_name) if icon_name else ""
-        
-        if icon_char:
-            # With icon: show icon on first line, then name, price/unit
-            btn.setText(f"{icon_char}\n{name}\n{price} / {unit}")
+
+        if icon_char and badge:
+            btn.setText(f"{icon_char}\n{name}\n{price_str} / {unit}\n{badge}")
+        elif icon_char:
+            btn.setText(f"{icon_char}\n{name}\n{price_str} / {unit}")
+        elif badge:
+            btn.setText(f"{name}\n{price_str} / {unit}\n{badge}")
         else:
-            # Without icon: show name, price/unit (original behavior)
-            btn.setText(f"{name}\n{price} / {unit}")
+            btn.setText(f"{name}\n{price_str} / {unit}")
         
         # Apply optional card color
         card_color = (p.get("card_color") or "").strip()
@@ -1000,7 +1024,15 @@ class POSWindow(QMainWindow):
 
     def _format_row(self, it: CartItem) -> str:
         subtotal = round(it.price * it.qty) / 100.0
-        return f"{it.name}  ×{self._fmt_qty(it.qty)} {it.unit or 'pz'}    ${subtotal:,.2f}"
+        tag = ""
+        if it.price_type == "wholesale":
+            tag = " MYR"
+        elif it.price_type == "discount" and it.original_price is not None:
+            base = it.original_price
+            if base > 0:
+                pct = round((1 - it.price / base) * 100)
+                tag = f" -{pct}%"
+        return f"{it.name}  ×{self._fmt_qty(it.qty)} {it.unit or 'pz'}    ${subtotal:,.2f}{tag}"
 
     def _refresh_list_row(self, idx: int):
         if 0 <= idx < len(self.cart) and self.list.item(idx):
@@ -1029,18 +1061,44 @@ class POSWindow(QMainWindow):
             return last
         return int(idx) if idx is not None else -1
 
+    def _recalc_item_price(self, idx: int, base_price: int | None = None):
+        """Recalculate pricing for a cart item after quantity changes.
+
+        For wholesale rules, the price may change when qty crosses the
+        minimum threshold.  Discount rules always apply regardless of qty.
+        """
+        it = self.cart[idx]
+        if base_price is None:
+            # Recover base price from product catalog
+            for p in self.products:
+                if p.get("id") == it.product_id:
+                    base_price = int(p.get("price", 0))
+                    break
+            else:
+                # Fallback: use original_price or current price
+                base_price = it.original_price if it.original_price is not None else it.price
+        rule = self.pricing_rules.get(it.product_id) if it.product_id else None
+        final, ptype, orig = resolve_price(base_price, it.qty, rule)
+        it.price = final
+        it.price_type = ptype
+        it.original_price = orig
+
     def add_item(self, p: dict):
         prod_id = p.get("id")
         name = p.get("name", "")
-        price = int(p.get("price", 0))
+        base_price = int(p.get("price", 0))
         unit = (p.get("unit") or "pz").strip()
         idx = self._find_cart_index_by_product(prod_id, name)
         if idx >= 0:
             self.cart[idx].qty += 1.0
+            # Recalculate pricing after qty change
+            self._recalc_item_price(idx, base_price)
             self._refresh_list_row(idx)
             self.list.setCurrentRow(idx)
         else:
-            it = CartItem(prod_id, name, price, 1.0, unit)
+            rule = self.pricing_rules.get(prod_id) if prod_id else None
+            final_price, price_type, original_price = resolve_price(base_price, 1.0, rule)
+            it = CartItem(prod_id, name, final_price, 1.0, unit, price_type, original_price)
             self.cart.append(it)
             self.list.addItem(self._format_row(it))
             self.list.setCurrentRow(self.list.count() - 1)
@@ -1052,6 +1110,7 @@ class POSWindow(QMainWindow):
             return
         q = self.cart[idx].qty
         self.cart[idx].qty = math.floor(q) + 1.0
+        self._recalc_item_price(idx)
         self._refresh_list_row(idx)
         self._refresh_total()
 
@@ -1061,6 +1120,7 @@ class POSWindow(QMainWindow):
             return
         q = self.cart[idx].qty
         self.cart[idx].qty = max(1.0, math.ceil(q) - 1.0)
+        self._recalc_item_price(idx)
         self._refresh_list_row(idx)
         self._refresh_total()
 
@@ -1093,6 +1153,7 @@ class POSWindow(QMainWindow):
             else:
                 q = max(1.0, float(int(round(q or 0.0)) or 1))
             self.cart[idx].qty = q
+            self._recalc_item_price(idx)
             self._refresh_list_row(idx)
             self._refresh_total()
     
@@ -1114,6 +1175,7 @@ class POSWindow(QMainWindow):
             qty = amount_cents / item.price
             qty = max(0.001, min(9999.0, qty))
             self.cart[idx].qty = qty
+            self._recalc_item_price(idx)
             self._refresh_list_row(idx)
             self._refresh_total()
 
@@ -1285,7 +1347,7 @@ class POSWindow(QMainWindow):
         self._admin_win.destroyed.connect(lambda _obj=None: _back_to_kiosk())
 
     def _reload_products(self):
-        """Reload products and categories from DB and refresh grid."""
+        """Reload products, categories, and pricing rules from DB and refresh grid."""
         self.products = get_active_products()
         self.prod_meta.clear()
         for p in self.products:
@@ -1294,12 +1356,14 @@ class POSWindow(QMainWindow):
                 "allow_decimal": bool(p.get("allow_decimal", 0)),
                 "unit": (p.get("unit") or "pz").strip()
             }
-        
+
+        self.pricing_rules = get_all_active_rules()
+
         self.categories_enabled = is_categories_enabled()
         self.categories = self._extract_categories(self.products)
         if self.current_category and self.current_category not in self.categories:
             self.current_category = None
-            
+
         self._populate_grid()
 
     # ═══════════════════════════════════════════════════════════════════════

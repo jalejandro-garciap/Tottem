@@ -51,6 +51,7 @@ from ui.icon_helper import get_icon_char
 from ui.widgets.osk import OnScreenKeyboard
 from ui.widgets.keypad import NumKeypad
 from services.auth import check_admin_pin
+from services.pricing import get_pricing_rule, upsert_pricing_rule, delete_pricing_rule
 
 try:
     import usb.core
@@ -407,6 +408,72 @@ class ProductDialog(QDialog):
 
         root.addLayout(form)
 
+        # ─── Pricing Rule Section ─────────────────────────────────────────
+        pricing_frame = QFrame()
+        pricing_frame.setStyleSheet(f"""
+            QFrame {{
+                border: 1px solid palette(mid);
+                border-radius: {s(12)}px;
+                padding: {s(12)}px;
+            }}
+        """)
+        pricing_layout = QVBoxLayout(pricing_frame)
+        pricing_layout.setSpacing(s(12))
+
+        pricing_title = QLabel(i18n.t("pricing_section") or "Regla de Precio")
+        pricing_title.setStyleSheet(f"""
+            font-size: {s(13)}px;
+            font-weight: 700;
+            letter-spacing: 1px;
+        """)
+        pricing_layout.addWidget(pricing_title)
+
+        # Load existing rule
+        self._pricing_rule = None
+        if product and product.get("id"):
+            self._pricing_rule = get_pricing_rule(product["id"])
+
+        pricing_form = QFormLayout()
+        pricing_form.setSpacing(s(10))
+        pricing_form.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
+
+        self.cb_pricing_active = QCheckBox(i18n.t("pricing_active") or "Regla activa")
+        self.cb_pricing_active.setChecked(
+            bool(self._pricing_rule.get("active", 0)) if self._pricing_rule else False
+        )
+
+        self.ed_wholesale_price = QLineEdit(
+            cents_to_money(self._pricing_rule["wholesale_price"])
+            if self._pricing_rule and self._pricing_rule.get("wholesale_price")
+            else ""
+        )
+        self.ed_wholesale_price.setMinimumHeight(s(48))
+        self.ed_wholesale_price.setPlaceholderText("0.00")
+
+        self.ed_wholesale_min_qty = QLineEdit(
+            str(self._pricing_rule["wholesale_min_qty"])
+            if self._pricing_rule and self._pricing_rule.get("wholesale_min_qty")
+            else ""
+        )
+        self.ed_wholesale_min_qty.setMinimumHeight(s(48))
+        self.ed_wholesale_min_qty.setPlaceholderText("0")
+
+        self.ed_discount_pct = QLineEdit(
+            str(self._pricing_rule["discount_pct"])
+            if self._pricing_rule and self._pricing_rule.get("discount_pct")
+            else ""
+        )
+        self.ed_discount_pct.setMinimumHeight(s(48))
+        self.ed_discount_pct.setPlaceholderText("0")
+
+        pricing_form.addRow(self.cb_pricing_active)
+        pricing_form.addRow(i18n.t("wholesale_price") or "Precio mayoreo", self.ed_wholesale_price)
+        pricing_form.addRow(i18n.t("wholesale_min_qty") or "Cant. m\u00edn. mayoreo", self.ed_wholesale_min_qty)
+        pricing_form.addRow(i18n.t("discount_pct") or "Descuento (%)", self.ed_discount_pct)
+
+        pricing_layout.addLayout(pricing_form)
+        root.addWidget(pricing_frame)
+
         # Actions
         row = QHBoxLayout()
         row.setSpacing(16)
@@ -424,7 +491,8 @@ class ProductDialog(QDialog):
 
         # OSK
         self._osk_filter = _OskFocusFilter(self)
-        for w in (self.ed_name, self.ed_price, self.ed_unit, self.ed_category):
+        for w in (self.ed_name, self.ed_price, self.ed_unit, self.ed_category,
+                  self.ed_wholesale_price, self.ed_wholesale_min_qty, self.ed_discount_pct):
             w.installEventFilter(self._osk_filter)
 
     def _pick_card_color(self):
@@ -458,6 +526,30 @@ class ProductDialog(QDialog):
         unit = (self.ed_unit.text() or "pz").strip() or "pz"
         category = (self.ed_category.text() or "General").strip() or "General"
         icon = self.combo_icon.currentData() or ""
+
+        # Pricing rule data
+        ws_price_cents = money_to_cents(self.ed_wholesale_price.text() or "0")
+        try:
+            ws_min_qty = float(self.ed_wholesale_min_qty.text() or "0")
+        except ValueError:
+            ws_min_qty = 0.0
+        try:
+            discount_pct = float(self.ed_discount_pct.text() or "0")
+        except ValueError:
+            discount_pct = 0.0
+        pricing_active = self.cb_pricing_active.isChecked()
+
+        # Mutual exclusion validation
+        has_ws = ws_price_cents > 0 and ws_min_qty > 0
+        has_disc = discount_pct > 0
+        if has_ws and has_disc:
+            QMessageBox.warning(
+                self,
+                i18n.t("pricing_section") or "Regla de Precio",
+                i18n.t("pricing_exclusive") or "No se puede tener mayoreo y descuento activos simult\u00e1neamente."
+            )
+            return None
+
         return {
             "name": name,
             "price": cents,
@@ -467,6 +559,11 @@ class ProductDialog(QDialog):
             "category": category,
             "icon": icon,
             "card_color": self._card_color or "",
+            # Pricing rule fields
+            "pricing_active": pricing_active,
+            "wholesale_price": ws_price_cents,
+            "wholesale_min_qty": ws_min_qty,
+            "discount_pct": discount_pct,
         }
 
 
@@ -1752,6 +1849,25 @@ class AdminWindow(QMainWindow):
                         icon=data.get("icon", ""),
                         card_color=data.get("card_color", ""),
                     )
+                    # Save pricing rule for the new product
+                    from services.sales import connect as _sales_connect
+                    with _sales_connect() as _c:
+                        row = _c.execute("SELECT id FROM product ORDER BY id DESC LIMIT 1").fetchone()
+                    if row:
+                        new_pid = int(row["id"])
+                        has_rule = (
+                            data.get("pricing_active", False)
+                            or data.get("wholesale_price", 0) > 0
+                            or data.get("discount_pct", 0) > 0
+                        )
+                        if has_rule:
+                            upsert_pricing_rule(
+                                new_pid,
+                                wholesale_price=data.get("wholesale_price", 0),
+                                wholesale_min_qty=data.get("wholesale_min_qty", 0),
+                                discount_pct=data.get("discount_pct", 0),
+                                active=data.get("pricing_active", False),
+                            )
                 finally:
                     self._prod_save_in_progress = False
                 QMessageBox.information(self, i18n.t("tab_products"), i18n.t("prod_saved"))
@@ -1785,6 +1901,23 @@ class AdminWindow(QMainWindow):
                 icon=data.get("icon", ""),
                 card_color=data.get("card_color", ""),
             )
+            # Save / update pricing rule
+            has_rule = (
+                data.get("pricing_active", False)
+                or data.get("wholesale_price", 0) > 0
+                or data.get("discount_pct", 0) > 0
+            )
+            if has_rule:
+                upsert_pricing_rule(
+                    pid,
+                    wholesale_price=data.get("wholesale_price", 0),
+                    wholesale_min_qty=data.get("wholesale_min_qty", 0),
+                    discount_pct=data.get("discount_pct", 0),
+                    active=data.get("pricing_active", False),
+                )
+            else:
+                # No rule data: remove if exists
+                delete_pricing_rule(pid)
             QMessageBox.information(self, i18n.t("tab_products"), i18n.t("prod_saved"))
             self._prod_refresh()
 

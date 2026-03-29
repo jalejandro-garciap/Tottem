@@ -18,9 +18,11 @@ def connect() -> sqlite3.Connection:
 class CartItem:
     product_id: Optional[int]
     name: str
-    price: int   # cents
+    price: int   # cents (effective/final price)
     qty: float
     unit: str    # 'pz', 'kg', etc.
+    price_type: str = "normal"           # 'normal', 'wholesale', 'discount'
+    original_price: Optional[int] = None  # base price before rule (cents)
 
 
 def cents_to_money(cents: int) -> str:
@@ -202,9 +204,10 @@ def save_ticket(
         tid = int(cur.lastrowid)
         for it in items:
             c.execute("""
-                INSERT INTO ticket_item(ticket_id, product_id, name, price, quantity)
-                VALUES(?,?,?,?,?)
-            """, (tid, it.product_id, it.name, it.price, it.qty))
+                INSERT INTO ticket_item(ticket_id, product_id, name, price, quantity, price_type, original_price)
+                VALUES(?,?,?,?,?,?,?)
+            """, (tid, it.product_id, it.name, it.price, it.qty,
+                  it.price_type or "normal", it.original_price))
     return tid
 
 
@@ -217,7 +220,9 @@ def get_last_ticket_id() -> Optional[int]:
 def get_ticket_items(ticket_id: int) -> List[CartItem]:
     with connect() as c:
         rows = c.execute("""
-          SELECT product_id, name, price, quantity
+          SELECT product_id, name, price, quantity,
+                 COALESCE(price_type, 'normal') AS price_type,
+                 original_price
             FROM ticket_item
            WHERE ticket_id=?
         """, (ticket_id,)).fetchall()
@@ -228,7 +233,9 @@ def get_ticket_items(ticket_id: int) -> List[CartItem]:
             name=r["name"],
             price=r["price"],
             qty=float(r["quantity"]),
-            unit="pz"  # ticket_item no guarda unidad; legacy
+            unit="pz",  # ticket_item no guarda unidad; legacy
+            price_type=r["price_type"] or "normal",
+            original_price=int(r["original_price"]) if r["original_price"] is not None else None,
         ))
     return items
 

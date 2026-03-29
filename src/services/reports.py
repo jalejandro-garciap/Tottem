@@ -28,7 +28,9 @@ def get_shift_tickets_detail(shift_id: int) -> List[dict]:
         ticket_id = ticket[0]
         
         cur.execute("""
-            SELECT name, price, quantity, COALESCE(unit, 'pz') as unit
+            SELECT name, price, quantity, COALESCE(unit, 'pz') as unit,
+                   COALESCE(price_type, 'normal') as price_type,
+                   original_price
             FROM ticket_item
             WHERE ticket_id = ?
             ORDER BY id
@@ -45,7 +47,9 @@ def get_shift_tickets_detail(shift_id: int) -> List[dict]:
                     "name": item[0],
                     "price": int(item[1]),
                     "qty": float(item[2]),
-                    "unit": item[3]
+                    "unit": item[3],
+                    "price_type": item[4] or "normal",
+                    "original_price": int(item[5]) if item[5] is not None else None,
                 }
                 for item in items
             ]
@@ -258,7 +262,17 @@ def render_shift_closure_report(shift_id: int, closing_cash: int = 0, closed_by:
                 qty_str = f"{qty:.2f}".rstrip('0').rstrip('.') if qty != int(qty) else str(int(qty))
                 subtotal = int(item["price"] * qty)
                 name = item["name"][:18]
-                out.append(f"  {qty_str}x {name}\n")
+                # Pricing tag
+                tag = ""
+                pt = item.get("price_type", "normal")
+                if pt == "wholesale":
+                    tag = " MYR"
+                elif pt == "discount":
+                    orig = item.get("original_price")
+                    if orig and orig > 0:
+                        pct_val = round((1 - item["price"] / orig) * 100)
+                        tag = f" -{pct_val}%"
+                out.append(f"  {qty_str}x {name}{tag}\n")
                 out.append(f"               ${cents_to_money(subtotal):>6}\n")
             
             pm_tag = " (T)" if ticket.get('payment_method') == 'card' else ""
@@ -323,7 +337,9 @@ def csv_items_bytes(date_from: str, date_to: str) -> bytes:
     cur = conn.cursor()
     cur.execute(
         """
-        SELECT ti.ticket_id, t.ts, ti.product_id, ti.name, ti.price, ti.quantity, ti.unit
+        SELECT ti.ticket_id, t.ts, ti.product_id, ti.name, ti.price, ti.quantity, ti.unit,
+               COALESCE(ti.price_type, 'normal') as price_type,
+               ti.original_price
         FROM ticket_item ti
         JOIN ticket t ON t.id = ti.ticket_id
         WHERE DATE(t.ts) BETWEEN DATE(?) AND DATE(?)
@@ -334,7 +350,8 @@ def csv_items_bytes(date_from: str, date_to: str) -> bytes:
     rows = cur.fetchall()
     buf = io.StringIO()
     w = csv.writer(buf)
-    w.writerow(["ticket_id", "timestamp", "product_id", "name", "price_cents", "quantity", "unit"])
+    w.writerow(["ticket_id", "timestamp", "product_id", "name", "price_cents", "quantity", "unit",
+                "price_type", "original_price_cents"])
     for r in rows:
         w.writerow(list(r))
     return buf.getvalue().encode("utf-8")
@@ -373,7 +390,9 @@ def csv_sales_detailed_bytes(date_from: str, date_to: str) -> bytes:
             ti.quantity,
             COALESCE(ti.unit, 'pz') as unidad,
             t.total as total_ticket_cents,
-            COALESCE(t.payment_method, 'cash') as metodo_pago
+            COALESCE(t.payment_method, 'cash') as metodo_pago,
+            COALESCE(ti.price_type, 'normal') as tipo_precio,
+            ti.original_price as precio_original_cents
         FROM ticket t
         JOIN ticket_item ti ON ti.ticket_id = t.id
         LEFT JOIN product p ON p.id = ti.product_id
@@ -399,7 +418,9 @@ def csv_sales_detailed_bytes(date_from: str, date_to: str) -> bytes:
         "unidad",
         "subtotal",
         "total_ticket",
-        "metodo_pago"
+        "metodo_pago",
+        "tipo_precio",
+        "precio_original"
     ])
     
     for r in rows:
@@ -423,6 +444,9 @@ def csv_sales_detailed_bytes(date_from: str, date_to: str) -> bytes:
         total_ticket = f"{total_ticket_cents / 100:.2f}"
         metodo_pago_raw = r[10] or "cash"
         metodo_pago = {"cash": "efectivo", "card": "tarjeta"}.get(metodo_pago_raw, metodo_pago_raw)
+        tipo_precio = r[11] or "normal"
+        precio_original_cents = r[12]
+        precio_original = f"{int(precio_original_cents) / 100:.2f}" if precio_original_cents is not None else ""
         
         w.writerow([
             ticket_id,
@@ -436,7 +460,9 @@ def csv_sales_detailed_bytes(date_from: str, date_to: str) -> bytes:
             unidad,
             subtotal,
             total_ticket,
-            metodo_pago
+            metodo_pago,
+            tipo_precio,
+            precio_original
         ])
     
     return buf.getvalue().encode("utf-8")

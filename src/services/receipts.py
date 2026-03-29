@@ -57,7 +57,16 @@ def render_ticket(
         line_name = f"{it.name}".strip()
         qty_str = f"x{it.qty}"
         price_str = f"$ {cents_to_money(it.price)}"
-        out.append(f"{qty_str} {line_name}\n   {price_str}\n")
+        # Pricing tag (compact)
+        tag = ""
+        if getattr(it, "price_type", "normal") == "wholesale":
+            tag = " MYR"
+        elif getattr(it, "price_type", "normal") == "discount":
+            orig = getattr(it, "original_price", None)
+            if orig and orig > 0:
+                pct = round((1 - it.price / orig) * 100)
+                tag = f" -{pct}%"
+        out.append(f"{qty_str} {line_name}{tag}\n   {price_str}\n")
         total += it.price * it.qty
 
     out.append("------------------------------\n")
