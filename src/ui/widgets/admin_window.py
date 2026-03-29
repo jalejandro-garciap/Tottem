@@ -299,33 +299,42 @@ class ProductDialog(QDialog):
         super().__init__(parent)
         self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
         self.setModal(True)
-        self.setMinimumWidth(480)
+        self.setMinimumWidth(s(700))
 
         root = QVBoxLayout(self)
-        root.setContentsMargins(40, 40, 40, 40)
-        root.setSpacing(28)
+        root.setContentsMargins(s(28), s(24), s(28), s(24))
+        root.setSpacing(s(14))
 
-        # Header
+        # ─── Compact inline header ──────────────────────────────────────
+        header = QHBoxLayout()
+        header.setSpacing(s(10))
         from ui.icon_helper import get_icon_char
         icon = QLabel(get_icon_char("box") or "📦")
         icon.setObjectName("IconLabel")
-        icon.setAlignment(Qt.AlignCenter)
-        icon.setStyleSheet(f"font-size: {s(40)}px;")
-
+        icon.setStyleSheet(f"font-size: {s(28)}px;")
         title = QLabel("PRODUCTO")
-        title.setAlignment(Qt.AlignCenter)
-        title.setStyleSheet("""
-            font-size: 12px;
+        title.setStyleSheet(f"""
+            font-size: {s(12)}px;
             font-weight: 700;
             letter-spacing: 3px;
         """)
+        header.addWidget(icon)
+        header.addWidget(title)
+        header.addStretch(1)
+        root.addLayout(header)
 
-        root.addWidget(icon)
-        root.addWidget(title)
+        # ─── Two-column body ────────────────────────────────────────────
+        columns = QHBoxLayout()
+        columns.setSpacing(s(20))
 
-        # Form
+        INPUT_H = s(44)
+
+        # ═══ LEFT COLUMN — Product fields ═══════════════════════════════
+        left = QVBoxLayout()
+        left.setSpacing(s(6))
+
         form = QFormLayout()
-        form.setSpacing(16)
+        form.setSpacing(s(10))
         form.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
         form.setFormAlignment(Qt.AlignCenter)
 
@@ -335,26 +344,15 @@ class ProductDialog(QDialog):
         self.ed_category = QLineEdit(
             (product.get("category") if product else None) or "General"
         )
-        
-        # Icon selector
+
         from ui.icon_helper import ICON_MAP, get_icon_char
         self.combo_icon = QComboBox()
-        self.combo_icon.setMinimumHeight(s(64))  # Touch-friendly height
-        self.combo_icon.setMaxVisibleItems(8)  # Reduce scroll, show 8 items at once
-        
-        # Touch-friendly settings
-        self.combo_icon.setMinimumHeight(64)
+        self.combo_icon.setMinimumHeight(INPUT_H)
         self.combo_icon.setMaxVisibleItems(8)
-        
         self.combo_icon.addItem("(Sin ícono)", "")
-        
-        # Add available icons sorted by name
         for icon_name in sorted(ICON_MAP.keys()):
             icon_char = get_icon_char(icon_name)
-            display_text = f"{icon_char}  {icon_name}"
-            self.combo_icon.addItem(display_text, icon_name)
-        
-        # Select current icon if exists
+            self.combo_icon.addItem(f"{icon_char}  {icon_name}", icon_name)
         if product and product.get("icon"):
             idx = self.combo_icon.findData(product.get("icon"))
             if idx >= 0:
@@ -366,88 +364,99 @@ class ProductDialog(QDialog):
         self.cb_partial.setChecked(bool(product.get("allow_decimal")) if product else False)
 
         for ed in (self.ed_name, self.ed_price, self.ed_unit, self.ed_category):
-            ed.setMinimumHeight(56)
+            ed.setMinimumHeight(INPUT_H)
 
         form.addRow(i18n.t("prod_name"), self.ed_name)
         form.addRow(i18n.t("prod_price"), self.ed_price)
-        form.addRow(i18n.t("prod_unit"), self.ed_unit)
-        form.addRow(i18n.t("category") or "Categoría", self.ed_category)
+
+        # Unit + Category side-by-side to save a row
+        unit_cat = QHBoxLayout()
+        unit_cat.setSpacing(s(8))
+        unit_cat.addWidget(self.ed_unit, 1)
+        lbl_cat = QLabel(i18n.t("category") or "Cat.")
+        lbl_cat.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        unit_cat.addWidget(lbl_cat)
+        unit_cat.addWidget(self.ed_category, 2)
+        form.addRow(i18n.t("prod_unit"), unit_cat)
+
         form.addRow("Ícono", self.combo_icon)
 
-        # Card color picker
+        # Card color — compact
         self._card_color = (product.get("card_color") or "") if product else ""
         color_row = QHBoxLayout()
-        color_row.setSpacing(12)
-
+        color_row.setSpacing(s(8))
         self.btn_pick_color = QPushButton(i18n.t("choose_color") or "Elegir color")
-        self.btn_pick_color.setMinimumHeight(56)
+        self.btn_pick_color.setMinimumHeight(INPUT_H)
         self.btn_pick_color.clicked.connect(self._pick_card_color)
-
         self.btn_clear_color = QPushButton(i18n.t("clear_color") or "Sin color")
-        self.btn_clear_color.setMinimumHeight(56)
+        self.btn_clear_color.setMinimumHeight(INPUT_H)
         self.btn_clear_color.clicked.connect(self._clear_card_color)
-
         self.lbl_color_preview = QLabel()
-        self.lbl_color_preview.setFixedSize(56, 56)
+        self.lbl_color_preview.setFixedSize(INPUT_H, INPUT_H)
         self.lbl_color_preview.setStyleSheet(
             f"background: {self._card_color}; border: 2px solid palette(mid); border-radius: 8px;"
             if self._card_color else
             "background: transparent; border: 2px dashed palette(mid); border-radius: 8px;"
         )
-
         color_row.addWidget(self.btn_pick_color, 1)
         color_row.addWidget(self.btn_clear_color)
         color_row.addWidget(self.lbl_color_preview)
-        form.addRow(i18n.t("card_color") or "Color card", color_row)
+        form.addRow(i18n.t("card_color") or "Color", color_row)
 
         checks = QHBoxLayout()
-        checks.setSpacing(24)
+        checks.setSpacing(s(16))
         checks.addWidget(self.cb_active)
         checks.addWidget(self.cb_partial)
         form.addRow(checks)
 
-        root.addLayout(form)
+        left.addLayout(form)
+        left.addStretch(1)
 
-        # ─── Pricing Rule Section ─────────────────────────────────────────
+        # ═══ RIGHT COLUMN — Pricing rule ════════════════════════════════
+        right = QVBoxLayout()
+        right.setSpacing(s(6))
+
         pricing_frame = QFrame()
+        pricing_frame.setObjectName("PricingFrame")
         pricing_frame.setStyleSheet(f"""
-            QFrame {{
+            QFrame#PricingFrame {{
                 border: 1px solid palette(mid);
-                border-radius: {s(12)}px;
-                padding: {s(12)}px;
+                border-radius: {s(10)}px;
             }}
         """)
-        pricing_layout = QVBoxLayout(pricing_frame)
-        pricing_layout.setSpacing(s(12))
+        pricing_inner = QVBoxLayout(pricing_frame)
+        pricing_inner.setSpacing(s(8))
+        pricing_inner.setContentsMargins(s(12), s(12), s(12), s(12))
 
         pricing_title = QLabel(i18n.t("pricing_section") or "Regla de Precio")
         pricing_title.setStyleSheet(f"""
-            font-size: {s(13)}px;
+            font-size: {s(12)}px;
             font-weight: 700;
             letter-spacing: 1px;
         """)
-        pricing_layout.addWidget(pricing_title)
+        pricing_inner.addWidget(pricing_title)
 
         # Load existing rule
         self._pricing_rule = None
         if product and product.get("id"):
             self._pricing_rule = get_pricing_rule(product["id"])
 
-        pricing_form = QFormLayout()
-        pricing_form.setSpacing(s(10))
-        pricing_form.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
-
         self.cb_pricing_active = QCheckBox(i18n.t("pricing_active") or "Regla activa")
         self.cb_pricing_active.setChecked(
             bool(self._pricing_rule.get("active", 0)) if self._pricing_rule else False
         )
+        pricing_inner.addWidget(self.cb_pricing_active)
+
+        pricing_form = QFormLayout()
+        pricing_form.setSpacing(s(8))
+        pricing_form.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
 
         self.ed_wholesale_price = QLineEdit(
             cents_to_money(self._pricing_rule["wholesale_price"])
             if self._pricing_rule and self._pricing_rule.get("wholesale_price")
             else ""
         )
-        self.ed_wholesale_price.setMinimumHeight(s(48))
+        self.ed_wholesale_price.setMinimumHeight(INPUT_H)
         self.ed_wholesale_price.setPlaceholderText("0.00")
 
         self.ed_wholesale_min_qty = QLineEdit(
@@ -455,7 +464,7 @@ class ProductDialog(QDialog):
             if self._pricing_rule and self._pricing_rule.get("wholesale_min_qty")
             else ""
         )
-        self.ed_wholesale_min_qty.setMinimumHeight(s(48))
+        self.ed_wholesale_min_qty.setMinimumHeight(INPUT_H)
         self.ed_wholesale_min_qty.setPlaceholderText("0")
 
         self.ed_discount_pct = QLineEdit(
@@ -463,25 +472,29 @@ class ProductDialog(QDialog):
             if self._pricing_rule and self._pricing_rule.get("discount_pct")
             else ""
         )
-        self.ed_discount_pct.setMinimumHeight(s(48))
+        self.ed_discount_pct.setMinimumHeight(INPUT_H)
         self.ed_discount_pct.setPlaceholderText("0")
 
-        pricing_form.addRow(self.cb_pricing_active)
-        pricing_form.addRow(i18n.t("wholesale_price") or "Precio mayoreo", self.ed_wholesale_price)
-        pricing_form.addRow(i18n.t("wholesale_min_qty") or "Cant. m\u00edn. mayoreo", self.ed_wholesale_min_qty)
-        pricing_form.addRow(i18n.t("discount_pct") or "Descuento (%)", self.ed_discount_pct)
+        pricing_form.addRow(i18n.t("wholesale_price") or "Mayoreo $", self.ed_wholesale_price)
+        pricing_form.addRow(i18n.t("wholesale_min_qty") or "Cant. mín.", self.ed_wholesale_min_qty)
+        pricing_form.addRow(i18n.t("discount_pct") or "Descuento %", self.ed_discount_pct)
 
-        pricing_layout.addLayout(pricing_form)
-        root.addWidget(pricing_frame)
+        pricing_inner.addLayout(pricing_form)
+        pricing_inner.addStretch(1)
+        right.addWidget(pricing_frame)
 
-        # Actions
+        columns.addLayout(left, 3)
+        columns.addLayout(right, 2)
+        root.addLayout(columns, 1)
+
+        # ─── Action buttons (always visible) ────────────────────────────
         row = QHBoxLayout()
-        row.setSpacing(16)
+        row.setSpacing(s(12))
         btn_cancel = QPushButton("Cancelar")
-        btn_cancel.setMinimumHeight(60)
+        btn_cancel.setMinimumHeight(s(52))
         from ui.icon_helper import get_icon_char
         btn_ok = QPushButton(f"{get_icon_char('arrow-right') or '→'}  Guardar")
-        btn_ok.setMinimumHeight(60)
+        btn_ok.setMinimumHeight(s(52))
         btn_ok.setProperty("role", "primary")
         btn_cancel.clicked.connect(self.reject)
         btn_ok.clicked.connect(self.accept)
